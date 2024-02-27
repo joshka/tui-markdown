@@ -1,7 +1,7 @@
 [package]
 name = "markdown-reader"
 description = "A simple markdown reader that uses ratatui to render markdown files."
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/joshka/tui-markdown"
@@ -22,7 +22,7 @@ tracing = "0.1.40"
 tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 time = { version = "0.3.34", features = ["formatting", "macros"] }
-tui-markdown = { version = "0.1.1", path = "../tui-markdown" }
+tui-markdown = { version = "0.2.0", path = "../tui-markdown" }
 
 [[bin]]
 name = "mdr"
