@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.1](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.0...markdown-reader-v0.1.1) - 2024-02-27
+
+### Added
+- Initial implementation of lib and tui
+
+### Fixed
+- tui-markdown crate dependency for markdown-reader
+
+### Other
+- add CHANGELOGs
+- add demo for markdown-reader
+
 ### 🚀 Features
 
 - Initial implementation of lib and tui
