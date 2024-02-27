@@ -4,7 +4,8 @@ use color_eyre::Result;
 use ratatui::{
     prelude::*,
     widgets::{
-        Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidgetRef, Wrap,
+        ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidgetRef,
+        Wrap,
     },
 };
 
@@ -104,11 +105,19 @@ impl ScrollState {
     }
 
     fn scroll_down(&mut self) {
-        self.position = self.position.saturating_add(1).clamp(0, self.max);
+        self.position = self.position.saturating_add(1);
     }
 
     fn scroll_up(&mut self) {
-        self.position = self.position.saturating_sub(1).clamp(0, self.max);
+        self.position = self.position.saturating_sub(1);
+    }
+
+    fn scroll_page_down(&mut self) {
+        self.position = self.position.saturating_add(self.view_size);
+    }
+
+    fn scroll_page_up(&mut self) {
+        self.position = self.position.saturating_sub(self.view_size);
     }
 
     fn scroll_top(&mut self) {
@@ -118,20 +127,18 @@ impl ScrollState {
     fn scroll_bottom(&mut self) {
         self.position = self.max.saturating_sub(self.view_size);
     }
-
-    fn scroll_page_down(&mut self) {
-        self.position = (self.position + self.view_size).min(self.max);
-    }
-
-    fn scroll_page_up(&mut self) {
-        self.position = self.position.saturating_sub(self.view_size).max(0);
-    }
 }
 
 impl From<&mut ScrollState> for ScrollbarState {
     fn from(state: &mut ScrollState) -> ScrollbarState {
         ScrollbarState::new(state.max.saturating_sub(state.view_size) as usize)
             .position(state.position as usize)
+    }
+}
+
+impl From<&mut ScrollState> for ListState {
+    fn from(state: &mut ScrollState) -> ListState {
+        ListState::default().with_selected(Some(state.position as usize))
     }
 }
 
@@ -149,25 +156,29 @@ impl StatefulWidgetRef for &App<'_> {
         let [body, scrollbar] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(body);
         state.view_size = body.height as usize;
-        state.position = state
-            .position
-            .min(self.text.height().saturating_sub(state.view_size));
+        // state.position = state
+        //     .position
+        //     .min(self.text.height().saturating_sub(state.view_size));
         let header_line = Line::from(vec![
             Span::raw("File: "),
             Span::styled(self.path.to_string_lossy(), (Color::White, Modifier::BOLD)),
         ]);
         Paragraph::new(header_line).render(header, buf);
+        let position = state
+            .position
+            .min(self.text.height().saturating_sub(state.view_size)) as u16;
         Paragraph::new(self.text.clone())
-            .scroll((state.position as u16, 0))
+            .scroll((position, 0))
             .wrap(Wrap { trim: false })
             .render(body, buf);
-        let mut scrollbar_state = ScrollbarState::from(state);
+        let mut scrollbar_state = state.into();
         Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
             scrollbar,
             buf,
             &mut scrollbar_state,
         );
 
-        self.log_events.render(log, buf);
+        let mut list_state = state.into();
+        self.log_events.render_ref(log, buf, &mut list_state);
     }
 }

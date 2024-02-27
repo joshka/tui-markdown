@@ -98,15 +98,13 @@ impl Visit for LogEvent {
     }
 }
 
-impl Widget for &LogEvents {
-    /// Render the log messages as a list showing the the most recent log at the bottom
-    fn render(self, area: Rect, buf: &mut Buffer) {
+impl StatefulWidgetRef for LogEvents {
+    type State = ListState;
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let logs = self.logs.read().unwrap();
-        let selected = Some(logs.len().saturating_sub(1));
-        let mut state = ListState::default().with_selected(selected);
         let block = Block::default().borders(Borders::ALL).title("Logs");
         let list = List::new(logs.iter()).block(block);
-        StatefulWidget::render(list, area, buf, &mut state);
+        StatefulWidget::render(list, area, buf, state);
     }
 }
 
