@@ -52,3 +52,14 @@ After the quote
 
 > Multi indent
 >> quote (currently buggy)
+
+```plain
+plain
+code
+```
+
+```rust
+fn rust_code() {
+  println!("hello world");
+}
+```
