@@ -11,7 +11,7 @@
 A simple markdown reader that uses [Ratatui] to render markdown files. The primary purpose of this
 crate is to test the [tui-markdown] crate.
 
-![Made with VHS](https://vhs.charm.sh/vhs-76cPIDQN9YrxIhuyaugJIQ.gif)
+![Made with VHS](https://vhs.charm.sh/vhs-6Ur5mxqdVTizZxiAmgIjAE.gif)
 
 ## Installation
 

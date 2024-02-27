@@ -6,13 +6,12 @@ Set Height 600
 Hide
 Type "cargo run -- markdown-reader/TEST.md"
 Enter
-Sleep 2s
+Sleep 4s
 Show
-Sleep 1s
-Down@100ms 40
-Sleep 2s
+Sleep 4s
+Space@4s 4
+# Sleep 2s
 Type "g"
-Sleep 1s
 Hide
 Type "q"
 Sleep 500ms
