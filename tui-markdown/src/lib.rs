@@ -6,9 +6,8 @@
     unused_mut,
     unused_assignments
 )]
-use std::io::{self};
 
-use pulldown_cmark::{CowStr, Event, HeadingLevel, Options, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, CowStr, Event, HeadingLevel, Options, Tag, TagEnd};
 use ratatui::{prelude::*, symbols::line};
 use tracing::{debug, info};
 
@@ -68,7 +67,7 @@ where
                 Event::Start(tag) => self.start_tag(tag),
                 Event::End(tag) => self.end_tag(tag),
                 Event::Text(text) => self.text(text),
-                Event::Code(code) => todo!(),
+                Event::Code(code) => self.code(code),
                 Event::Html(html) => todo!(),
                 Event::InlineHtml(html) => todo!(),
                 Event::FootnoteReference(_) => todo!(),
@@ -80,7 +79,7 @@ where
         }
     }
 
-    fn start_tag(&mut self, tag: Tag<'a>) -> io::Result<()> {
+    fn start_tag(&mut self, tag: Tag<'a>) {
         match tag {
             Tag::Paragraph => {}
             Tag::Heading {
@@ -92,7 +91,7 @@ where
                 self.start_heading(level);
             }
             Tag::BlockQuote => self.start_blockquote(),
-            Tag::CodeBlock(_) => todo!(),
+            Tag::CodeBlock(kind) => self.start_codeblock(kind),
             Tag::HtmlBlock => todo!(),
             Tag::List(start_index) => {
                 // TODO handle unordered lists properly (start_index is None for unordered lists)
@@ -129,10 +128,9 @@ where
             } => todo!(),
             Tag::MetadataBlock(_) => todo!(),
         }
-        Ok(())
     }
 
-    fn end_tag(&mut self, tag: TagEnd) -> io::Result<()> {
+    fn end_tag(&mut self, tag: TagEnd) {
         match tag {
             TagEnd::Paragraph => {
                 if let Some(line) = self.line.take() {
@@ -152,7 +150,7 @@ where
                     self.text.lines.push(Line::raw(""));
                 }
             }
-            TagEnd::CodeBlock => todo!(),
+            TagEnd::CodeBlock => self.end_codeblock(),
             TagEnd::HtmlBlock => todo!(),
             TagEnd::List(is_ordered) => {
                 if let Some(line) = self.line.take() {
@@ -178,7 +176,6 @@ where
             TagEnd::Image => todo!(),
             TagEnd::MetadataBlock(_) => todo!(),
         }
-        Ok(())
     }
 
     fn start_heading(&mut self, level: HeadingLevel) {
@@ -202,7 +199,7 @@ where
         debug!(?self.line, "Start blockquote");
     }
 
-    fn text(&mut self, text: CowStr<'a>) -> io::Result<()> {
+    fn text(&mut self, text: CowStr<'a>) {
         let span = Span::styled(text, self.style);
         if let Some(mut line) = self.line.take() {
             line.spans.push(span);
@@ -211,22 +208,20 @@ where
             self.line = Some(span.into());
         }
         debug!(?self.line, "Text");
-        Ok(())
     }
 
-    fn hard_break(&mut self) -> io::Result<()> {
+    fn hard_break(&mut self) {
         debug!("Newline");
         if let Some(line) = self.line.take() {
             self.text.lines.push(line);
         }
-        Ok(())
     }
 
     fn start_list(&mut self, index: u64) {
         self.list_index.push(index);
     }
 
-    fn soft_break(&mut self) -> io::Result<()> {
+    fn soft_break(&mut self) {
         let span = Span::styled(" ", self.style);
         if let Some(mut line) = self.line.take() {
             line.spans.push(span);
@@ -234,6 +229,41 @@ where
         } else {
             self.line = Some(span.into());
         }
-        Ok(())
+    }
+
+    fn start_codeblock(&mut self, kind: CodeBlockKind<'_>) {
+        let lang = match kind {
+            CodeBlockKind::Fenced(ref lang) => lang.as_ref(),
+            CodeBlockKind::Indented => "",
+        };
+        let span = Span::styled(format!("```{}", lang), (Color::White, Color::Black));
+        self.push_line(span);
+    }
+
+    fn end_codeblock(&mut self) {
+        let span = Span::styled("```", Style::new().on_black().white());
+        if let Some(mut line) = self.line.take() {
+            line.spans.push(span);
+            self.text.lines.push(line);
+        } else {
+            self.text.lines.push(span.into());
+        }
+    }
+
+    fn code(&mut self, code: CowStr<'a>) {
+        let span = Span::styled(code, Style::new().on_black().white());
+        if let Some(mut line) = self.line.take() {
+            line.spans.push(span);
+            self.line = Some(line);
+        } else {
+            self.line = Some(span.into());
+        }
+    }
+
+    fn push_line<T>(&mut self, line: T)
+    where
+        T: Into<Line<'a>>,
+    {
+        self.text.lines.push(line.into());
     }
 }
