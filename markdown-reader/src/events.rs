@@ -14,6 +14,7 @@ pub enum Event {
     Exit,
 }
 
+#[derive(Debug)]
 pub struct Events {
     pub event_rx: Receiver<Event>,
     pub event_tx: Sender<Event>,

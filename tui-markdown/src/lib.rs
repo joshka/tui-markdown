@@ -15,15 +15,8 @@ pub fn from_str<'a>(input: &'a str) -> Text<'a> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     let parser = pulldown_cmark::Parser::new_ext(input, options);
-    from_events(parser)
-}
-
-pub fn from_events<'a, Iter>(events: Iter) -> Text<'a>
-where
-    Iter: Iterator<Item = Event<'a>>,
-{
     let text = Text::default();
-    let mut writer = TextWriter::new(events, text);
+    let mut writer = TextWriter::new(parser, text);
     writer.run();
     writer.text
 }

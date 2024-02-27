@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use color_eyre::Result;
 use ratatui::{
     prelude::*,
@@ -12,17 +14,20 @@ use crate::{
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
+#[derive(Debug)]
 pub struct App<'a> {
     text: Text<'a>,
+    path: &'a Path,
     events: Events,
     log_events: LogEvents,
     show_logs: bool,
 }
 
 impl<'a> App<'a> {
-    pub fn new(text: Text<'a>, events: Events, log_events: LogEvents) -> App {
+    pub fn new(text: Text<'a>, path: &'a Path, events: Events, log_events: LogEvents) -> App<'a> {
         App {
             text,
+            path,
             events,
             log_events,
             show_logs: false,
@@ -62,8 +67,8 @@ impl<'a> App<'a> {
             (_, Char('j') | Down) => state.scroll_down(),
             (_, Char('g') | Home) => state.scroll_top(),
             (_, Char('G') | End) => state.scroll_bottom(),
-            (_, Char('b') | PageUp) => state.scroll_page_up(),
-            (_, Char('f') | PageDown) => state.scroll_page_down(),
+            (_, Char('b') | PageUp) | (KeyModifiers::SHIFT, Char(' ')) => state.scroll_page_up(),
+            (_, Char('f') | PageDown) | (KeyModifiers::NONE, Char(' ')) => state.scroll_page_down(),
             (_, Char('l')) => self.toggle_logs(),
             _ => {}
         }
@@ -147,7 +152,11 @@ impl StatefulWidgetRef for &App<'_> {
         state.position = state
             .position
             .min(self.text.height().saturating_sub(state.view_size));
-        "Markdown Reader".bold().render(header, buf);
+        let header_line = Line::from(vec![
+            Span::raw("File: "),
+            Span::styled(self.path.to_string_lossy(), (Color::White, Modifier::BOLD)),
+        ]);
+        Paragraph::new(header_line).render(header, buf);
         Paragraph::new(self.text.clone())
             .scroll((state.position as u16, 0))
             .wrap(Wrap { trim: false })

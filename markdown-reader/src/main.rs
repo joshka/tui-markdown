@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{BufReader, Read},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use clap::{
@@ -28,15 +28,25 @@ fn main() -> Result<()> {
 
     let args = Cli::parse();
     let path = args.path;
-    info!("Reading file {:?}", path);
-    let buf = read_file(path)?;
-
-    let text = tui_markdown::from_str(&buf);
-    let _height = text.height();
     let events = Events::new()?;
-    let app = App::new(text, events, log_events);
+    info!("Reading file {:?}", path);
+    let markdown = read_file(&path)?;
+    let text = tui_markdown::from_str(&markdown);
+    let _height = text.height();
+    let app = App::new(text, &path, events, log_events);
     tui::scoped(|terminal| app.run(terminal))?;
     Ok(())
+}
+
+fn read_file(path: &Path) -> Result<String> {
+    debug!("Reading file {:?}", path);
+    let input = File::open(&path).wrap_err_with(|| eyre!("Could not open {:?}", path))?;
+    let mut reader = BufReader::new(input);
+    let mut buf = String::new();
+    reader
+        .read_to_string(&mut buf)
+        .wrap_err("Could not read file")?;
+    Ok(buf)
 }
 
 const HELP_STYLES: Styles = Styles::styled()
@@ -51,15 +61,4 @@ struct Cli {
     /// The path to the markdown file to read
     #[arg(default_value = "README.md")]
     path: PathBuf,
-}
-
-fn read_file(path: PathBuf) -> Result<String> {
-    debug!("Reading file {:?}", path);
-    let input = File::open(&path).wrap_err_with(|| eyre!("Could not open {:?}", path))?;
-    let mut reader = BufReader::new(input);
-    let mut buf = String::new();
-    reader
-        .read_to_string(&mut buf)
-        .wrap_err("Could not read file")?;
-    Ok(buf)
 }
