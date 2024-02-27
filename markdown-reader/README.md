@@ -65,7 +65,7 @@ Initial implementation - this is very much WIP (see lib.rs `todo!()`s)
 
 ## License
 
-Copyright (c) 2023 Josh McKinney
+Copyright (c) 2024 Josh McKinney
 
 This project is licensed under either of
 
