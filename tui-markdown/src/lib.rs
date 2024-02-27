@@ -193,6 +193,8 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
+        /// TODO this may have newlines in it, which should be handled differently, we likely need to be better about
+        /// handling newlines in general
         let span = Span::styled(text, self.style);
         if let Some(mut line) = self.line.take() {
             line.spans.push(span);
