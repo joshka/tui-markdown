@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use ratatui::{
     prelude::*,
-    widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, WidgetRef},
+    widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, WidgetRef, Wrap},
 };
 
 use crate::{
@@ -108,6 +108,7 @@ impl WidgetRef for &App<'_> {
         "Markdown Reader".bold().render(header, buf);
         Paragraph::new(self.text.clone())
             .scroll((self.scroll_position as u16, 0))
+            .wrap(Wrap { trim: false })
             .render(body, buf);
         let mut scrollbar_state =
             ScrollbarState::new(self.text.height()).position(self.scroll_position);
