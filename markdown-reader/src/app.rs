@@ -62,6 +62,8 @@ impl<'a> App<'a> {
             (_, Char('j') | Down) => state.scroll_down(),
             (_, Char('g') | Home) => state.scroll_top(),
             (_, Char('G') | End) => state.scroll_bottom(),
+            (_, Char('b') | PageUp) => state.scroll_page_up(),
+            (_, Char('f') | PageDown) => state.scroll_page_down(),
             (_, Char('l')) => self.toggle_logs(),
             _ => {}
         }
@@ -110,6 +112,14 @@ impl ScrollState {
 
     fn scroll_bottom(&mut self) {
         self.position = self.max.saturating_sub(self.view_size);
+    }
+
+    fn scroll_page_down(&mut self) {
+        self.position = (self.position + self.view_size).min(self.max);
+    }
+
+    fn scroll_page_up(&mut self) {
+        self.position = self.position.saturating_sub(self.view_size).max(0);
     }
 }
 
