@@ -1,8 +1,7 @@
 # Markdown Reader
 
 [![Crate badge]][markdown-reader]
-[![Docs.rs Badge]][API Docs]
-[![Deps.rs Badge]][Dependency Status]<br>
+[![Deps.rs Badge]][Dependency Status]
 [![License Badge]](../LICENSE-MIT)
 [![Codecov.io Badge]][Code Coverage]
 [![Discord Badge]][Ratatui Discord]
@@ -90,17 +89,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 [Ratatui]: https://crates.io/crates/ratatui
 
 [Crate badge]: https://img.shields.io/crates/v/markdown-reader?logo=rust&style=for-the-badge
-[Docs.rs Badge]: https://img.shields.io/docsrs/markdown-reader?logo=rust&style=for-the-badge
-[Deps.rs Badge]: https://deps.rs/repo/github/joshka/markdown-reader/status.svg?style=for-the-badge
+[Deps.rs Badge]: https://deps.rs/repo/github/joshka/tui-markdown/status.svg?path=markdown-reader&style=for-the-badge
 [License Badge]: https://img.shields.io/crates/l/markdown-reader?style=for-the-badge
 [Codecov.io Badge]: https://img.shields.io/codecov/c/github/joshka/markdown-reader?logo=codecov&style=for-the-badge&token=BAQ8SOKEST
 [Discord Badge]: https://img.shields.io/discord/1070692720437383208?label=ratatui+discord&logo=discord&style=for-the-badge
 
-[API Docs]: https://docs.rs/crate/markdown-reader/
-[Dependency Status]: https://deps.rs/repo/github/joshka/markdown-reader
-[Code Coverage]: https://app.codecov.io/gh/joshka/markdown-reader
+[Dependency Status]: https://deps.rs/crate/markdown-reader
+[Code Coverage]: https://app.codecov.io/gh/joshka/tui-markdown
 [Ratatui Discord]: https://discord.gg/pMCEU9hNEj
 
 [GitHub Repository]: https://github.com/joshka/tui-markdown
-[Changelog]: https://github.com/joshka/tui-markdown/blob/main/CHANGELOG.md
+[Changelog]: https://github.com/joshka/tui-markdown/blob/main/markdown-reader/CHANGELOG.md
 [Contributing]: https://github.com/joshka/tui-markdown/blob/main/CONTRIBUTING.md

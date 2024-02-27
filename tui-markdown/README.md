@@ -5,8 +5,8 @@ example application that uses this library.
 
 [![Crate badge]][tui-markdown]
 [![Docs.rs Badge]][API Docs]
-[![Deps.rs Badge]][Dependency Status]<br>
-[![License Badge]](./LICENSE-MIT)
+[![Deps.rs Badge]][Dependency Status]
+[![License Badge]](../LICENSE-MIT)
 [![Codecov.io Badge]][Code Coverage]
 [![Discord Badge]][Ratatui Discord]
 
@@ -57,16 +57,16 @@ Initial implementation - this is very much WIP (see lib.rs `todo!()`s)
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge
-[Deps.rs Badge]: https://deps.rs/repo/github/joshka/tui-markdown/status.svg?style=for-the-badge
+[Deps.rs Badge]: https://deps.rs/repo/github/joshka/tui-markdown/status.svg?path=tui-markdown&style=for-the-badge
 [License Badge]: https://img.shields.io/crates/l/tui-markdown?style=for-the-badge
 [Codecov.io Badge]: https://img.shields.io/codecov/c/github/joshka/tui-markdown?logo=codecov&style=for-the-badge&token=BAQ8SOKEST
 [Discord Badge]: https://img.shields.io/discord/1070692720437383208?label=ratatui+discord&logo=discord&style=for-the-badge
 
 [API Docs]: https://docs.rs/crate/tui-markdown/
-[Dependency Status]: https://deps.rs/repo/github/joshka/tui-markdown
+[Dependency Status]: https://deps.rs/crate/tui-markdown
 [Code Coverage]: https://app.codecov.io/gh/joshka/tui-markdown
 [Ratatui Discord]: https://discord.gg/pMCEU9hNEj
 
 [GitHub Repository]: https://github.com/joshka/tui-markdown
-[Changelog]: https://github.com/joshka/tui-markdown/blob/main/CHANGELOG.md
+[Changelog]: https://github.com/joshka/tui-markdown/blob/main/tui-markdown/CHANGELOG.md
 [Contributing]: https://github.com/joshka/tui-markdown/blob/main/CONTRIBUTING.md
