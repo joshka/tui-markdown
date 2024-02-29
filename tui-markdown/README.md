@@ -1,7 +1,7 @@
 # Tui-markdown
 
-A library for converting markdown content to a [Ratatui] `Text` value. See [Markdown-reader] for an
-example application that uses this library.
+An experimental Proof of Concept library for converting markdown content to a [Ratatui] `Text`
+value. See [Markdown-reader] for an example application that uses this library.
 
 [![Crate badge]][tui-markdown]
 [![Docs.rs Badge]][API Docs]

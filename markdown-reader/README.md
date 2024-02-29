@@ -8,8 +8,9 @@
 
 [GitHub Repository] · [Changelog] · [Contributing]
 
-A simple markdown reader that uses [Ratatui] to render markdown files. The primary purpose of this
-crate is to test the [tui-markdown] crate.
+An experimental Proof of Concept markdown reader that uses [Ratatui] to render markdown files. The
+primary purpose of this crate is to test the [tui-markdown] crate. It is not ready for any sort of
+real world use.
 
 ![Made with VHS](https://vhs.charm.sh/vhs-6Ur5mxqdVTizZxiAmgIjAE.gif)
 
