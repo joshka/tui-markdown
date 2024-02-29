@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.2.2](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.1...tui-markdown-v0.2.2) - 2024-02-29
+
+### Other
+- update license info in readme files
+- add a note about the experimental state
+
 ## [0.2.1](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.0...tui-markdown-v0.2.1) - 2024-02-27
 
 ### Other

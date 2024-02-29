@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.5](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.4...markdown-reader-v0.1.5) - 2024-02-29
+
+### Other
+- update license info in readme files
+- add a note about the experimental state
+- bump copyright year
+
 ## [0.1.4](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.3...markdown-reader-v0.1.4) - 2024-02-27
 
 ### Other
