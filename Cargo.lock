@@ -385,7 +385,7 @@ dependencies = [
 
 [[package]]
 name = "markdown-reader"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "clap",
  "color-eyre",
@@ -898,7 +898,7 @@ dependencies = [
 
 [[package]]
 name = "tui-markdown"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "itertools",
  "pulldown-cmark",
