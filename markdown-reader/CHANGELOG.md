@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.6](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.5...markdown-reader-v0.1.6) - 2024-03-12
+
+### Other
+- *(deps)* bump mio from 0.8.10 to 0.8.11 in /markdown-reader ([#9](https://github.com/joshka/tui-markdown/pull/9))
+- *(deps)* bump clap from 4.5.1 to 4.5.2 ([#11](https://github.com/joshka/tui-markdown/pull/11))
+
 ## [0.1.5](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.4...markdown-reader-v0.1.5) - 2024-02-29
 
 ### Other
