@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.7](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.6...markdown-reader-v0.1.7) - 2024-03-19
+
+### Other
+- *(deps)* bump color-eyre from 0.6.2 to 0.6.3 ([#14](https://github.com/joshka/tui-markdown/pull/14))
+- *(deps)* bump clap from 4.5.2 to 4.5.3 ([#15](https://github.com/joshka/tui-markdown/pull/15))
+
 ## [0.1.6](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.5...markdown-reader-v0.1.6) - 2024-03-12
 
 ### Other
