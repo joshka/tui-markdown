@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.2.3](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.2...tui-markdown-v0.2.3) - 2024-04-24
+
+### Other
+- *(deps)* bump pulldown-cmark ([#23](https://github.com/joshka/tui-markdown/pull/23))
+- *(deps)* bump ratatui from 0.26.1 to 0.26.2 ([#20](https://github.com/joshka/tui-markdown/pull/20))
+- *(deps)* bump pulldown-cmark from 0.10.0 to 0.10.2 ([#19](https://github.com/joshka/tui-markdown/pull/19))
+
 ## [0.2.2](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.1...tui-markdown-v0.2.2) - 2024-02-29
 
 ### Other
