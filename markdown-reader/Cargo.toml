@@ -16,8 +16,8 @@ keywords = ["cli", "markdown", "ratatui", "terminal", "tui"]
 clap = { version = "4.5.4", features = ["derive"] }
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
-itertools = "0.12.1"
-ratatui = { version = "0.26.2", features = ["unstable-widget-ref"] }
+itertools = "0.13.0"
+ratatui = { version = "0.26.3", features = ["unstable-widget-ref"] }
 tracing = "0.1.40"
 tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

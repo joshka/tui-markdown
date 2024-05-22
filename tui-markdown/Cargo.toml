@@ -13,7 +13,7 @@ keywords = ["cli", "markdown", "ratatui", "terminal", "tui"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-itertools = "0.12.1"
-pulldown-cmark = "0.10.3"
-ratatui = "0.26.2"
+itertools = "0.13.0"
+pulldown-cmark = "0.11.0"
+ratatui = "0.26.3"
 tracing = "0.1.40"

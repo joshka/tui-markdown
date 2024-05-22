@@ -7,7 +7,9 @@
     unused_assignments
 )]
 
-use pulldown_cmark::{CodeBlockKind, CowStr, Event, HeadingLevel, Options, Tag, TagEnd};
+use pulldown_cmark::{
+    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Tag, TagEnd,
+};
 use ratatui::{prelude::*, symbols::line};
 use tracing::{debug, info};
 
@@ -68,6 +70,8 @@ where
                 Event::HardBreak => self.hard_break(),
                 Event::Rule => todo!(),
                 Event::TaskListMarker(_) => todo!(),
+                Event::InlineMath(_) => todo!(),
+                Event::DisplayMath(_) => todo!(),
             };
         }
     }
@@ -83,7 +87,7 @@ where
             } => {
                 self.start_heading(level);
             }
-            Tag::BlockQuote => self.start_blockquote(),
+            Tag::BlockQuote(kind) => self.start_blockquote(kind),
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
             Tag::HtmlBlock => todo!(),
             Tag::List(start_index) => {
@@ -186,7 +190,7 @@ where
         debug!(?self.line, "Start heading");
     }
 
-    fn start_blockquote(&mut self) {
+    fn start_blockquote(&mut self, kind: Option<BlockQuoteKind>) {
         let span = Span::styled("> ", Style::new().green());
         self.line = Some(span.into());
         debug!(?self.line, "Start blockquote");
