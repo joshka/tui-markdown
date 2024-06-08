@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.2.5](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.4...tui-markdown-v0.2.5) - 2024-06-08
+
+### Fixed
+- link to crate pages
+
 ## [0.2.4](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.3...tui-markdown-v0.2.4) - 2024-05-22
 
 ### Other
