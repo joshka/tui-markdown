@@ -85,8 +85,8 @@ dual licensed as above, without any additional terms or conditions.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-[tui-markdown]: https://crates.io/crate/tui-markdown
-[markdown-reader]: https://crates.io/crate/markdown-reader
+[tui-markdown]: https://crates.io/crates/tui-markdown
+[markdown-reader]: https://crates.io/crates/markdown-reader
 [Ratatui]: https://crates.io/crates/ratatui
 
 [Crate badge]: https://img.shields.io/crates/v/markdown-reader?logo=rust&style=for-the-badge
