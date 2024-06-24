@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.2.6](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.5...tui-markdown-v0.2.6) - 2024-06-24
+
+### Other
+- *(deps)* bump ratatui in the cargo-dependencies group ([#29](https://github.com/joshka/tui-markdown/pull/29))
+
 ## [0.2.5](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.4...tui-markdown-v0.2.5) - 2024-06-08
 
 ### Fixed
