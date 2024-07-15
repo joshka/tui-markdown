@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.12](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.11...markdown-reader-v0.1.12) - 2024-07-15
+
+### Other
+- *(deps)* bump clap in the cargo-dependencies group ([#32](https://github.com/joshka/tui-markdown/pull/32))
+
 ## [0.1.11](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.10...markdown-reader-v0.1.11) - 2024-07-02
 
 ### Other
