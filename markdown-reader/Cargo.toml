@@ -13,7 +13,7 @@ keywords = ["cli", "markdown", "ratatui", "terminal", "tui"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5.9", features = ["derive"] }
+clap = { version = "4.5.11", features = ["derive"] }
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
 itertools = "0.13.0"
