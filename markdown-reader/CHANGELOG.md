@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.14](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.13...markdown-reader-v0.1.14) - 2024-08-06
+
+### Other
+- use crossterm version re-exported from ratatui
+- *(deps)* bump the cargo-dependencies group with 2 updates ([#36](https://github.com/joshka/tui-markdown/pull/36))
+
 ## [0.1.13](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.12...markdown-reader-v0.1.13) - 2024-08-02
 
 ### Other
