@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.2.7](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.6...tui-markdown-v0.2.7) - 2024-08-06
+
+### Other
+- use crossterm version re-exported from ratatui
+
 ## [0.2.6](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.5...tui-markdown-v0.2.6) - 2024-06-24
 
 ### Other
