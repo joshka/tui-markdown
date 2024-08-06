@@ -5,9 +5,9 @@ use std::{
 };
 
 use color_eyre::{eyre::Context, Result};
-use crossterm::event;
+use ratatui::crossterm::event;
 
-pub type CrosstermEvent = crossterm::event::Event;
+pub type CrosstermEvent = ratatui::crossterm::event::Event;
 
 pub enum Event {
     Crossterm(CrosstermEvent),

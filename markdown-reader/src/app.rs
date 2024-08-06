@@ -2,7 +2,11 @@ use std::path::Path;
 
 use color_eyre::Result;
 use ratatui::{
-    prelude::*,
+    crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    prelude::{
+        Backend, Buffer, Color, Constraint, Layout, Line, Modifier, Rect, Span, StatefulWidget,
+        Terminal, Text, Widget,
+    },
     widgets::{
         ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidgetRef,
         Wrap,
@@ -13,7 +17,6 @@ use crate::{
     events::{CrosstermEvent, Event, Events},
     logging::LogEvents,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 #[derive(Debug)]
 pub struct App<'a> {
@@ -131,14 +134,13 @@ impl ScrollState {
 
 impl From<&mut ScrollState> for ScrollbarState {
     fn from(state: &mut ScrollState) -> ScrollbarState {
-        ScrollbarState::new(state.max.saturating_sub(state.view_size) as usize)
-            .position(state.position as usize)
+        ScrollbarState::new(state.max.saturating_sub(state.view_size)).position(state.position)
     }
 }
 
 impl From<&mut ScrollState> for ListState {
     fn from(state: &mut ScrollState) -> ListState {
-        ListState::default().with_selected(Some(state.position as usize))
+        ListState::default().with_selected(Some(state.position))
     }
 }
 

@@ -1,8 +1,13 @@
 use std::io::{stdout, Stdout};
 
 use color_eyre::{eyre::Context, Result};
-use crossterm::{execute, terminal::*};
-use ratatui::prelude::*;
+use ratatui::{
+    crossterm::{
+        execute,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    },
+    prelude::{CrosstermBackend, Terminal},
+};
 
 /// A type alias for the terminal type used in this application
 pub type Tui = Terminal<CrosstermBackend<Stdout>>;

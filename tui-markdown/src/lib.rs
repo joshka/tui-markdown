@@ -10,10 +10,13 @@
 use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Tag, TagEnd,
 };
-use ratatui::{prelude::*, symbols::line};
+use ratatui::{
+    prelude::{Color, Line, Span, Style, Stylize, Text},
+    symbols::line,
+};
 use tracing::{debug, info};
 
-pub fn from_str<'a>(input: &'a str) -> Text<'a> {
+pub fn from_str(input: &str) -> Text {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     let parser = pulldown_cmark::Parser::new_ext(input, options);

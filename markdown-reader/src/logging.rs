@@ -6,7 +6,10 @@ use std::{
 
 use color_eyre::Result;
 use itertools::Itertools;
-use ratatui::{prelude::*, widgets::*};
+use ratatui::{
+    prelude::{Buffer, Color, Line, Modifier, Rect, Span, StatefulWidget, Style, Stylize},
+    widgets::{Block, Borders, List, ListItem, ListState, StatefulWidgetRef},
+};
 use time::{macros::format_description, OffsetDateTime};
 use tracing::{
     field::{Field, Visit},

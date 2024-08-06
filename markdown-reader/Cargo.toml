@@ -15,7 +15,6 @@ keywords = ["cli", "markdown", "ratatui", "terminal", "tui"]
 [dependencies]
 clap = { version = "4.5.13", features = ["derive"] }
 color-eyre = "0.6.3"
-crossterm = "0.28.1"
 itertools = "0.13.0"
 ratatui = { version = "0.27.0", features = ["unstable-widget-ref"] }
 tracing = "0.1.40"

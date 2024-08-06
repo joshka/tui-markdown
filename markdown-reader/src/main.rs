@@ -40,7 +40,7 @@ fn main() -> Result<()> {
 
 fn read_file(path: &Path) -> Result<String> {
     debug!("Reading file {:?}", path);
-    let input = File::open(&path).wrap_err_with(|| eyre!("Could not open {:?}", path))?;
+    let input = File::open(path).wrap_err_with(|| eyre!("Could not open {:?}", path))?;
     let mut reader = BufReader::new(input);
     let mut buf = String::new();
     reader
