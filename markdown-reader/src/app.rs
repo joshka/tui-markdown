@@ -80,7 +80,7 @@ impl<'a> App<'a> {
 
     fn draw(&self, terminal: &mut Terminal<impl Backend>, state: &mut ScrollState) -> Result<()> {
         terminal.draw(|frame| {
-            frame.render_stateful_widget_ref(self, frame.size(), state);
+            frame.render_stateful_widget_ref(self, frame.area(), state);
         })?;
         Ok(())
     }
