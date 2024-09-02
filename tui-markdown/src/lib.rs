@@ -127,6 +127,9 @@ where
                 id,
             } => todo!(),
             Tag::MetadataBlock(_) => todo!(),
+            Tag::DefinitionList => todo!(),
+            Tag::DefinitionListTitle => todo!(),
+            Tag::DefinitionListDefinition => todo!(),
         }
     }
 
@@ -144,7 +147,7 @@ where
                     self.text.lines.push(Line::raw(""));
                 }
             }
-            TagEnd::BlockQuote => {
+            TagEnd::BlockQuote(_) => {
                 if let Some(line) = self.line.take() {
                     self.text.lines.push(line);
                     self.text.lines.push(Line::raw(""));
@@ -175,6 +178,9 @@ where
             TagEnd::Link => todo!(),
             TagEnd::Image => todo!(),
             TagEnd::MetadataBlock(_) => todo!(),
+            TagEnd::DefinitionList => todo!(),
+            TagEnd::DefinitionListTitle => todo!(),
+            TagEnd::DefinitionListDefinition => todo!(),
         }
     }
 
