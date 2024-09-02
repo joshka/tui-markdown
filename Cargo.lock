@@ -927,7 +927,7 @@ dependencies = [
 
 [[package]]
 name = "tui-markdown"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "itertools 0.13.0",
  "pulldown-cmark",
