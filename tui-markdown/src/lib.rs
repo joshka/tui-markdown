@@ -94,16 +94,23 @@ where
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
             Tag::HtmlBlock => todo!(),
             Tag::List(start_index) => {
-                // TODO handle unordered lists properly (start_index is None for unordered lists)
                 self.start_list(start_index.unwrap_or(0));
             }
             Tag::Item => {
                 let width = self.list_index.len() * 4 - 3;
                 if let Some(index) = self.list_index.last_mut() {
-                    let span =
-                        Span::styled(format!("{:width$}. ", index), Style::new().light_blue());
-                    self.line = Some(span.into());
-                    *index += 1;
+                    if *index == 0 {
+                        self.line = Some(Span::styled(
+                            "- ",
+                            Style::new().light_blue(),
+                        ).into());
+                    } else {
+                        self.line = Some(Span::styled(
+                            format!("{:width$}. ", index),
+                            Style::new().light_blue(),
+                        ).into());
+                        *index += 1;
+                    };
                 }
             }
             Tag::FootnoteDefinition(_) => todo!(),
