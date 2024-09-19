@@ -1,3 +1,10 @@
 [workspace]
 resolver = "2"
 members = ["tui-markdown", "markdown-reader"]
+
+[workspace.dependencies]
+ratatui = { version = "0.28.1", default-features = false }
+
+[patch.crates-io]
+# when developing ratatui, uncomment this line to use the local version
+# ratatui = { path = "../ratatui" }
