@@ -40,7 +40,7 @@ struct TextWriter<'a, I> {
     style: Style,
 
     /// Current list index as a stack of indices.
-    list_index: Vec<u64>,
+    list_index: Vec<Option<u64>>,
 }
 
 impl<'a, I> TextWriter<'a, I>
@@ -94,23 +94,19 @@ where
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
             Tag::HtmlBlock => todo!(),
             Tag::List(start_index) => {
-                self.start_list(start_index.unwrap_or(0));
+                self.start_list(start_index);
             }
             Tag::Item => {
                 let width = self.list_index.len() * 4 - 3;
                 if let Some(index) = self.list_index.last_mut() {
-                    if *index == 0 {
-                        self.line = Some(Span::styled(
-                            "- ",
-                            Style::new().light_blue(),
-                        ).into());
-                    } else {
-                        self.line = Some(Span::styled(
-                            format!("{:width$}. ", index),
-                            Style::new().light_blue(),
-                        ).into());
-                        *index += 1;
+                    let span = match index {
+                        None => Span::from("- ").light_blue(),
+                        Some(index) => {
+                            *index += 1;
+                            format!("{:width$}. ", *index - 1, width = width).light_blue()
+                        }
                     };
+                    self.line = Some(span.into());
                 }
             }
             Tag::FootnoteDefinition(_) => todo!(),
@@ -232,7 +228,7 @@ where
         }
     }
 
-    fn start_list(&mut self, index: u64) {
+    fn start_list(&mut self, index: Option<u64>) {
         self.list_index.push(index);
     }
 
