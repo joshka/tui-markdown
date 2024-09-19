@@ -94,16 +94,21 @@ where
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
             Tag::HtmlBlock => todo!(),
             Tag::List(start_index) => {
+                if let Some(line) = self.line.take() {
+                    self.text.lines.push(line);
+                }
                 self.start_list(start_index);
             }
             Tag::Item => {
                 let width = self.list_index.len() * 4 - 3;
                 if let Some(index) = self.list_index.last_mut() {
                     let span = match index {
-                        None => Span::from("- ").light_blue(),
+                        None => {
+                            Span::from(" ".repeat(width - 1) + "-")
+                        }
                         Some(index) => {
                             *index += 1;
-                            format!("{:width$}. ", *index - 1, width = width).light_blue()
+                            format!("{:width$}. ", *index - 1).light_blue()
                         }
                     };
                     self.line = Some(span.into());
