@@ -20,8 +20,7 @@ pub fn from_str(input: &str) -> Text {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     let parser = pulldown_cmark::Parser::new_ext(input, options);
-    let text = Text::default();
-    let mut writer = TextWriter::new(parser, text);
+    let mut writer = TextWriter::new(parser);
     writer.run();
     writer.text
 }
@@ -47,10 +46,10 @@ impl<'a, I> TextWriter<'a, I>
 where
     I: Iterator<Item = Event<'a>>,
 {
-    fn new(iter: I, text: Text<'a>) -> Self {
+    fn new(iter: I) -> Self {
         Self {
             iter,
-            text,
+            text: Text::default(),
             line: None,
             style: Style::default(),
             list_index: vec![],
