@@ -27,7 +27,7 @@ This is a ~~complicated~~ *very simple* example.
 ### Unordered
 
 - Item 1
-- Item 2 (currently buggy)
+- Item 2
   - Item 2a
   - Item 2b
 

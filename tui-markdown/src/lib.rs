@@ -103,9 +103,7 @@ where
                 let width = self.list_index.len() * 4 - 3;
                 if let Some(index) = self.list_index.last_mut() {
                     let span = match index {
-                        None => {
-                            Span::from(" ".repeat(width - 1) + "-")
-                        }
+                        None => Span::from(" ".repeat(width - 1) + "- "),
                         Some(index) => {
                             *index += 1;
                             format!("{:width$}. ", *index - 1).light_blue()
