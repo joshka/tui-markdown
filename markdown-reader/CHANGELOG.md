@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.16](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.15...markdown-reader-v0.1.16) - 2024-09-20
+
+### Other
+
+- add tests, implement more markdown features, don't panic for unimplemented features ([#45](https://github.com/joshka/tui-markdown/pull/45))
+
 ## [0.1.15](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.14...markdown-reader-v0.1.15) - 2024-09-20
 
 ### Other

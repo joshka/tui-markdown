@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.2.10](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.9...tui-markdown-v0.2.10) - 2024-09-20
+
+### Other
+
+- add tests, implement more markdown features, don't panic for unimplemented features ([#45](https://github.com/joshka/tui-markdown/pull/45))
+
 ## [0.2.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.8...tui-markdown-v0.2.9) - 2024-09-20
 
 ### Other
