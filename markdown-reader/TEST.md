@@ -50,8 +50,15 @@ After the quote
 
 After the quote
 
+> Multi paragraph
+>
+> quote
+
+After the quote
+
 > Multi indent
->> quote (currently buggy)
+>
+>> quote
 
 ```plain
 plain

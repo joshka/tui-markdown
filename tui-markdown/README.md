@@ -34,13 +34,13 @@ Initial implementation - this is very much WIP (see lib.rs `todo!()`s)
 - [ ] Heading attributes / classes / anchors
 - [x] Normal paragraphs
 - [x] Block quotes
-- [ ] Nested block quotes
+- [x] Nested block quotes
 - [x] Bold (strong)
 - [x] Italic (emphasis)
 - [x] Strikethrough
 - [x] Ordered lists
-- [ ] Unordered lists
-- [ ] Code blocks
+- [x] Unordered lists
+- [x] Code blocks
 - [ ] Html
 - [ ] Footnotes
 - [ ] Tables

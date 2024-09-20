@@ -7,9 +7,13 @@ use std::{
 use color_eyre::Result;
 use itertools::Itertools;
 use ratatui::{
-    prelude::{Buffer, Color, Line, Modifier, Rect, Span, StatefulWidget, Style, Stylize},
-    widgets::{Block, Borders, List, ListItem, ListState, StatefulWidgetRef},
+    buffer::Buffer,
+    layout::Rect,
+    style::{Color, Modifier, Style, Stylize},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, ListState, StatefulWidget, StatefulWidgetRef},
 };
+
 use time::{macros::format_description, OffsetDateTime};
 use tracing::{
     field::{Field, Visit},

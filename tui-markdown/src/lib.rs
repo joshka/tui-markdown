@@ -7,21 +7,24 @@
     unused_assignments
 )]
 
+use std::vec;
+
+use itertools::{Itertools, Position};
 use pulldown_cmark::{
-    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Tag, TagEnd,
+    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
 use ratatui::{
-    prelude::{Color, Line, Span, Style, Stylize, Text},
+    style::{Style, Stylize},
     symbols::line,
+    text::{Line, Span, Text},
 };
-use tracing::{debug, info};
+use tracing::{debug, debug_span, info, info_span, instrument, span, warn};
 
 pub fn from_str(input: &str) -> Text {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
-    let parser = pulldown_cmark::Parser::new_ext(input, options);
-    let text = Text::default();
-    let mut writer = TextWriter::new(parser, text);
+    let parser = Parser::new_ext(input, options);
+    let mut writer = TextWriter::new(parser);
     writer.run();
     writer.text
 }
@@ -33,251 +36,582 @@ struct TextWriter<'a, I> {
     /// Text to write to.
     text: Text<'a>,
 
-    /// Current line.
-    line: Option<Line<'a>>,
-
     /// Current style.
-    style: Style,
+    ///
+    /// This is a stack of styles, with the top style being the current style.
+    inline_styles: Vec<Style>,
+
+    /// Prefix to add to the start of the each line.
+    line_prefixes: Vec<Span<'a>>,
+
+    /// Stack of line styles.
+    line_styles: Vec<Style>,
 
     /// Current list index as a stack of indices.
-    list_index: Vec<Option<u64>>,
+    list_indices: Vec<Option<u64>>,
+
+    needs_newline: bool,
 }
 
 impl<'a, I> TextWriter<'a, I>
 where
     I: Iterator<Item = Event<'a>>,
 {
-    fn new(iter: I, text: Text<'a>) -> Self {
+    fn new(iter: I) -> Self {
         Self {
             iter,
-            text,
-            line: None,
-            style: Style::default(),
-            list_index: vec![],
+            text: Text::default(),
+            inline_styles: vec![],
+            line_styles: vec![],
+            line_prefixes: vec![],
+            list_indices: vec![],
+            needs_newline: false,
         }
     }
 
     fn run(&mut self) {
         debug!("Running text writer");
         while let Some(event) = self.iter.next() {
-            debug!("Event: {:?}", event);
-            match event {
-                Event::Start(tag) => self.start_tag(tag),
-                Event::End(tag) => self.end_tag(tag),
-                Event::Text(text) => self.text(text),
-                Event::Code(code) => self.code(code),
-                Event::Html(html) => todo!(),
-                Event::InlineHtml(html) => todo!(),
-                Event::FootnoteReference(_) => todo!(),
-                Event::SoftBreak => self.soft_break(),
-                Event::HardBreak => self.hard_break(),
-                Event::Rule => todo!(),
-                Event::TaskListMarker(_) => todo!(),
-                Event::InlineMath(_) => todo!(),
-                Event::DisplayMath(_) => todo!(),
-            };
+            self.handle_event(event);
+        }
+    }
+
+    #[instrument(level = "debug", skip(self))]
+    fn handle_event(&mut self, event: Event<'a>) {
+        match event {
+            Event::Start(tag) => self.start_tag(tag),
+            Event::End(tag) => self.end_tag(tag),
+            Event::Text(text) => self.text(text),
+            Event::Code(code) => self.code(code),
+            Event::Html(html) => warn!("Html not yet supported"),
+            Event::InlineHtml(html) => warn!("Inline html not yet supported"),
+            Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
+            Event::SoftBreak => self.soft_break(),
+            Event::HardBreak => self.hard_break(),
+            Event::Rule => warn!("Rule not yet supported"),
+            Event::TaskListMarker(_) => warn!("Task list marker not yet supported"),
+            Event::InlineMath(_) => warn!("Inline math not yet supported"),
+            Event::DisplayMath(_) => warn!("Display math not yet supported"),
         }
     }
 
     fn start_tag(&mut self, tag: Tag<'a>) {
         match tag {
-            Tag::Paragraph => {}
-            Tag::Heading {
-                level,
-                id,
-                classes,
-                attrs,
-            } => {
-                self.start_heading(level);
-            }
+            Tag::Paragraph => self.start_paragraph(),
+            Tag::Heading { level, .. } => self.start_heading(level),
             Tag::BlockQuote(kind) => self.start_blockquote(kind),
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
-            Tag::HtmlBlock => todo!(),
-            Tag::List(start_index) => {
-                if let Some(line) = self.line.take() {
-                    self.text.lines.push(line);
-                }
-                self.start_list(start_index);
-            }
-            Tag::Item => {
-                let width = self.list_index.len() * 4 - 3;
-                if let Some(index) = self.list_index.last_mut() {
-                    let span = match index {
-                        None => Span::from(" ".repeat(width - 1) + "- "),
-                        Some(index) => {
-                            *index += 1;
-                            format!("{:width$}. ", *index - 1).light_blue()
-                        }
-                    };
-                    self.line = Some(span.into());
-                }
-            }
-            Tag::FootnoteDefinition(_) => todo!(),
-            Tag::Table(_) => todo!(),
-            Tag::TableHead => todo!(),
-            Tag::TableRow => todo!(),
-            Tag::TableCell => todo!(),
-            Tag::Emphasis => self.style = self.style.italic(),
-            Tag::Strong => self.style = self.style.bold(),
-            Tag::Strikethrough => self.style = self.style.crossed_out(),
-            Tag::Link {
-                link_type,
-                dest_url,
-                title,
-                id,
-            } => todo!(),
-            Tag::Image {
-                link_type,
-                dest_url,
-                title,
-                id,
-            } => todo!(),
-            Tag::MetadataBlock(_) => todo!(),
-            Tag::DefinitionList => todo!(),
-            Tag::DefinitionListTitle => todo!(),
-            Tag::DefinitionListDefinition => todo!(),
+            Tag::HtmlBlock => warn!("Html block not yet supported"),
+            Tag::List(start_index) => self.start_list(start_index),
+            Tag::Item => self.start_item(),
+            Tag::FootnoteDefinition(_) => warn!("Footnote definition not yet supported"),
+            Tag::Table(_) => warn!("Table not yet supported"),
+            Tag::TableHead => warn!("Table head not yet supported"),
+            Tag::TableRow => warn!("Table row not yet supported"),
+            Tag::TableCell => warn!("Table cell not yet supported"),
+            Tag::Emphasis => self.push_inline_style(Style::new().italic()),
+            Tag::Strong => self.push_inline_style(Style::new().bold()),
+            Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
+            Tag::Link { .. } => warn!("Link not yet supported"),
+            Tag::Image { .. } => warn!("Image not yet supported"),
+            Tag::MetadataBlock(_) => warn!("Metadata block not yet supported"),
+            Tag::DefinitionList => warn!("Definition list not yet supported"),
+            Tag::DefinitionListTitle => warn!("Definition list title not yet supported"),
+            Tag::DefinitionListDefinition => warn!("Definition list definition not yet supported"),
         }
     }
 
     fn end_tag(&mut self, tag: TagEnd) {
         match tag {
-            TagEnd::Paragraph => {
-                if let Some(line) = self.line.take() {
-                    self.text.lines.push(line);
-                    self.text.lines.push(Line::raw(""));
-                }
-            }
-            TagEnd::Heading(_) => {
-                if let Some(line) = self.line.take() {
-                    self.text.lines.push(line);
-                    self.text.lines.push(Line::raw(""));
-                }
-            }
-            TagEnd::BlockQuote(_) => {
-                if let Some(line) = self.line.take() {
-                    self.text.lines.push(line);
-                    self.text.lines.push(Line::raw(""));
-                }
-            }
+            TagEnd::Paragraph => self.end_paragraph(),
+            TagEnd::Heading(_) => self.end_heading(),
+            TagEnd::BlockQuote(_) => self.end_blockquote(),
             TagEnd::CodeBlock => self.end_codeblock(),
-            TagEnd::HtmlBlock => todo!(),
-            TagEnd::List(is_ordered) => {
-                if let Some(line) = self.line.take() {
-                    self.text.lines.push(line);
-                }
-                self.text.lines.push(Line::raw(""));
-                self.list_index.pop();
-            }
-            TagEnd::Item => {
-                if let Some(line) = self.line.take() {
-                    self.text.lines.push(line);
-                }
-            }
-            TagEnd::FootnoteDefinition => todo!(),
-            TagEnd::Table => todo!(),
-            TagEnd::TableHead => todo!(),
-            TagEnd::TableRow => todo!(),
-            TagEnd::TableCell => todo!(),
-            TagEnd::Emphasis => self.style = self.style.not_italic(),
-            TagEnd::Strong => self.style = self.style.not_bold(),
-            TagEnd::Strikethrough => self.style = self.style.not_crossed_out(),
-            TagEnd::Link => todo!(),
-            TagEnd::Image => todo!(),
-            TagEnd::MetadataBlock(_) => todo!(),
-            TagEnd::DefinitionList => todo!(),
-            TagEnd::DefinitionListTitle => todo!(),
-            TagEnd::DefinitionListDefinition => todo!(),
+            TagEnd::HtmlBlock => {}
+            TagEnd::List(is_ordered) => self.end_list(),
+            TagEnd::Item => {}
+            TagEnd::FootnoteDefinition => {}
+            TagEnd::Table => {}
+            TagEnd::TableHead => {}
+            TagEnd::TableRow => {}
+            TagEnd::TableCell => {}
+            TagEnd::Emphasis => self.pop_inline_style(),
+            TagEnd::Strong => self.pop_inline_style(),
+            TagEnd::Strikethrough => self.pop_inline_style(),
+            TagEnd::Link => {}
+            TagEnd::Image => {}
+            TagEnd::MetadataBlock(_) => {}
+            TagEnd::DefinitionList => {}
+            TagEnd::DefinitionListTitle => {}
+            TagEnd::DefinitionListDefinition => {}
         }
+    }
+
+    fn start_paragraph(&mut self) {
+        // Insert an empty line between paragraphs if there is at least one line of text already.
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.push_line(Line::default());
+        self.needs_newline = false;
+    }
+
+    fn end_paragraph(&mut self) {
+        self.needs_newline = true
     }
 
     fn start_heading(&mut self, level: HeadingLevel) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
         let style = match level {
-            HeadingLevel::H1 => Style::new().on_cyan().bold().underlined(),
-            HeadingLevel::H2 => Style::new().cyan().bold(),
-            HeadingLevel::H3 => Style::new().cyan().bold().italic(),
-            HeadingLevel::H4 => Style::new().light_cyan().italic(),
-            HeadingLevel::H5 => Style::new().light_cyan().italic(),
-            HeadingLevel::H6 => Style::new().light_cyan().italic(),
+            HeadingLevel::H1 => styles::H1,
+            HeadingLevel::H2 => styles::H2,
+            HeadingLevel::H3 => styles::H3,
+            HeadingLevel::H4 => styles::H4,
+            HeadingLevel::H5 => styles::H5,
+            HeadingLevel::H6 => styles::H6,
         };
-        let level_index = level as usize;
-        let prefix = "#".repeat(level_index);
-        self.line = Some(Line::styled(format!("{} ", prefix), style));
-        debug!(?self.line, "Start heading");
+        let content = format!("{} ", "#".repeat(level as usize));
+        self.push_line(Line::styled(content, style));
+        self.needs_newline = false;
+    }
+
+    fn end_heading(&mut self) {
+        self.needs_newline = true
     }
 
     fn start_blockquote(&mut self, kind: Option<BlockQuoteKind>) {
-        let span = Span::styled("> ", Style::new().green());
-        self.line = Some(span.into());
-        debug!(?self.line, "Start blockquote");
+        if self.needs_newline {
+            self.push_line(Line::default());
+            self.needs_newline = false;
+        }
+        self.line_prefixes.push(Span::from(">"));
+        self.line_styles.push(Style::new().green());
+    }
+
+    fn end_blockquote(&mut self) {
+        self.line_prefixes.pop();
+        self.line_styles.pop();
+        self.needs_newline = true;
     }
 
     fn text(&mut self, text: CowStr<'a>) {
-        /// TODO this may have newlines in it, which should be handled differently, we likely need
-        /// to be better about handling newlines in general
-        let span = Span::styled(text, self.style);
-        if let Some(mut line) = self.line.take() {
-            line.spans.push(span);
-            self.line = Some(line);
-        } else {
-            self.line = Some(span.into());
+        for (position, line) in text.lines().with_position() {
+            if self.needs_newline {
+                self.push_line(Line::default());
+            }
+            if matches!(position, Position::Middle | Position::Last) {
+                self.push_line(Line::default());
+            }
+            let style = self.inline_styles.last().copied().unwrap_or_default();
+            let span = Span::styled(line.to_owned(), style);
+            self.push_span(span);
         }
-        debug!(?self.line, "Text");
+        self.needs_newline = false;
     }
 
     fn hard_break(&mut self) {
-        debug!("Newline");
-        if let Some(line) = self.line.take() {
-            self.text.lines.push(line);
-        }
+        self.push_line(Line::default());
     }
 
     fn start_list(&mut self, index: Option<u64>) {
-        self.list_index.push(index);
+        if self.list_indices.is_empty() && self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.list_indices.push(index);
+    }
+
+    fn end_list(&mut self) {
+        self.list_indices.pop();
+        self.needs_newline = true;
+    }
+
+    fn start_item(&mut self) {
+        self.push_line(Line::default());
+        let width = self.list_indices.len() * 4 - 3;
+        if let Some(last_index) = self.list_indices.last_mut() {
+            let span = match last_index {
+                None => Span::from(" ".repeat(width - 1) + "- "),
+                Some(index) => {
+                    *index += 1;
+                    format!("{:width$}. ", *index - 1).light_blue()
+                }
+            };
+            self.push_span(span);
+        }
+        self.needs_newline = false;
     }
 
     fn soft_break(&mut self) {
-        let span = Span::styled(" ", self.style);
-        if let Some(mut line) = self.line.take() {
-            line.spans.push(span);
-            self.line = Some(line);
-        } else {
-            self.line = Some(span.into());
-        }
+        self.push_line(Line::default());
     }
 
     fn start_codeblock(&mut self, kind: CodeBlockKind<'_>) {
+        if !self.text.lines.is_empty() {
+            self.push_line(Line::default());
+        }
         let lang = match kind {
             CodeBlockKind::Fenced(ref lang) => lang.as_ref(),
             CodeBlockKind::Indented => "",
         };
-        let span = Span::styled(format!("```{}", lang), (Color::White, Color::Black));
-        self.push_line(span);
+        self.line_styles.push(styles::CODE);
+        let span = Span::from(format!("```{}", lang));
+        self.push_line(span.into());
+        self.push_line(Line::default());
     }
 
     fn end_codeblock(&mut self) {
-        let span = Span::styled("```", Style::new().on_black().white());
-        if let Some(mut line) = self.line.take() {
-            line.spans.push(span);
-            self.text.lines.push(line);
-        } else {
-            self.text.lines.push(span.into());
-        }
+        let span = Span::from("```");
+        self.push_line(span.into());
+        self.line_styles.pop();
     }
 
     fn code(&mut self, code: CowStr<'a>) {
-        let span = Span::styled(code, Style::new().on_black().white());
-        if let Some(mut line) = self.line.take() {
-            line.spans.push(span);
-            self.line = Some(line);
-        } else {
-            self.line = Some(span.into());
-        }
+        let span = Span::styled(code, styles::CODE);
+        self.push_line(span.into());
     }
 
-    fn push_line<T>(&mut self, line: T)
-    where
-        T: Into<Line<'a>>,
-    {
-        self.text.lines.push(line.into());
+    #[instrument(level = "trace", skip(self))]
+    fn push_inline_style(&mut self, style: Style) {
+        let current_style = self.inline_styles.last().copied().unwrap_or_default();
+        let style = current_style.patch(style);
+        self.inline_styles.push(style);
+        debug!("Pushed inline style: {:?}", style);
+        debug!("Current inline styles: {:?}", self.inline_styles);
+    }
+
+    #[instrument(level = "trace", skip(self))]
+    fn pop_inline_style(&mut self) {
+        self.inline_styles.pop();
+    }
+
+    #[instrument(level = "trace", skip(self))]
+    fn push_line(&mut self, line: Line<'a>) {
+        let style = self.line_styles.last().copied().unwrap_or_default();
+        let mut line = line.patch_style(style);
+
+        // Add line prefixes to the start of the line.
+        let line_prefixes = self.line_prefixes.iter().cloned().collect_vec();
+        let has_prefixes = !line_prefixes.is_empty();
+        if has_prefixes {
+            line.spans.insert(0, " ".into());
+        }
+        for prefix in line_prefixes.iter().rev().cloned() {
+            line.spans.insert(0, prefix);
+        }
+        self.text.lines.push(line);
+    }
+
+    #[instrument(level = "trace", skip(self))]
+    fn push_span(&mut self, span: Span<'a>) {
+        if let Some(line) = self.text.lines.last_mut() {
+            line.push_span(span);
+        } else {
+            self.push_line(Line::from(vec![span]));
+        }
+    }
+}
+
+mod styles {
+    use ratatui::style::{Color, Modifier, Style, Stylize};
+
+    pub const H1: Style = Style::new()
+        .bg(Color::Cyan)
+        .add_modifier(Modifier::BOLD)
+        .add_modifier(Modifier::UNDERLINED);
+    pub const H2: Style = Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD);
+    pub const H3: Style = Style::new()
+        .fg(Color::Cyan)
+        .add_modifier(Modifier::BOLD)
+        .add_modifier(Modifier::ITALIC);
+    pub const H4: Style = Style::new()
+        .fg(Color::LightCyan)
+        .add_modifier(Modifier::ITALIC);
+    pub const H5: Style = Style::new()
+        .fg(Color::LightCyan)
+        .add_modifier(Modifier::ITALIC);
+    pub const H6: Style = Style::new()
+        .fg(Color::LightCyan)
+        .add_modifier(Modifier::ITALIC);
+    pub const BLOCKQUOTE: Style = Style::new().fg(Color::Green);
+    pub const CODE: Style = Style::new().fg(Color::White).bg(Color::Black);
+}
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+    use pretty_assertions::assert_eq;
+    use rstest::{fixture, rstest};
+    use tracing::{
+        level_filters::LevelFilter,
+        subscriber::{self, DefaultGuard},
+    };
+    use tracing_subscriber::fmt::{format::FmtSpan, time::Uptime};
+
+    use super::*;
+
+    #[fixture]
+    fn with_tracing() -> DefaultGuard {
+        let subscriber = tracing_subscriber::fmt()
+            .with_test_writer()
+            .with_timer(Uptime::default())
+            .with_max_level(LevelFilter::TRACE)
+            .with_span_events(FmtSpan::ENTER)
+            .finish();
+        subscriber::set_default(subscriber)
+    }
+
+    #[rstest]
+    fn empty(with_tracing: DefaultGuard) {
+        assert_eq!(from_str(""), Text::default());
+    }
+
+    #[rstest]
+    fn paragraph_single(with_tracing: DefaultGuard) {
+        assert_eq!(from_str("Hello, world!"), Text::from("Hello, world!"));
+    }
+
+    #[rstest]
+    fn paragraph_soft_break(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                Hello
+                World
+            "}),
+            Text::from_iter(["Hello", "World"])
+        );
+    }
+
+    #[rstest]
+    fn paragraph_multiple(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                Paragraph 1
+                
+                Paragraph 2
+            "}),
+            Text::from_iter(["Paragraph 1", "", "Paragraph 2",])
+        );
+    }
+
+    #[rstest]
+    fn headings(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                # Heading 1
+                ## Heading 2
+                ### Heading 3
+                #### Heading 4
+                ##### Heading 5
+                ###### Heading 6
+            "}),
+            Text::from_iter([
+                Line::from_iter(["# ", "Heading 1"]).style(styles::H1),
+                Line::default(),
+                Line::from_iter(["## ", "Heading 2"]).style(styles::H2),
+                Line::default(),
+                Line::from_iter(["### ", "Heading 3"]).style(styles::H3),
+                Line::default(),
+                Line::from_iter(["#### ", "Heading 4"]).style(styles::H4),
+                Line::default(),
+                Line::from_iter(["##### ", "Heading 5"]).style(styles::H5),
+                Line::default(),
+                Line::from_iter(["###### ", "Heading 6"]).style(styles::H6),
+            ])
+        );
+    }
+
+    /// I was having difficulty getting the right number of newlines between paragraphs, so this
+    /// test is to help debug and ensure that.
+    #[rstest]
+    fn blockquote_after_paragraph(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                Hello, world!
+
+                > Blockquote
+            "}),
+            Text::from_iter([
+                Line::from("Hello, world!"),
+                Line::default(),
+                Line::from_iter([">", " ", "Blockquote"]).style(styles::BLOCKQUOTE),
+            ])
+        );
+    }
+    #[rstest]
+    fn blockquote_single(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("> Blockquote"),
+            Text::from(Line::from_iter([">", " ", "Blockquote"]).style(styles::BLOCKQUOTE))
+        );
+    }
+
+    #[rstest]
+    fn blockquote_soft_break(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                > Blockquote 1
+                > Blockquote 2
+            "}),
+            Text::from_iter([
+                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
+                Line::from_iter([">", " ", "Blockquote 2"]).style(styles::BLOCKQUOTE),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn blockquote_multiple(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                > Blockquote 1
+                >
+                > Blockquote 2
+            "}),
+            Text::from_iter([
+                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
+                Line::from_iter([">", " "]).style(styles::BLOCKQUOTE),
+                Line::from_iter([">", " ", "Blockquote 2"]).style(styles::BLOCKQUOTE),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn blockquote_multiple_with_break(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                > Blockquote 1
+
+                > Blockquote 2
+            "}),
+            Text::from_iter([
+                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
+                Line::default(),
+                Line::from_iter([">", " ", "Blockquote 2"]).style(styles::BLOCKQUOTE),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn blockquote_nested(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                > Blockquote 1
+                >> Nested Blockquote
+            "}),
+            Text::from_iter([
+                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
+                Line::from_iter([">", " "]).style(styles::BLOCKQUOTE),
+                Line::from_iter([">", ">", " ", "Nested Blockquote"]).style(styles::BLOCKQUOTE),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn list_single(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                - List item 1
+            "}),
+            Text::from_iter([Line::from_iter(["- ", "List item 1"])])
+        );
+    }
+
+    #[rstest]
+    fn list_multiple(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                - List item 1
+                - List item 2
+            "}),
+            Text::from_iter([
+                Line::from_iter(["- ", "List item 1"]),
+                Line::from_iter(["- ", "List item 2"]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn list_ordered(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                1. List item 1
+                2. List item 2
+            "}),
+            Text::from_iter([
+                Line::from_iter(["1. ".light_blue(), "List item 1".into()]),
+                Line::from_iter(["2. ".light_blue(), "List item 2".into()]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn list_nested(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                - List item 1
+                  - Nested list item 1
+            "}),
+            Text::from_iter([
+                Line::from_iter(["- ", "List item 1"]),
+                Line::from_iter(["    - ", "Nested list item 1"]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn code(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                ```rust
+                fn main() {
+                    println!(\"Hello, world!\");
+                }
+                ```
+            "}),
+            Text::from_iter([
+                Line::from("```rust").style(styles::CODE),
+                Line::from("fn main() {").style(styles::CODE),
+                Line::from("    println!(\"Hello, world!\");").style(styles::CODE),
+                Line::from("}").style(styles::CODE),
+                Line::from("```").style(styles::CODE),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn strong(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("**Strong**"),
+            Text::from(Line::from("Strong".bold()))
+        );
+    }
+
+    #[rstest]
+    fn emphasis(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("*Emphasis*"),
+            Text::from(Line::from("Emphasis".italic()))
+        );
+    }
+
+    #[rstest]
+    fn strikethrough(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("~~Strikethrough~~"),
+            Text::from(Line::from("Strikethrough".crossed_out()))
+        );
+    }
+
+    #[rstest]
+    fn strong_emphasis(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("**Strong *emphasis***"),
+            Text::from(Line::from_iter([
+                "Strong ".bold(),
+                "emphasis".bold().italic()
+            ]))
+        );
     }
 }

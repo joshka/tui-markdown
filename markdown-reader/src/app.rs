@@ -1,16 +1,17 @@
 use std::path::Path;
 
 use color_eyre::Result;
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    prelude::{
-        Backend, Buffer, Color, Constraint, Layout, Line, Modifier, Rect, Span, StatefulWidget,
-        Terminal, Text, Widget,
-    },
+    buffer::Buffer,
+    layout::{Constraint, Layout, Rect},
+    style::{Color, Modifier},
+    text::{Line, Span, Text},
     widgets::{
-        ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidgetRef,
-        Wrap,
+        ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
+        StatefulWidgetRef, Widget, Wrap,
     },
+    DefaultTerminal,
 };
 
 use crate::{
@@ -38,15 +39,15 @@ impl<'a> App<'a> {
         }
     }
 
-    pub fn run(mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         let mut state = ScrollState::new(self.text.height());
-        self.draw(terminal, &mut state)?;
+        self.draw(&mut terminal, &mut state)?;
         while let Ok(event) = self.events.next() {
             match event {
                 Event::Crossterm(event) => self.handle_crossterm(event, &mut state)?,
                 Event::Exit => break,
             };
-            self.draw(terminal, &mut state)?;
+            self.draw(&mut terminal, &mut state)?;
         }
         Ok(())
     }
@@ -78,7 +79,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn draw(&self, terminal: &mut Terminal<impl Backend>, state: &mut ScrollState) -> Result<()> {
+    fn draw(&self, terminal: &mut DefaultTerminal, state: &mut ScrollState) -> Result<()> {
         terminal.draw(|frame| {
             frame.render_stateful_widget_ref(self, frame.area(), state);
         })?;
