@@ -12,7 +12,7 @@ An experimental Proof of Concept markdown reader that uses [Ratatui] to render m
 primary purpose of this crate is to test the [tui-markdown] crate. It is not ready for any sort of
 real world use.
 
-![Made with VHS](https://vhs.charm.sh/vhs-6Ur5mxqdVTizZxiAmgIjAE.gif)
+![Demo](https://vhs.charm.sh/vhs-160G5PeWh0TMoxBph87WXZ.gif)
 
 ## Installation
 
