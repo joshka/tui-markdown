@@ -14,8 +14,9 @@ use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
 use ratatui::{
-    prelude::{Color, Line, Span, Style, Stylize, Text},
+    style::{Style, Stylize},
     symbols::line,
+    text::{Line, Span, Text},
 };
 use tracing::{debug, debug_span, info, info_span, instrument, span, warn};
 

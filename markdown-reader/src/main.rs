@@ -17,13 +17,12 @@ use tracing::{debug, info, Level};
 use crate::{app::App, events::Events};
 
 mod app;
-mod errors;
 mod events;
 mod logging;
-mod tui;
 
 fn main() -> Result<()> {
-    errors::install_hooks()?;
+    color_eyre::install()?;
+    let terminal = ratatui::init();
     let log_events = logging::init_logger(Level::DEBUG)?;
 
     let args = Cli::parse();
@@ -34,8 +33,9 @@ fn main() -> Result<()> {
     let text = tui_markdown::from_str(&markdown);
     let _height = text.height();
     let app = App::new(text, &path, events, log_events);
-    tui::scoped(|terminal| app.run(terminal))?;
-    Ok(())
+    let result = app.run(terminal);
+    ratatui::restore();
+    result
 }
 
 fn read_file(path: &Path) -> Result<String> {
