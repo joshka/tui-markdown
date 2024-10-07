@@ -7,7 +7,8 @@
     unused_assignments
 )]
 
-use std::vec;
+use ansi_to_tui::IntoText;
+use std::{sync::LazyLock, vec};
 
 use itertools::{Itertools, Position};
 use pulldown_cmark::{
@@ -17,6 +18,13 @@ use ratatui::{
     style::{Style, Stylize},
     symbols::line,
     text::{Line, Span, Text},
+};
+#[cfg(feature = "highlight-code")]
+use syntect::{
+    easy::HighlightLines,
+    highlighting::ThemeSet,
+    parsing::SyntaxSet,
+    util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 use tracing::{debug, debug_span, info, info_span, instrument, span, warn};
 
@@ -47,11 +55,19 @@ struct TextWriter<'a, I> {
     /// Stack of line styles.
     line_styles: Vec<Style>,
 
+    #[cfg(feature = "highlight-code")]
+    current_code_highlighter: Option<HighlightLines<'a>>,
+
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
 
     needs_newline: bool,
 }
+
+#[cfg(feature = "highlight-code")]
+static SYNTAXSET: LazyLock<SyntaxSet> = std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
+#[cfg(feature = "highlight-code")]
+static THEMESET: LazyLock<ThemeSet> = std::sync::LazyLock::new(ThemeSet::load_defaults);
 
 impl<'a, I> TextWriter<'a, I>
 where
@@ -66,6 +82,8 @@ where
             line_prefixes: vec![],
             list_indices: vec![],
             needs_newline: false,
+            #[cfg(feature = "highlight-code")]
+            current_code_highlighter: None,
         }
     }
 
@@ -82,7 +100,7 @@ where
             Event::Start(tag) => self.start_tag(tag),
             Event::End(tag) => self.end_tag(tag),
             Event::Text(text) => self.text(text),
-            Event::Code(code) => self.code(code),
+            Event::Code(code) => warn!("Code is not used in markdown"),
             Event::Html(html) => warn!("Html not yet supported"),
             Event::InlineHtml(html) => warn!("Inline html not yet supported"),
             Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
@@ -197,15 +215,34 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
+        #[cfg(feature = "highlight-code")]
+        if let Some(h) = &mut self.current_code_highlighter {
+            let text: Text = LinesWithEndings::from(&text)
+                .filter_map(|line| h.highlight_line(line, &SYNTAXSET).ok())
+                .filter_map(|part| as_24_bit_terminal_escaped(&part, false).into_text().ok())
+                .flatten()
+                .collect();
+
+            for line in text.lines {
+                self.text.push_line(line);
+            }
+            self.needs_newline = false;
+            return;
+        }
+
         for (position, line) in text.lines().with_position() {
             if self.needs_newline {
                 self.push_line(Line::default());
+                self.needs_newline = false;
             }
             if matches!(position, Position::Middle | Position::Last) {
                 self.push_line(Line::default());
             }
+
             let style = self.inline_styles.last().copied().unwrap_or_default();
+
             let span = Span::styled(line.to_owned(), style);
+
             self.push_span(span);
         }
         self.needs_newline = false;
@@ -255,21 +292,27 @@ where
             CodeBlockKind::Fenced(ref lang) => lang.as_ref(),
             CodeBlockKind::Indented => "",
         };
-        self.line_styles.push(styles::CODE);
+        if !cfg!(feature = "highlight-code") {
+            self.line_styles.push(styles::CODE);
+            self.push_line(Line::default());
+            self.needs_newline = true;
+        }
+
         let span = Span::from(format!("```{}", lang));
         self.push_line(span.into());
-        self.push_line(Line::default());
+
+        #[cfg(feature = "highlight-code")]
+        self.set_current_code_highlighter(lang);
     }
 
     fn end_codeblock(&mut self) {
         let span = Span::from("```");
         self.push_line(span.into());
         self.line_styles.pop();
-    }
+        self.needs_newline = true;
 
-    fn code(&mut self, code: CowStr<'a>) {
-        let span = Span::styled(code, styles::CODE);
-        self.push_line(span.into());
+        #[cfg(feature = "highlight-code")]
+        self.clear_current_code_highlighter();
     }
 
     #[instrument(level = "trace", skip(self))]
@@ -310,6 +353,25 @@ where
         } else {
             self.push_line(Line::from(vec![span]));
         }
+    }
+
+    #[cfg(feature = "highlight-code")]
+    #[instrument(level = "trace", skip(self))]
+    fn set_current_code_highlighter(&mut self, lang: &str) {
+        let syntax = SYNTAXSET.find_syntax_by_token(lang);
+        if let Some(syntax) = syntax {
+            debug!("Starting code block with syntax: {:?}", lang);
+            let mut h = HighlightLines::new(syntax, &THEMESET.themes["base16-ocean.dark"]);
+            self.current_code_highlighter = Some(h);
+        } else {
+            warn!("Could not find syntax for code block: {:?}", lang);
+        }
+    }
+
+    #[cfg(feature = "highlight-code")]
+    #[instrument(level = "trace", skip(self))]
+    fn clear_current_code_highlighter(&mut self) {
+        self.current_code_highlighter = None;
     }
 }
 
@@ -560,24 +622,48 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "highlight-code"), ignore)]
     #[rstest]
-    fn code(with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+    fn highlighted_code(with_tracing: DefaultGuard) {
+        // Assert no extra newlines are added
+        insta::assert_snapshot!(from_str(indoc! {"
                 ```rust
                 fn main() {
                     println!(\"Hello, world!\");
                 }
                 ```
-            "}),
-            Text::from_iter([
-                Line::from("```rust").style(styles::CODE),
-                Line::from("fn main() {").style(styles::CODE),
-                Line::from("    println!(\"Hello, world!\");").style(styles::CODE),
-                Line::from("}").style(styles::CODE),
-                Line::from("```").style(styles::CODE),
-            ])
-        );
+            "}));
+
+        // Code highlighting is complex, assert on on the debug snapshot
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+                ```rust
+                fn main() {
+                    println!(\"Hello, world!\");
+                }
+                ```
+            "}));
+    }
+
+    #[cfg_attr(feature = "highlight-code", ignore)]
+    #[rstest]
+    fn unhighlighted_code(with_tracing: DefaultGuard) {
+        // Assert no extra newlines are added
+        insta::assert_snapshot!(from_str(indoc! {"
+                ```rust
+                fn main() {
+                    println!(\"Hello, world!\");
+                }
+                ```
+            "}));
+
+        // Code highlighting is complex, assert on on the debug snapshot
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+                ```rust
+                fn main() {
+                    println!(\"Hello, world!\");
+                }
+                ```
+            "}));
     }
 
     #[rstest]
