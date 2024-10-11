@@ -100,7 +100,7 @@ where
             Event::Start(tag) => self.start_tag(tag),
             Event::End(tag) => self.end_tag(tag),
             Event::Text(text) => self.text(text),
-            Event::Code(code) => warn!("Code is not used in markdown"),
+            Event::Code(code) => self.code(code),
             Event::Html(html) => warn!("Html not yet supported"),
             Event::InlineHtml(html) => warn!("Inline html not yet supported"),
             Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
@@ -246,6 +246,11 @@ where
             self.push_span(span);
         }
         self.needs_newline = false;
+    }
+
+    fn code(&mut self, code: CowStr<'a>) {
+        let span = Span::styled(code, styles::CODE);
+        self.push_span(span);
     }
 
     fn hard_break(&mut self) {
@@ -664,6 +669,21 @@ mod tests {
                 }
                 ```
             "}));
+    }
+
+    #[rstest]
+    fn inline_code(with_tracing: DefaultGuard) {
+        let text = from_str("Example of `Inline code`");
+        insta::assert_snapshot!(text);
+
+        assert_eq!(
+            text,
+            Line::from_iter([
+                Span::from("Example of "),
+                Span::styled("Inline code", styles::CODE)
+            ])
+            .into()
+        );
     }
 
     #[rstest]
