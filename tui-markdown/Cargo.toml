@@ -20,7 +20,7 @@ ratatui.workspace = true
 rstest = "0.23.0"
 tracing = "0.1.40"
 syntect = { version = "5.2.0", optional = true }
-ansi-to-tui = "6.0.0"
+ansi-to-tui = { version = "6.0.0", optional = true }
 
 [dev-dependencies]
 indoc = "2.0.5"
@@ -28,4 +28,4 @@ tracing-subscriber = "0.3.18"
 insta = "1.40.0"
 
 [features]
-highlight-code = ["dep:syntect"]
+highlight-code = ["dep:syntect", "dep:ansi-to-tui"]

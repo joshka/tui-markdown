@@ -56,6 +56,7 @@ struct TextWriter<'a, I> {
     line_styles: Vec<Style>,
 
     #[cfg(feature = "highlight-code")]
+    /// Used to highlight code blocks, set when  a codeblock is encountered
     current_code_highlighter: Option<HighlightLines<'a>>,
 
     /// Current list index as a stack of indices.
@@ -65,7 +66,8 @@ struct TextWriter<'a, I> {
 }
 
 #[cfg(feature = "highlight-code")]
-static SYNTAX_SET: LazyLock<SyntaxSet> = std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
+static SYNTAX_SET: LazyLock<SyntaxSet> =
+    std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
 #[cfg(feature = "highlight-code")]
 static THEME_SET: LazyLock<ThemeSet> = std::sync::LazyLock::new(ThemeSet::load_defaults);
 
@@ -218,7 +220,7 @@ where
         #[cfg(feature = "highlight-code")]
         if let Some(h) = &mut self.current_code_highlighter {
             let text: Text = LinesWithEndings::from(&text)
-                .filter_map(|line| h.highlight_line(line, &SYNTAXSET).ok())
+                .filter_map(|line| h.highlight_line(line, &SYNTAX_SET).ok())
                 .filter_map(|part| as_24_bit_terminal_escaped(&part, false).into_text().ok())
                 .flatten()
                 .collect();
@@ -363,10 +365,10 @@ where
     #[cfg(feature = "highlight-code")]
     #[instrument(level = "trace", skip(self))]
     fn set_current_code_highlighter(&mut self, lang: &str) {
-        let syntax = SYNTAXSET.find_syntax_by_token(lang);
+        let syntax = SYNTAX_SET.find_syntax_by_token(lang);
         if let Some(syntax) = syntax {
             debug!("Starting code block with syntax: {:?}", lang);
-            let mut h = HighlightLines::new(syntax, &THEMESET.themes["base16-ocean.dark"]);
+            let mut h = HighlightLines::new(syntax, &THEME_SET.themes["base16-ocean.dark"]);
             self.current_code_highlighter = Some(h);
         } else {
             warn!("Could not find syntax for code block: {:?}", lang);
