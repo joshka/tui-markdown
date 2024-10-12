@@ -65,9 +65,9 @@ struct TextWriter<'a, I> {
 }
 
 #[cfg(feature = "highlight-code")]
-static SYNTAXSET: LazyLock<SyntaxSet> = std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
+static SYNTAX_SET: LazyLock<SyntaxSet> = std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
 #[cfg(feature = "highlight-code")]
-static THEMESET: LazyLock<ThemeSet> = std::sync::LazyLock::new(ThemeSet::load_defaults);
+static THEME_SET: LazyLock<ThemeSet> = std::sync::LazyLock::new(ThemeSet::load_defaults);
 
 impl<'a, I> TextWriter<'a, I>
 where
