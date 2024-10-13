@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.2.11](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.10...tui-markdown-v0.2.11) - 2024-10-13
+
+### Added
+
+- highlight code blocks ([#51](https://github.com/joshka/tui-markdown/pull/51))
+
+### Other
+
+- *(deps)* bump rstest in the cargo-dependencies group ([#50](https://github.com/joshka/tui-markdown/pull/50))
+
 ## [0.2.10](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.9...tui-markdown-v0.2.10) - 2024-09-20
 
 ### Other
