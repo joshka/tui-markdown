@@ -645,6 +645,26 @@ mod tests {
         insta::assert_debug_snapshot!(highlighted_code);
     }
 
+    #[cfg_attr(not(feature = "highlight-code"), ignore)]
+    #[rstest]
+    fn highlighted_code_with_indentation(with_tracing: DefaultGuard) {
+        // Assert no extra newlines are added
+        let highlighted_code_indented = from_str(indoc! {"
+            ```rust
+            fn main() {
+                // This is a comment
+                HelloWorldBuilder::new()
+                    .with_text(\"Hello, highlighted code!\")
+                    .build()
+                    .show();
+                            
+            }
+            ```"});
+
+        insta::assert_snapshot!(highlighted_code_indented);
+        insta::assert_debug_snapshot!(highlighted_code_indented);
+    }
+
     #[cfg_attr(feature = "highlight-code", ignore)]
     #[rstest]
     fn unhighlighted_code(with_tracing: DefaultGuard) {
