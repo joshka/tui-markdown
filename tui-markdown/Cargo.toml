@@ -2,15 +2,15 @@
 name = "tui-markdown"
 description = "A simple library for converting markdown to a Rataui Text value"
 version = "0.2.10"
-edition = "2021"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/joshka/tui-markdown"
 documentation = "https://docs.rs/tui-markdown"
-authors = ["Joshka"]
 categories = ["command-line-interface"]
 keywords = ["cli", "markdown", "ratatui", "terminal", "tui"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
 
 [dependencies]
 itertools = "0.13.0"

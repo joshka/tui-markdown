@@ -2,15 +2,15 @@
 name = "markdown-reader"
 description = "A simple markdown reader that uses ratatui to render markdown files."
 version = "0.1.17"
-edition = "2021"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/joshka/tui-markdown"
 documentation = "https://docs.rs/markdown-reader"
-authors = ["Joshka"]
 categories = ["command-line-interface"]
 keywords = ["cli", "markdown", "ratatui", "terminal", "tui"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
 
 [dependencies]
 clap = { version = "4.5.18", features = ["derive"] }

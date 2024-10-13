@@ -11,6 +11,7 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
+                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -23,6 +24,7 @@ Text {
                 bg: Some(
                     Black,
                 ),
+                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -35,6 +37,7 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
+                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -47,6 +50,7 @@ Text {
                 bg: Some(
                     Black,
                 ),
+                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -59,6 +63,7 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
+                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -71,6 +76,7 @@ Text {
                 bg: Some(
                     Black,
                 ),
+                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -83,6 +89,7 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
+                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -95,6 +102,7 @@ Text {
                 bg: Some(
                     Black,
                 ),
+                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -107,6 +115,7 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
+                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -119,6 +128,7 @@ Text {
                 bg: Some(
                     Black,
                 ),
+                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -128,6 +138,7 @@ Text {
     style: Style {
         fg: None,
         bg: None,
+        underline_color: None,
         add_modifier: NONE,
         sub_modifier: NONE,
     },
