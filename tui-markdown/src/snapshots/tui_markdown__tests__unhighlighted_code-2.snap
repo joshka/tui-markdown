@@ -1,6 +1,6 @@
 ---
 source: tui-markdown/src/lib.rs
-expression: "from_str(indoc!\n{\n    \"\n                ```rust\n                fn main() {\n                    println!(\\\"Hello, world!\\\");\n                }\n                ```\n            \"\n})"
+expression: unhiglighted_code
 ---
 Text {
     lines: [
@@ -11,7 +11,6 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
-                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -24,7 +23,6 @@ Text {
                 bg: Some(
                     Black,
                 ),
-                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -37,7 +35,6 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
-                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -50,7 +47,6 @@ Text {
                 bg: Some(
                     Black,
                 ),
-                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -59,11 +55,10 @@ Text {
         Line {
             spans: [
                 Span {
-                    content: "    println!(\"Hello, world!\");",
+                    content: "    println!(\"Hello, unhighlighted code!\");",
                     style: Style {
                         fg: None,
                         bg: None,
-                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -76,7 +71,6 @@ Text {
                 bg: Some(
                     Black,
                 ),
-                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -89,7 +83,6 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
-                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -102,7 +95,6 @@ Text {
                 bg: Some(
                     Black,
                 ),
-                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -115,7 +107,6 @@ Text {
                     style: Style {
                         fg: None,
                         bg: None,
-                        underline_color: None,
                         add_modifier: NONE,
                         sub_modifier: NONE,
                     },
@@ -128,7 +119,6 @@ Text {
                 bg: Some(
                     Black,
                 ),
-                underline_color: None,
                 add_modifier: NONE,
                 sub_modifier: NONE,
             },
@@ -138,7 +128,6 @@ Text {
     style: Style {
         fg: None,
         bg: None,
-        underline_color: None,
         add_modifier: NONE,
         sub_modifier: NONE,
     },

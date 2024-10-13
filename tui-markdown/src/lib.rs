@@ -634,44 +634,32 @@ mod tests {
     #[rstest]
     fn highlighted_code(with_tracing: DefaultGuard) {
         // Assert no extra newlines are added
-        insta::assert_snapshot!(from_str(indoc! {"
-                ```rust
-                fn main() {
-                    println!(\"Hello, world!\");
-                }
-                ```
-            "}));
+        let highlighted_code = from_str(indoc! {"
+            ```rust
+            fn main() {
+                println!(\"Hello, highlighted code!\");
+            }
+            ```"});
 
-        // Code highlighting is complex, assert on on the debug snapshot
-        insta::assert_debug_snapshot!(from_str(indoc! {"
-                ```rust
-                fn main() {
-                    println!(\"Hello, world!\");
-                }
-                ```
-            "}));
+        insta::assert_snapshot!(highlighted_code);
+        insta::assert_debug_snapshot!(highlighted_code);
     }
 
     #[cfg_attr(feature = "highlight-code", ignore)]
     #[rstest]
     fn unhighlighted_code(with_tracing: DefaultGuard) {
         // Assert no extra newlines are added
-        insta::assert_snapshot!(from_str(indoc! {"
-                ```rust
-                fn main() {
-                    println!(\"Hello, world!\");
-                }
-                ```
-            "}));
+        let unhiglighted_code = from_str(indoc! {"
+            ```rust
+            fn main() {
+                println!(\"Hello, unhighlighted code!\");
+            }
+            ```"});
+
+        insta::assert_snapshot!(unhiglighted_code);
 
         // Code highlighting is complex, assert on on the debug snapshot
-        insta::assert_debug_snapshot!(from_str(indoc! {"
-                ```rust
-                fn main() {
-                    println!(\"Hello, world!\");
-                }
-                ```
-            "}));
+        insta::assert_debug_snapshot!(unhiglighted_code);
     }
 
     #[rstest]

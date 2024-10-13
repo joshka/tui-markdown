@@ -1,6 +1,6 @@
 ---
 source: tui-markdown/src/lib.rs
-expression: "from_str(indoc!\n{\n    \"\n                ```rust\n                fn main() {\n                    println!(\\\"Hello, world!\\\");\n                }\n                ```\n            \"\n})"
+expression: highlighted_code
 ---
 Text {
     lines: [
@@ -203,7 +203,7 @@ Text {
                     },
                 },
                 Span {
-                    content: "Hello, world!",
+                    content: "Hello, highlighted code!",
                     style: Style {
                         fg: Some(
                             Rgb(
