@@ -1,9 +1,0 @@
----
-source: tui-markdown/src/lib.rs
-expression: "from_str(indoc!\n{\n    \"\n                ```rust\n                fn main() {\n                    println!(\\\"Hello, world!\\\");\n                }\n                ```\n            \"\n})"
----
-```rust
-fn main() {
-    println!("Hello, world!");
-}
-```

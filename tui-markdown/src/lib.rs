@@ -56,9 +56,9 @@ struct TextWriter<'a, I> {
     /// Stack of line styles.
     line_styles: Vec<Style>,
 
-    #[cfg(feature = "highlight-code")]
     /// Used to highlight code blocks, set when  a codeblock is encountered
-    current_code_highlighter: Option<HighlightLines<'a>>,
+    #[cfg(feature = "highlight-code")]
+    code_highlighter: Option<HighlightLines<'a>>,
 
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
@@ -67,10 +67,9 @@ struct TextWriter<'a, I> {
 }
 
 #[cfg(feature = "highlight-code")]
-static SYNTAX_SET: LazyLock<SyntaxSet> =
-    std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
+static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
 #[cfg(feature = "highlight-code")]
-static THEME_SET: LazyLock<ThemeSet> = std::sync::LazyLock::new(ThemeSet::load_defaults);
+static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 impl<'a, I> TextWriter<'a, I>
 where
@@ -86,7 +85,7 @@ where
             list_indices: vec![],
             needs_newline: false,
             #[cfg(feature = "highlight-code")]
-            current_code_highlighter: None,
+            code_highlighter: None,
         }
     }
 
@@ -219,9 +218,9 @@ where
 
     fn text(&mut self, text: CowStr<'a>) {
         #[cfg(feature = "highlight-code")]
-        if let Some(h) = &mut self.current_code_highlighter {
+        if let Some(highlighter) = &mut self.code_highlighter {
             let text: Text = LinesWithEndings::from(&text)
-                .filter_map(|line| h.highlight_line(line, &SYNTAX_SET).ok())
+                .filter_map(|line| highlighter.highlight_line(line, &SYNTAX_SET).ok())
                 .filter_map(|part| as_24_bit_terminal_escaped(&part, false).into_text().ok())
                 .flatten()
                 .collect();
@@ -300,27 +299,47 @@ where
             CodeBlockKind::Fenced(ref lang) => lang.as_ref(),
             CodeBlockKind::Indented => "",
         };
-        if !cfg!(feature = "highlight-code") {
-            self.line_styles.push(styles::CODE);
-            self.push_line(Line::default());
-            self.needs_newline = true;
-        }
 
-        let span = Span::from(format!("```{}", lang));
-        self.push_line(span.into());
+        #[cfg(not(feature = "highlight-code"))]
+        self.line_styles.push(styles::CODE);
 
         #[cfg(feature = "highlight-code")]
-        self.set_current_code_highlighter(lang);
+        self.set_code_highlighter(lang);
+
+        let span = Span::from(format!("```{lang}"));
+        self.push_line(span.into());
+        self.needs_newline = true;
     }
 
     fn end_codeblock(&mut self) {
         let span = Span::from("```");
         self.push_line(span.into());
-        self.line_styles.pop();
         self.needs_newline = true;
 
+        #[cfg(not(feature = "highlight-code"))]
+        self.line_styles.pop();
+
         #[cfg(feature = "highlight-code")]
-        self.clear_current_code_highlighter();
+        self.clear_code_highlighter();
+    }
+
+    #[cfg(feature = "highlight-code")]
+    #[instrument(level = "trace", skip(self))]
+    fn set_code_highlighter(&mut self, lang: &str) {
+        if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
+            debug!("Starting code block with syntax: {:?}", lang);
+            let theme = &THEME_SET.themes["base16-ocean.dark"];
+            let highlighter = HighlightLines::new(syntax, theme);
+            self.code_highlighter = Some(highlighter);
+        } else {
+            warn!("Could not find syntax for code block: {:?}", lang);
+        }
+    }
+
+    #[cfg(feature = "highlight-code")]
+    #[instrument(level = "trace", skip(self))]
+    fn clear_code_highlighter(&mut self) {
+        self.code_highlighter = None;
     }
 
     #[instrument(level = "trace", skip(self))]
@@ -361,25 +380,6 @@ where
         } else {
             self.push_line(Line::from(vec![span]));
         }
-    }
-
-    #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
-    fn set_current_code_highlighter(&mut self, lang: &str) {
-        let syntax = SYNTAX_SET.find_syntax_by_token(lang);
-        if let Some(syntax) = syntax {
-            debug!("Starting code block with syntax: {:?}", lang);
-            let mut h = HighlightLines::new(syntax, &THEME_SET.themes["base16-ocean.dark"]);
-            self.current_code_highlighter = Some(h);
-        } else {
-            warn!("Could not find syntax for code block: {:?}", lang);
-        }
-    }
-
-    #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
-    fn clear_current_code_highlighter(&mut self) {
-        self.current_code_highlighter = None;
     }
 }
 
