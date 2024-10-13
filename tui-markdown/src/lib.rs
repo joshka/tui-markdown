@@ -7,9 +7,10 @@
     unused_assignments
 )]
 
-use ansi_to_tui::IntoText;
 use std::{sync::LazyLock, vec};
 
+#[cfg(feature = "highlight-code")]
+use ansi_to_tui::IntoText;
 use itertools::{Itertools, Position};
 use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
