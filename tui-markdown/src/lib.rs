@@ -9,9 +9,10 @@
 //! # Example
 //!
 //! ~~~
-//! use ratatui::widgets::Text;
+//! use ratatui::text::Text;
 //! use tui_markdown::from_str;
 //!
+//! # fn draw(frame: &mut ratatui::Frame) {
 //! let markdown = r#"
 //! This is a simple markdown renderer for Ratatui.
 //!
@@ -26,7 +27,6 @@
 //! "#;
 //!
 //! let text = from_str(markdown);
-//! # fn draw(frame: &mut Frame) {
 //! frame.render_widget(text, frame.area());
 //! # }
 //! ~~~
