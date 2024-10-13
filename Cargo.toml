@@ -2,6 +2,14 @@
 resolver = "2"
 members = ["tui-markdown", "markdown-reader"]
 
+[workspace.package]
+rust-version = "1.80.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/joshka/tui-markdown"
+authors = ["Joshka"]
+
+
 [workspace.dependencies]
 ratatui = { version = "0.28.1", default-features = false }
 

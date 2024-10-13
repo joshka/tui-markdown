@@ -1,3 +1,35 @@
+//! A simple markdown renderer widget for Ratatui.
+//!
+//! This module provides a simple markdown renderer widget for Ratatui. It uses the `pulldown-cmark`
+//! crate to parse markdown and convert it to a `Text` widget. The `Text` widget can then be
+//! rendered to the terminal using the 'Ratatui' library.
+//!
+#![cfg_attr(feature = "document-features", doc = "\n# Features")]
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
+//! # Example
+//!
+//! ~~~
+//! use ratatui::text::Text;
+//! use tui_markdown::from_str;
+//!
+//! # fn draw(frame: &mut ratatui::Frame) {
+//! let markdown = r#"
+//! This is a simple markdown renderer for Ratatui.
+//!
+//! - List item 1
+//! - List item 2
+//!
+//! ```rust
+//! fn main() {
+//!     println!("Hello, world!");
+//! }
+//! ```
+//! "#;
+//!
+//! let text = from_str(markdown);
+//! frame.render_widget(text, frame.area());
+//! # }
+//! ~~~
 #![allow(
     unused,
     dead_code,
@@ -7,8 +39,10 @@
     unused_assignments
 )]
 
-use std::vec;
+use std::{sync::LazyLock, vec};
 
+#[cfg(feature = "highlight-code")]
+use ansi_to_tui::IntoText;
 use itertools::{Itertools, Position};
 use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
@@ -17,6 +51,13 @@ use ratatui::{
     style::{Style, Stylize},
     symbols::line,
     text::{Line, Span, Text},
+};
+#[cfg(feature = "highlight-code")]
+use syntect::{
+    easy::HighlightLines,
+    highlighting::ThemeSet,
+    parsing::SyntaxSet,
+    util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 use tracing::{debug, debug_span, info, info_span, instrument, span, warn};
 
@@ -47,11 +88,20 @@ struct TextWriter<'a, I> {
     /// Stack of line styles.
     line_styles: Vec<Style>,
 
+    /// Used to highlight code blocks, set when  a codeblock is encountered
+    #[cfg(feature = "highlight-code")]
+    code_highlighter: Option<HighlightLines<'a>>,
+
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
 
     needs_newline: bool,
 }
+
+#[cfg(feature = "highlight-code")]
+static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
+#[cfg(feature = "highlight-code")]
+static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 impl<'a, I> TextWriter<'a, I>
 where
@@ -66,6 +116,8 @@ where
             line_prefixes: vec![],
             list_indices: vec![],
             needs_newline: false,
+            #[cfg(feature = "highlight-code")]
+            code_highlighter: None,
         }
     }
 
@@ -197,18 +249,42 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
+        #[cfg(feature = "highlight-code")]
+        if let Some(highlighter) = &mut self.code_highlighter {
+            let text: Text = LinesWithEndings::from(&text)
+                .filter_map(|line| highlighter.highlight_line(line, &SYNTAX_SET).ok())
+                .filter_map(|part| as_24_bit_terminal_escaped(&part, false).into_text().ok())
+                .flatten()
+                .collect();
+
+            for line in text.lines {
+                self.text.push_line(line);
+            }
+            self.needs_newline = false;
+            return;
+        }
+
         for (position, line) in text.lines().with_position() {
             if self.needs_newline {
                 self.push_line(Line::default());
+                self.needs_newline = false;
             }
             if matches!(position, Position::Middle | Position::Last) {
                 self.push_line(Line::default());
             }
+
             let style = self.inline_styles.last().copied().unwrap_or_default();
+
             let span = Span::styled(line.to_owned(), style);
+
             self.push_span(span);
         }
         self.needs_newline = false;
+    }
+
+    fn code(&mut self, code: CowStr<'a>) {
+        let span = Span::styled(code, styles::CODE);
+        self.push_span(span);
     }
 
     fn hard_break(&mut self) {
@@ -255,21 +331,47 @@ where
             CodeBlockKind::Fenced(ref lang) => lang.as_ref(),
             CodeBlockKind::Indented => "",
         };
+
+        #[cfg(not(feature = "highlight-code"))]
         self.line_styles.push(styles::CODE);
-        let span = Span::from(format!("```{}", lang));
+
+        #[cfg(feature = "highlight-code")]
+        self.set_code_highlighter(lang);
+
+        let span = Span::from(format!("```{lang}"));
         self.push_line(span.into());
-        self.push_line(Line::default());
+        self.needs_newline = true;
     }
 
     fn end_codeblock(&mut self) {
         let span = Span::from("```");
         self.push_line(span.into());
+        self.needs_newline = true;
+
+        #[cfg(not(feature = "highlight-code"))]
         self.line_styles.pop();
+
+        #[cfg(feature = "highlight-code")]
+        self.clear_code_highlighter();
     }
 
-    fn code(&mut self, code: CowStr<'a>) {
-        let span = Span::styled(code, styles::CODE);
-        self.push_line(span.into());
+    #[cfg(feature = "highlight-code")]
+    #[instrument(level = "trace", skip(self))]
+    fn set_code_highlighter(&mut self, lang: &str) {
+        if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
+            debug!("Starting code block with syntax: {:?}", lang);
+            let theme = &THEME_SET.themes["base16-ocean.dark"];
+            let highlighter = HighlightLines::new(syntax, theme);
+            self.code_highlighter = Some(highlighter);
+        } else {
+            warn!("Could not find syntax for code block: {:?}", lang);
+        }
+    }
+
+    #[cfg(feature = "highlight-code")]
+    #[instrument(level = "trace", skip(self))]
+    fn clear_code_highlighter(&mut self) {
+        self.code_highlighter = None;
     }
 
     #[instrument(level = "trace", skip(self))]
@@ -560,23 +662,70 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "highlight-code"), ignore)]
     #[rstest]
-    fn code(with_tracing: DefaultGuard) {
+    fn highlighted_code(with_tracing: DefaultGuard) {
+        // Assert no extra newlines are added
+        let highlighted_code = from_str(indoc! {"
+            ```rust
+            fn main() {
+                println!(\"Hello, highlighted code!\");
+            }
+            ```"});
+
+        insta::assert_snapshot!(highlighted_code);
+        insta::assert_debug_snapshot!(highlighted_code);
+    }
+
+    #[cfg_attr(not(feature = "highlight-code"), ignore)]
+    #[rstest]
+    fn highlighted_code_with_indentation(with_tracing: DefaultGuard) {
+        // Assert no extra newlines are added
+        let highlighted_code_indented = from_str(indoc! {"
+            ```rust
+            fn main() {
+                // This is a comment
+                HelloWorldBuilder::new()
+                    .with_text(\"Hello, highlighted code!\")
+                    .build()
+                    .show();
+                            
+            }
+            ```"});
+
+        insta::assert_snapshot!(highlighted_code_indented);
+        insta::assert_debug_snapshot!(highlighted_code_indented);
+    }
+
+    #[cfg_attr(feature = "highlight-code", ignore)]
+    #[rstest]
+    fn unhighlighted_code(with_tracing: DefaultGuard) {
+        // Assert no extra newlines are added
+        let unhiglighted_code = from_str(indoc! {"
+            ```rust
+            fn main() {
+                println!(\"Hello, unhighlighted code!\");
+            }
+            ```"});
+
+        insta::assert_snapshot!(unhiglighted_code);
+
+        // Code highlighting is complex, assert on on the debug snapshot
+        insta::assert_debug_snapshot!(unhiglighted_code);
+    }
+
+    #[rstest]
+    fn inline_code(with_tracing: DefaultGuard) {
+        let text = from_str("Example of `Inline code`");
+        insta::assert_snapshot!(text);
+
         assert_eq!(
-            from_str(indoc! {"
-                ```rust
-                fn main() {
-                    println!(\"Hello, world!\");
-                }
-                ```
-            "}),
-            Text::from_iter([
-                Line::from("```rust").style(styles::CODE),
-                Line::from("fn main() {").style(styles::CODE),
-                Line::from("    println!(\"Hello, world!\");").style(styles::CODE),
-                Line::from("}").style(styles::CODE),
-                Line::from("```").style(styles::CODE),
+            text,
+            Line::from_iter([
+                Span::from("Example of "),
+                Span::styled("Inline code", styles::CODE)
             ])
+            .into()
         );
     }
 

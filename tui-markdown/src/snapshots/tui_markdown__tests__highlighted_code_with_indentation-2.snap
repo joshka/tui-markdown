@@ -1,0 +1,700 @@
+---
+source: tui-markdown/src/lib.rs
+expression: highlighted_code_indented
+---
+Text {
+    lines: [
+        Line {
+            spans: [
+                Span {
+                    content: "```rust",
+                    style: Style {
+                        fg: None,
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "fn",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                180,
+                                142,
+                                173,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: " ",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "main",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                143,
+                                161,
+                                179,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "(",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: ")",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: " ",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "{",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "    ",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "//",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                101,
+                                115,
+                                126,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: " This is a comment",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                101,
+                                115,
+                                126,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "    ",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "HelloWorldBuilder",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "::",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "new",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "(",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: ")",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "        .",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "with_text",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                150,
+                                181,
+                                180,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "(",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "\"",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "Hello, highlighted code!",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                163,
+                                190,
+                                140,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "\"",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: ")",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "        .",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "build",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                150,
+                                181,
+                                180,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "(",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: ")",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "        .",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "show",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                150,
+                                181,
+                                180,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: "(",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: ")",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+                Span {
+                    content: ";",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "                ",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "}",
+                    style: Style {
+                        fg: Some(
+                            Rgb(
+                                192,
+                                197,
+                                206,
+                            ),
+                        ),
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+        Line {
+            spans: [
+                Span {
+                    content: "```",
+                    style: Style {
+                        fg: None,
+                        bg: None,
+                        underline_color: None,
+                        add_modifier: NONE,
+                        sub_modifier: NONE,
+                    },
+                },
+            ],
+            style: Style {
+                fg: None,
+                bg: None,
+                underline_color: None,
+                add_modifier: NONE,
+                sub_modifier: NONE,
+            },
+            alignment: None,
+        },
+    ],
+    style: Style {
+        fg: None,
+        bg: None,
+        underline_color: None,
+        add_modifier: NONE,
+        sub_modifier: NONE,
+    },
+    alignment: None,
+}
