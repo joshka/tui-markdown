@@ -1,3 +1,35 @@
+//! A simple markdown renderer widget for Ratatui.
+//!
+//! This module provides a simple markdown renderer widget for Ratatui. It uses the `pulldown-cmark`
+//! crate to parse markdown and convert it to a `Text` widget. The `Text` widget can then be
+//! rendered to the terminal using the 'Ratatui' library.
+//!
+#![cfg_attr(feature = "document-features", doc = "\n# Features")]
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
+//! # Example
+//!
+//! ~~~
+//! use ratatui::widgets::Text;
+//! use tui_markdown::from_str;
+//!
+//! let markdown = r#"
+//! This is a simple markdown renderer for Ratatui.
+//!
+//! - List item 1
+//! - List item 2
+//!
+//! ```rust
+//! fn main() {
+//!     println!("Hello, world!");
+//! }
+//! ```
+//! "#;
+//!
+//! let text = from_str(markdown);
+//! # fn draw(frame: &mut Frame) {
+//! frame.render_widget(text, frame.area());
+//! # }
+//! ~~~
 #![allow(
     unused,
     dead_code,
