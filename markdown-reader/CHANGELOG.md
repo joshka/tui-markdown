@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.19](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.18...markdown-reader-v0.1.19) - 2024-10-22
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.1.18](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.17...markdown-reader-v0.1.18) - 2024-10-13
 
 ### Added
