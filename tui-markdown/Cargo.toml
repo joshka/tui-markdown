@@ -25,7 +25,7 @@ cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-ansi-to-tui = { version = "6.0.0", optional = true }
+ansi-to-tui = { version = "7.0.0", optional = true }
 document-features = { version = "0.2.10", optional = true }
 itertools = "0.13.0"
 pretty_assertions = "1.4.1"
@@ -37,5 +37,5 @@ tracing = "0.1.40"
 
 [dev-dependencies]
 indoc = "2.0.5"
-insta = "1.40.0"
+insta = "1.41.0"
 tracing-subscriber = "0.3.18"
