@@ -11,7 +11,7 @@ authors = ["Joshka"]
 
 
 [workspace.dependencies]
-ratatui = { version = "0.28.1", default-features = false }
+ratatui = { version = "0.29.0", default-features = false }
 
 [patch.crates-io]
 # when developing ratatui, uncomment this line to use the local version
