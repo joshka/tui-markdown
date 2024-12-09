@@ -12,7 +12,7 @@ authors = ["Joshka"]
 
 [workspace.dependencies]
 ratatui = { version = "0.29.0", default-features = false }
-tui-markdown = { version = "0.3.0", path = "tui-markdown" }
+tui-markdown = { version = "0.3.1", path = "tui-markdown" }
 
 [patch.crates-io]
 # when developing ratatui, uncomment this line to use the local version
