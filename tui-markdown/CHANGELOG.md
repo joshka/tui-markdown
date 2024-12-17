@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.1](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.0...tui-markdown-v0.3.1) - 2024-12-17
+
+### Added
+
+- Add support for links by replacing inner value (#62)
+
+### Other
+
+- *(deps)* bump the cargo-dependencies group with 5 updates (#60)
+
 ## [0.3.0](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.12...tui-markdown-v0.3.0) - 2024-11-20
 
 ### Other
