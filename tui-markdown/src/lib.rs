@@ -95,8 +95,8 @@ struct TextWriter<'a, I> {
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
 
-    /// Whether a link should be appended
-    will_append_link: Option<Span<'a>>,
+    /// A link which will be appended to the current line when the link tag is closed.
+    link: Option<CowStr<'a>>,
 
     needs_newline: bool,
 }
@@ -121,7 +121,7 @@ where
             needs_newline: false,
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
-            will_append_link: None,
+            link: None,
         }
     }
 
@@ -168,7 +168,7 @@ where
             Tag::Emphasis => self.push_inline_style(Style::new().italic()),
             Tag::Strong => self.push_inline_style(Style::new().bold()),
             Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
-            Tag::Link { dest_url, .. } => self.will_append_link(dest_url),
+            Tag::Link { dest_url, .. } => self.push_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
             Tag::MetadataBlock(_) => warn!("Metadata block not yet supported"),
             Tag::DefinitionList => warn!("Definition list not yet supported"),
@@ -194,12 +194,7 @@ where
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
             TagEnd::Strikethrough => self.pop_inline_style(),
-            TagEnd::Link => {
-                // Append the link to the previous span (the title)
-                if let Some(span) = self.will_append_link.take() {
-                    self.push_span(span);
-                }
-            }
+            TagEnd::Link => self.pop_link(),
             TagEnd::Image => {}
             TagEnd::MetadataBlock(_) => {}
             TagEnd::DefinitionList => {}
@@ -423,10 +418,20 @@ where
         }
     }
 
+    /// Store the link to be appended to the link text
     #[instrument(level = "trace", skip(self))]
-    fn will_append_link(&mut self, dest_url: CowStr<'a>) {
-        let span = Span::from(format!(" ({})", dest_url));
-        self.will_append_link = Some(span);
+    fn push_link(&mut self, dest_url: CowStr<'a>) {
+        self.link = Some(dest_url);
+    }
+
+    /// Append the link to the current line
+    #[instrument(level = "trace", skip(self))]
+    fn pop_link(&mut self) {
+        if let Some(link) = self.link.take() {
+            self.push_span(" (".into());
+            self.push_span(Span::styled(link, styles::LINK));
+            self.push_span(")".into());
+        }
     }
 }
 
@@ -453,6 +458,9 @@ mod styles {
         .add_modifier(Modifier::ITALIC);
     pub const BLOCKQUOTE: Style = Style::new().fg(Color::Green);
     pub const CODE: Style = Style::new().fg(Color::White).bg(Color::Black);
+    pub const LINK: Style = Style::new()
+        .fg(Color::Blue)
+        .add_modifier(Modifier::UNDERLINED);
 }
 
 #[cfg(test)]
@@ -785,7 +793,9 @@ mod tests {
             from_str("[Link](https://example.com)"),
             Text::from(Line::from_iter([
                 Span::from("Link"),
-                Span::from(" (https://example.com)")
+                Span::from(" ("),
+                Span::from("https://example.com").blue().underlined(),
+                Span::from(")")
             ]))
         );
     }
