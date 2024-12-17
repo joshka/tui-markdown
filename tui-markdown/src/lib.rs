@@ -95,6 +95,9 @@ struct TextWriter<'a, I> {
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
 
+    /// Whether a link should be appended
+    will_append_link: Option<Span<'a>>,
+
     needs_newline: bool,
 }
 
@@ -118,6 +121,7 @@ where
             needs_newline: false,
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
+            will_append_link: None,
         }
     }
 
@@ -164,7 +168,7 @@ where
             Tag::Emphasis => self.push_inline_style(Style::new().italic()),
             Tag::Strong => self.push_inline_style(Style::new().bold()),
             Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
-            Tag::Link { .. } => warn!("Link not yet supported"),
+            Tag::Link { dest_url, .. } => self.will_append_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
             Tag::MetadataBlock(_) => warn!("Metadata block not yet supported"),
             Tag::DefinitionList => warn!("Definition list not yet supported"),
@@ -190,7 +194,12 @@ where
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
             TagEnd::Strikethrough => self.pop_inline_style(),
-            TagEnd::Link => {}
+            TagEnd::Link => {
+                // Append the link to the previous span (the title)
+                if let Some(span) = self.will_append_link.take() {
+                    self.push_span(span);
+                }
+            }
             TagEnd::Image => {}
             TagEnd::MetadataBlock(_) => {}
             TagEnd::DefinitionList => {}
@@ -412,6 +421,12 @@ where
         } else {
             self.push_line(Line::from(vec![span]));
         }
+    }
+
+    #[instrument(level = "trace", skip(self))]
+    fn will_append_link(&mut self, dest_url: CowStr<'a>) {
+        let span = Span::from(format!(" ({})", dest_url));
+        self.will_append_link = Some(span);
     }
 }
 
@@ -760,6 +775,17 @@ mod tests {
             Text::from(Line::from_iter([
                 "Strong ".bold(),
                 "emphasis".bold().italic()
+            ]))
+        );
+    }
+
+    #[rstest]
+    fn link(with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("[Link](https://example.com)"),
+            Text::from(Line::from_iter([
+                Span::from("Link"),
+                Span::from(" (https://example.com)")
             ]))
         );
     }
