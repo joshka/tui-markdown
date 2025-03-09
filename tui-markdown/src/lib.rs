@@ -168,6 +168,8 @@ where
             Tag::Emphasis => self.push_inline_style(Style::new().italic()),
             Tag::Strong => self.push_inline_style(Style::new().bold()),
             Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
+            Tag::Subscript => warn!("Subscript not yet supported"),
+            Tag::Superscript => warn!("Superscript not yet supported"),
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
             Tag::MetadataBlock(_) => warn!("Metadata block not yet supported"),
@@ -194,6 +196,8 @@ where
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
             TagEnd::Strikethrough => self.pop_inline_style(),
+            TagEnd::Subscript => {}
+            TagEnd::Superscript => {}
             TagEnd::Link => self.pop_link(),
             TagEnd::Image => {}
             TagEnd::MetadataBlock(_) => {}
