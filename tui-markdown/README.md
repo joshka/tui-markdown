@@ -28,7 +28,7 @@ text.render(area, &mut buf);
 
 ## Status
 
-Initial implementation - this is very much WIP (see lib.rs `todo!()`s)
+This is working code, but not every markdown feature is supported. PRs welcome!
 
 - [x] Headings
 - [ ] Heading attributes / classes / anchors
@@ -50,6 +50,8 @@ Initial implementation - this is very much WIP (see lib.rs `todo!()`s)
 - [ ] Links
 - [ ] Images
 - [ ] Metadata blocks
+- [ ] Superscript
+- [ ] Subscript
 
 ## License
 
