@@ -21,7 +21,7 @@ ratatui = { workspace = true, default-features = true, features = ["unstable-wid
 tracing = "0.1.41"
 tracing-error = "0.2.1"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-time = { version = "0.3.37", features = ["formatting", "macros"] }
+time = { version = "0.3.39", features = ["formatting", "macros"] }
 tui-markdown.workspace = true
 
 [[bin]]
