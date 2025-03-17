@@ -659,7 +659,7 @@ dependencies = [
 
 [[package]]
 name = "markdown-reader"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
  "clap",
  "color-eyre",
