@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.4](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.3...tui-markdown-v0.3.4) - 2025-05-07
+
+### Other
+
+- remove unnecessary allowed lints ([#82](https://github.com/joshka/tui-markdown/pull/82))
+- add rustfmt and reformat code ([#81](https://github.com/joshka/tui-markdown/pull/81))
+
 ## [0.3.3](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.2...tui-markdown-v0.3.3) - 2025-03-11
 
 ### Other
