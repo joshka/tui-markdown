@@ -29,14 +29,6 @@
 //! frame.render_widget(text, frame.area());
 //! # }
 //! ~~~
-#![allow(
-    unused,
-    dead_code,
-    unused_variables,
-    unused_imports,
-    unused_mut,
-    unused_assignments
-)]
 
 use std::sync::LazyLock;
 use std::vec;
@@ -48,7 +40,6 @@ use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
 use ratatui::style::{Style, Stylize};
-use ratatui::symbols::line;
 use ratatui::text::{Line, Span, Text};
 #[cfg(feature = "highlight-code")]
 use syntect::{
@@ -57,7 +48,7 @@ use syntect::{
     parsing::SyntaxSet,
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
-use tracing::{debug, debug_span, info, info_span, instrument, span, warn};
+use tracing::{debug, instrument, warn};
 
 pub fn from_str(input: &str) -> Text {
     let mut options = Options::empty();
@@ -137,8 +128,8 @@ where
             Event::End(tag) => self.end_tag(tag),
             Event::Text(text) => self.text(text),
             Event::Code(code) => self.code(code),
-            Event::Html(html) => warn!("Html not yet supported"),
-            Event::InlineHtml(html) => warn!("Inline html not yet supported"),
+            Event::Html(_html) => warn!("Html not yet supported"),
+            Event::InlineHtml(_html) => warn!("Inline html not yet supported"),
             Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
             Event::SoftBreak => self.soft_break(),
             Event::HardBreak => self.hard_break(),
@@ -184,7 +175,7 @@ where
             TagEnd::BlockQuote(_) => self.end_blockquote(),
             TagEnd::CodeBlock => self.end_codeblock(),
             TagEnd::HtmlBlock => {}
-            TagEnd::List(is_ordered) => self.end_list(),
+            TagEnd::List(_is_ordered) => self.end_list(),
             TagEnd::Item => {}
             TagEnd::FootnoteDefinition => {}
             TagEnd::Table => {}
@@ -239,13 +230,13 @@ where
         self.needs_newline = true
     }
 
-    fn start_blockquote(&mut self, kind: Option<BlockQuoteKind>) {
+    fn start_blockquote(&mut self, _kind: Option<BlockQuoteKind>) {
         if self.needs_newline {
             self.push_line(Line::default());
             self.needs_newline = false;
         }
         self.line_prefixes.push(Span::from(">"));
-        self.line_styles.push(Style::new().green());
+        self.line_styles.push(styles::BLOCKQUOTE);
     }
 
     fn end_blockquote(&mut self) {
@@ -438,7 +429,7 @@ where
 }
 
 mod styles {
-    use ratatui::style::{Color, Modifier, Style, Stylize};
+    use ratatui::style::{Color, Modifier, Style};
 
     pub const H1: Style = Style::new()
         .bg(Color::Cyan)
@@ -489,17 +480,17 @@ mod tests {
     }
 
     #[rstest]
-    fn empty(with_tracing: DefaultGuard) {
+    fn empty(_with_tracing: DefaultGuard) {
         assert_eq!(from_str(""), Text::default());
     }
 
     #[rstest]
-    fn paragraph_single(with_tracing: DefaultGuard) {
+    fn paragraph_single(_with_tracing: DefaultGuard) {
         assert_eq!(from_str("Hello, world!"), Text::from("Hello, world!"));
     }
 
     #[rstest]
-    fn paragraph_soft_break(with_tracing: DefaultGuard) {
+    fn paragraph_soft_break(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 Hello
@@ -510,7 +501,7 @@ mod tests {
     }
 
     #[rstest]
-    fn paragraph_multiple(with_tracing: DefaultGuard) {
+    fn paragraph_multiple(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 Paragraph 1
@@ -522,7 +513,7 @@ mod tests {
     }
 
     #[rstest]
-    fn headings(with_tracing: DefaultGuard) {
+    fn headings(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 # Heading 1
@@ -551,7 +542,7 @@ mod tests {
     /// I was having difficulty getting the right number of newlines between paragraphs, so this
     /// test is to help debug and ensure that.
     #[rstest]
-    fn blockquote_after_paragraph(with_tracing: DefaultGuard) {
+    fn blockquote_after_paragraph(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 Hello, world!
@@ -566,7 +557,7 @@ mod tests {
         );
     }
     #[rstest]
-    fn blockquote_single(with_tracing: DefaultGuard) {
+    fn blockquote_single(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str("> Blockquote"),
             Text::from(Line::from_iter([">", " ", "Blockquote"]).style(styles::BLOCKQUOTE))
@@ -574,7 +565,7 @@ mod tests {
     }
 
     #[rstest]
-    fn blockquote_soft_break(with_tracing: DefaultGuard) {
+    fn blockquote_soft_break(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 > Blockquote 1
@@ -588,7 +579,7 @@ mod tests {
     }
 
     #[rstest]
-    fn blockquote_multiple(with_tracing: DefaultGuard) {
+    fn blockquote_multiple(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 > Blockquote 1
@@ -604,7 +595,7 @@ mod tests {
     }
 
     #[rstest]
-    fn blockquote_multiple_with_break(with_tracing: DefaultGuard) {
+    fn blockquote_multiple_with_break(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 > Blockquote 1
@@ -620,7 +611,7 @@ mod tests {
     }
 
     #[rstest]
-    fn blockquote_nested(with_tracing: DefaultGuard) {
+    fn blockquote_nested(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 > Blockquote 1
@@ -635,7 +626,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_single(with_tracing: DefaultGuard) {
+    fn list_single(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 - List item 1
@@ -645,7 +636,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_multiple(with_tracing: DefaultGuard) {
+    fn list_multiple(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 - List item 1
@@ -659,7 +650,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_ordered(with_tracing: DefaultGuard) {
+    fn list_ordered(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 1. List item 1
@@ -673,7 +664,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_nested(with_tracing: DefaultGuard) {
+    fn list_nested(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
                 - List item 1
@@ -688,7 +679,7 @@ mod tests {
 
     #[cfg_attr(not(feature = "highlight-code"), ignore)]
     #[rstest]
-    fn highlighted_code(with_tracing: DefaultGuard) {
+    fn highlighted_code(_with_tracing: DefaultGuard) {
         // Assert no extra newlines are added
         let highlighted_code = from_str(indoc! {"
             ```rust
@@ -703,7 +694,7 @@ mod tests {
 
     #[cfg_attr(not(feature = "highlight-code"), ignore)]
     #[rstest]
-    fn highlighted_code_with_indentation(with_tracing: DefaultGuard) {
+    fn highlighted_code_with_indentation(_with_tracing: DefaultGuard) {
         // Assert no extra newlines are added
         let highlighted_code_indented = from_str(indoc! {"
             ```rust
@@ -723,7 +714,7 @@ mod tests {
 
     #[cfg_attr(feature = "highlight-code", ignore)]
     #[rstest]
-    fn unhighlighted_code(with_tracing: DefaultGuard) {
+    fn unhighlighted_code(_with_tracing: DefaultGuard) {
         // Assert no extra newlines are added
         let unhiglighted_code = from_str(indoc! {"
             ```rust
@@ -739,7 +730,7 @@ mod tests {
     }
 
     #[rstest]
-    fn inline_code(with_tracing: DefaultGuard) {
+    fn inline_code(_with_tracing: DefaultGuard) {
         let text = from_str("Example of `Inline code`");
         insta::assert_snapshot!(text);
 
@@ -754,7 +745,7 @@ mod tests {
     }
 
     #[rstest]
-    fn strong(with_tracing: DefaultGuard) {
+    fn strong(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str("**Strong**"),
             Text::from(Line::from("Strong".bold()))
@@ -762,7 +753,7 @@ mod tests {
     }
 
     #[rstest]
-    fn emphasis(with_tracing: DefaultGuard) {
+    fn emphasis(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str("*Emphasis*"),
             Text::from(Line::from("Emphasis".italic()))
@@ -770,7 +761,7 @@ mod tests {
     }
 
     #[rstest]
-    fn strikethrough(with_tracing: DefaultGuard) {
+    fn strikethrough(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str("~~Strikethrough~~"),
             Text::from(Line::from("Strikethrough".crossed_out()))
@@ -778,7 +769,7 @@ mod tests {
     }
 
     #[rstest]
-    fn strong_emphasis(with_tracing: DefaultGuard) {
+    fn strong_emphasis(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str("**Strong *emphasis***"),
             Text::from(Line::from_iter([
@@ -789,7 +780,7 @@ mod tests {
     }
 
     #[rstest]
-    fn link(with_tracing: DefaultGuard) {
+    fn link(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str("[Link](https://example.com)"),
             Text::from(Line::from_iter([
