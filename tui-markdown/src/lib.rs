@@ -3,7 +3,6 @@
 //! This module provides a simple markdown renderer widget for Ratatui. It uses the `pulldown-cmark`
 //! crate to parse markdown and convert it to a `Text` widget. The `Text` widget can then be
 //! rendered to the terminal using the 'Ratatui' library.
-//!
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example
@@ -39,7 +38,8 @@
     unused_assignments
 )]
 
-use std::{sync::LazyLock, vec};
+use std::sync::LazyLock;
+use std::vec;
 
 #[cfg(feature = "highlight-code")]
 use ansi_to_tui::IntoText;
@@ -47,11 +47,9 @@ use itertools::{Itertools, Position};
 use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
-use ratatui::{
-    style::{Style, Stylize},
-    symbols::line,
-    text::{Line, Span, Text},
-};
+use ratatui::style::{Style, Stylize};
+use ratatui::symbols::line;
+use ratatui::text::{Line, Span, Text};
 #[cfg(feature = "highlight-code")]
 use syntect::{
     easy::HighlightLines,
@@ -472,11 +470,10 @@ mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
-    use tracing::{
-        level_filters::LevelFilter,
-        subscriber::{self, DefaultGuard},
-    };
-    use tracing_subscriber::fmt::{format::FmtSpan, time::Uptime};
+    use tracing::level_filters::LevelFilter;
+    use tracing::subscriber::{self, DefaultGuard};
+    use tracing_subscriber::fmt::format::FmtSpan;
+    use tracing_subscriber::fmt::time::Uptime;
 
     use super::*;
 

@@ -1,10 +1,9 @@
-use std::{
-    sync::mpsc::{channel, Receiver, Sender},
-    thread,
-    time::Duration,
-};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
+use std::time::Duration;
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::eyre::Context;
+use color_eyre::Result;
 use ratatui::crossterm::event;
 
 pub type CrosstermEvent = ratatui::crossterm::event::Event;

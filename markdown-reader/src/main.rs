@@ -1,20 +1,16 @@
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-    path::{Path, PathBuf},
-};
+use std::fs::File;
+use std::io::{BufReader, Read};
+use std::path::{Path, PathBuf};
 
-use clap::{
-    builder::{styling::AnsiColor, Styles},
-    Parser,
-};
-use color_eyre::{
-    eyre::{eyre, Ok, WrapErr},
-    Result,
-};
+use clap::builder::styling::AnsiColor;
+use clap::builder::Styles;
+use clap::Parser;
+use color_eyre::eyre::{eyre, Ok, WrapErr};
+use color_eyre::Result;
 use tracing::{debug, info, Level};
 
-use crate::{app::App, events::Events};
+use crate::app::App;
+use crate::events::Events;
 
 mod app;
 mod events;

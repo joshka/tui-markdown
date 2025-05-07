@@ -2,22 +2,18 @@ use std::path::Path;
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::{
-    buffer::Buffer,
-    layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier},
-    text::{Line, Span, Text},
-    widgets::{
-        ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
-        StatefulWidgetRef, Widget, Wrap,
-    },
-    DefaultTerminal,
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Color, Modifier};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{
+    ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
+    StatefulWidgetRef, Widget, Wrap,
 };
+use ratatui::DefaultTerminal;
 
-use crate::{
-    events::{CrosstermEvent, Event, Events},
-    logging::LogEvents,
-};
+use crate::events::{CrosstermEvent, Event, Events};
+use crate::logging::LogEvents;
 
 #[derive(Debug)]
 pub struct App<'a> {
