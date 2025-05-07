@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use ratatui::crossterm::event;
+use crossterm::event;
 
-pub type CrosstermEvent = ratatui::crossterm::event::Event;
+pub type CrosstermEvent = crossterm::event::Event;
 
 pub enum Event {
     Crossterm(CrosstermEvent),
