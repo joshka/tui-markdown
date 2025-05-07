@@ -1,26 +1,23 @@
-use std::{
-    fmt, iter,
-    sync::{Arc, RwLock},
-    vec,
-};
+use std::sync::{Arc, RwLock};
+use std::{fmt, iter, vec};
 
 use color_eyre::Result;
 use itertools::Itertools;
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, StatefulWidget, StatefulWidgetRef},
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Modifier, Style, Stylize};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{
+    Block, Borders, List, ListItem, ListState, StatefulWidget, StatefulWidgetRef,
 };
-
-use time::{macros::format_description, OffsetDateTime};
-use tracing::{
-    field::{Field, Visit},
-    Event, Level, Subscriber,
-};
+use time::macros::format_description;
+use time::OffsetDateTime;
+use tracing::field::{Field, Visit};
+use tracing::{Event, Level, Subscriber};
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{layer::Context, prelude::*, EnvFilter, Layer};
+use tracing_subscriber::layer::Context;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{EnvFilter, Layer};
 
 /// A logging layer that collects log messages
 #[derive(Debug, Default)]
@@ -116,7 +113,8 @@ impl StatefulWidgetRef for LogEvents {
 }
 
 impl<'a> From<&'a LogEvent> for ListItem<'a> {
-    /// Convert a log message into a list item with the timestamp, log level, target, message, and fields
+    /// Convert a log message into a list item with the timestamp, log level, target, message, and
+    /// fields
     ///
     /// ```plain
     /// 02:32:25 [DEBUG] counter_app_events::events handling event
