@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.5](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.4...tui-markdown-v0.3.5) - 2025-05-07
+
+### Other
+
+- *(deps)* bump the cargo-dependencies group across 1 directory with 5 updates ([#79](https://github.com/joshka/tui-markdown/pull/79))
+
 ## [0.3.4](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.3...tui-markdown-v0.3.4) - 2025-05-07
 
 ### Other

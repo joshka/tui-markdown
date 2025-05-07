@@ -699,7 +699,7 @@ dependencies = [
 
 [[package]]
 name = "markdown-reader"
-version = "0.1.24"
+version = "0.1.25"
 dependencies = [
  "clap",
  "color-eyre",
@@ -1467,7 +1467,7 @@ dependencies = [
 
 [[package]]
 name = "tui-markdown"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "ansi-to-tui",
  "document-features",
