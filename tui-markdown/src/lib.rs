@@ -35,17 +35,25 @@
     unused_variables,
     unused_imports,
     unused_mut,
-    unused_assignments
+    unused_assignments,
 )]
 
 use std::sync::LazyLock;
 use std::vec;
 
+// Public-facing theming and configuration APIs --------------------------------
+mod style_sheet;
+pub use style_sheet::{BuiltinStyleSheet, DefaultStyleSheet, StyleSheet};
+
+mod options;
+pub use options::Options;
+
 #[cfg(feature = "highlight-code")]
 use ansi_to_tui::IntoText;
 use itertools::{Itertools, Position};
 use pulldown_cmark::{
-    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
+    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options as ParseOptions, Parser,
+    Tag, TagEnd,
 };
 use ratatui::style::{Style, Stylize};
 use ratatui::symbols::line;
@@ -60,15 +68,31 @@ use syntect::{
 use tracing::{debug, debug_span, info, info_span, instrument, span, warn};
 
 pub fn from_str(input: &str) -> Text {
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    let parser = Parser::new_ext(input, options);
-    let mut writer = TextWriter::new(parser);
+    from_str_with_options(input, &crate::Options::default())
+}
+
+/// Render Markdown `input` into a [`ratatui::text::Text`] using the supplied
+/// [`Options`].
+pub fn from_str_with_options<'a, S>(
+    input: &'a str,
+    opts: &crate::Options<S>,
+) -> Text<'a>
+where
+    S: crate::StyleSheet,
+{
+    let mut parse_opts = ParseOptions::empty();
+    parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
+    let parser = Parser::new_ext(input, parse_opts);
+
+    let mut writer = TextWriter::new(parser, opts.styles.clone());
     writer.run();
     writer.text
 }
 
-struct TextWriter<'a, I> {
+struct TextWriter<'a, I, S>
+where
+    S: crate::StyleSheet,
+{
     /// Iterator supplying events.
     iter: I,
 
@@ -96,6 +120,9 @@ struct TextWriter<'a, I> {
     /// A link which will be appended to the current line when the link tag is closed.
     link: Option<CowStr<'a>>,
 
+    /// The [`StyleSheet`] in use for this render pass.
+    styles: S,
+
     needs_newline: bool,
 }
 
@@ -104,11 +131,12 @@ static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_
 #[cfg(feature = "highlight-code")]
 static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
-impl<'a, I> TextWriter<'a, I>
+impl<'a, I, S> TextWriter<'a, I, S>
 where
     I: Iterator<Item = Event<'a>>,
+    S: crate::StyleSheet,
 {
-    fn new(iter: I) -> Self {
+    fn new(iter: I, styles: S) -> Self {
         Self {
             iter,
             text: Text::default(),
@@ -120,6 +148,7 @@ where
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
             link: None,
+            styles,
         }
     }
 
@@ -222,14 +251,15 @@ where
         if self.needs_newline {
             self.push_line(Line::default());
         }
-        let style = match level {
-            HeadingLevel::H1 => styles::H1,
-            HeadingLevel::H2 => styles::H2,
-            HeadingLevel::H3 => styles::H3,
-            HeadingLevel::H4 => styles::H4,
-            HeadingLevel::H5 => styles::H5,
-            HeadingLevel::H6 => styles::H6,
+        let numeric_level: u8 = match level {
+            HeadingLevel::H1 => 1,
+            HeadingLevel::H2 => 2,
+            HeadingLevel::H3 => 3,
+            HeadingLevel::H4 => 4,
+            HeadingLevel::H5 => 5,
+            HeadingLevel::H6 => 6,
         };
+        let style = self.styles.heading(numeric_level);
         let content = format!("{} ", "#".repeat(level as usize));
         self.push_line(Line::styled(content, style));
         self.needs_newline = false;
@@ -245,7 +275,7 @@ where
             self.needs_newline = false;
         }
         self.line_prefixes.push(Span::from(">"));
-        self.line_styles.push(Style::new().green());
+        self.line_styles.push(self.styles.blockquote());
     }
 
     fn end_blockquote(&mut self) {
@@ -289,7 +319,7 @@ where
     }
 
     fn code(&mut self, code: CowStr<'a>) {
-        let span = Span::styled(code, styles::CODE);
+        let span = Span::styled(code, self.styles.code());
         self.push_span(span);
     }
 
@@ -339,7 +369,7 @@ where
         };
 
         #[cfg(not(feature = "highlight-code"))]
-        self.line_styles.push(styles::CODE);
+        self.line_styles.push(self.styles.code());
 
         #[cfg(feature = "highlight-code")]
         self.set_code_highlighter(lang);
@@ -431,7 +461,7 @@ where
     fn pop_link(&mut self) {
         if let Some(link) = self.link.take() {
             self.push_span(" (".into());
-            self.push_span(Span::styled(link, styles::LINK));
+            self.push_span(Span::styled(link, self.styles.link()));
             self.push_span(")".into());
         }
     }
