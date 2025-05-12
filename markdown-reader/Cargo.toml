@@ -13,7 +13,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-clap = { version = "4.5.37", features = ["derive"] }
+clap = { version = "4.5.38", features = ["derive"] }
 color-eyre = "0.6.4"
 crossterm = "0.29.0"
 itertools = "0.14.0"
