@@ -72,13 +72,10 @@ pub fn from_str(input: &str) -> Text<'_> {
 /// # Example
 ///
 /// ```
-/// use tui_markdown::{from_str_with_options, Options, DefaultStyleSheet};
+/// use tui_markdown::{from_str_with_options, DefaultStyleSheet, Options};
 ///
 /// let input = "This is a **bold** text.";
-/// let options = Options {
-///     styles: DefaultStyleSheet,
-///     ..Default::default()
-/// };
+/// let options = Options::default();
 /// let text = from_str_with_options(input, &options);
 /// ```
 pub fn from_str_with_options<'a, S>(input: &'a str, options: &Options<S>) -> Text<'a>
