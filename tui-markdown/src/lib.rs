@@ -33,13 +33,6 @@
 use std::sync::LazyLock;
 use std::vec;
 
-// Public-facing theming and configuration APIs --------------------------------
-mod style_sheet;
-pub use style_sheet::{BuiltinStyleSheet, DefaultStyleSheet, StyleSheet};
-
-mod options;
-pub use options::Options;
-
 #[cfg(feature = "highlight-code")]
 use ansi_to_tui::IntoText;
 use itertools::{Itertools, Position};
@@ -58,14 +51,22 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
+pub use crate::{
+    options::Options,
+    style_sheet::{BuiltinStyleSheet, DefaultStyleSheet, StyleSheet},
+};
+
+mod options;
+mod style_sheet;
+
 pub fn from_str(input: &str) -> Text<'_> {
-    from_str_with_options(input, &crate::Options::default())
+    from_str_with_options(input, &Options::default())
 }
 
 /// Render Markdown `input` into a [`ratatui::text::Text`] using the supplied [`Options`].
-pub fn from_str_with_options<'a, S>(input: &'a str, opts: &crate::Options<S>) -> Text<'a>
+pub fn from_str_with_options<'a, S>(input: &'a str, opts: &Options<S>) -> Text<'a>
 where
-    S: crate::StyleSheet,
+    S: StyleSheet,
 {
     let mut parse_opts = ParseOptions::empty();
     parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
@@ -77,10 +78,7 @@ where
     writer.text
 }
 
-struct TextWriter<'a, I, S>
-where
-    S: crate::StyleSheet,
-{
+struct TextWriter<'a, I, S: StyleSheet> {
     /// Iterator supplying events.
     iter: I,
 
@@ -108,7 +106,7 @@ where
     /// A link which will be appended to the current line when the link tag is closed.
     link: Option<CowStr<'a>>,
 
-    /// The [`StyleSheet`] in use for this render pass.
+    /// The [`StyleSheet`] to use to style the output.
     styles: S,
 
     needs_newline: bool,
@@ -122,7 +120,7 @@ static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 impl<'a, I, S> TextWriter<'a, I, S>
 where
     I: Iterator<Item = Event<'a>>,
-    S: crate::StyleSheet,
+    S: StyleSheet,
 {
     fn new(iter: I, styles: S) -> Self {
         Self {
@@ -154,8 +152,8 @@ where
             Event::End(tag) => self.end_tag(tag),
             Event::Text(text) => self.text(text),
             Event::Code(code) => self.code(code),
-            Event::Html(_html) => warn!("Html not yet supported"),
-            Event::InlineHtml(_html) => warn!("Inline html not yet supported"),
+            Event::Html(_) => warn!("Html not yet supported"),
+            Event::InlineHtml(_) => warn!("Inline html not yet supported"),
             Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
             Event::SoftBreak => self.soft_break(),
             Event::HardBreak => self.hard_break(),
@@ -239,15 +237,7 @@ where
         if self.needs_newline {
             self.push_line(Line::default());
         }
-        let numeric_level: u8 = match level {
-            HeadingLevel::H1 => 1,
-            HeadingLevel::H2 => 2,
-            HeadingLevel::H3 => 3,
-            HeadingLevel::H4 => 4,
-            HeadingLevel::H5 => 5,
-            HeadingLevel::H6 => 6,
-        };
-        let style = self.styles.heading(numeric_level);
+        let style = self.styles.heading(level as u8);
         let content = format!("{} ", "#".repeat(level as usize));
         self.push_line(Line::styled(content, style));
         self.needs_newline = false;
@@ -503,7 +493,6 @@ mod styles {
         .fg(Color::Blue)
         .add_modifier(Modifier::UNDERLINED);
 }
-
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
@@ -562,6 +551,13 @@ mod tests {
 
     #[rstest]
     fn headings(_with_tracing: DefaultGuard) {
+        let h1 = Style::new().on_cyan().bold().underlined();
+        let h2 = Style::new().cyan().bold();
+        let h3 = Style::new().cyan().bold().italic();
+        let h4 = Style::new().light_cyan().italic();
+        let h5 = Style::new().light_cyan().italic();
+        let h6 = Style::new().light_cyan().italic();
+
         assert_eq!(
             from_str(indoc! {"
                 # Heading 1
@@ -572,105 +568,113 @@ mod tests {
                 ###### Heading 6
             "}),
             Text::from_iter([
-                Line::from_iter(["# ", "Heading 1"]).style(styles::H1),
+                Line::from_iter(["# ", "Heading 1"]).style(h1),
                 Line::default(),
-                Line::from_iter(["## ", "Heading 2"]).style(styles::H2),
+                Line::from_iter(["## ", "Heading 2"]).style(h2),
                 Line::default(),
-                Line::from_iter(["### ", "Heading 3"]).style(styles::H3),
+                Line::from_iter(["### ", "Heading 3"]).style(h3),
                 Line::default(),
-                Line::from_iter(["#### ", "Heading 4"]).style(styles::H4),
+                Line::from_iter(["#### ", "Heading 4"]).style(h4),
                 Line::default(),
-                Line::from_iter(["##### ", "Heading 5"]).style(styles::H5),
+                Line::from_iter(["##### ", "Heading 5"]).style(h5),
                 Line::default(),
-                Line::from_iter(["###### ", "Heading 6"]).style(styles::H6),
+                Line::from_iter(["###### ", "Heading 6"]).style(h6),
             ])
         );
     }
 
-    /// I was having difficulty getting the right number of newlines between paragraphs, so this
-    /// test is to help debug and ensure that.
-    #[rstest]
-    fn blockquote_after_paragraph(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+    mod blockquote {
+        use super::*;
+        use pretty_assertions::assert_eq;
+        use ratatui::style::Color;
+
+        pub const STYLE: Style = Style::new().fg(Color::Green);
+
+        /// I was having difficulty getting the right number of newlines between paragraphs, so this
+        /// test is to help debug and ensure that.
+        #[rstest]
+        fn after_paragraph(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str(indoc! {"
                 Hello, world!
 
                 > Blockquote
             "}),
-            Text::from_iter([
-                Line::from("Hello, world!"),
-                Line::default(),
-                Line::from_iter([">", " ", "Blockquote"]).style(styles::BLOCKQUOTE),
-            ])
-        );
-    }
-    #[rstest]
-    fn blockquote_single(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("> Blockquote"),
-            Text::from(Line::from_iter([">", " ", "Blockquote"]).style(styles::BLOCKQUOTE))
-        );
-    }
+                Text::from_iter([
+                    Line::from("Hello, world!"),
+                    Line::default(),
+                    Line::from_iter([">", " ", "Blockquote"]).style(STYLE),
+                ])
+            );
+        }
+        #[rstest]
+        fn single(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("> Blockquote"),
+                Text::from(Line::from_iter([">", " ", "Blockquote"]).style(STYLE))
+            );
+        }
 
-    #[rstest]
-    fn blockquote_soft_break(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        #[rstest]
+        fn soft_break(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str(indoc! {"
                 > Blockquote 1
                 > Blockquote 2
             "}),
-            Text::from_iter([
-                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
-                Line::from_iter([">", " ", "Blockquote 2"]).style(styles::BLOCKQUOTE),
-            ])
-        );
-    }
+                Text::from_iter([
+                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
+                    Line::from_iter([">", " ", "Blockquote 2"]).style(STYLE),
+                ])
+            );
+        }
 
-    #[rstest]
-    fn blockquote_multiple(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        #[rstest]
+        fn multiple(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str(indoc! {"
                 > Blockquote 1
                 >
                 > Blockquote 2
             "}),
-            Text::from_iter([
-                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
-                Line::from_iter([">", " "]).style(styles::BLOCKQUOTE),
-                Line::from_iter([">", " ", "Blockquote 2"]).style(styles::BLOCKQUOTE),
-            ])
-        );
-    }
+                Text::from_iter([
+                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
+                    Line::from_iter([">", " "]).style(STYLE),
+                    Line::from_iter([">", " ", "Blockquote 2"]).style(STYLE),
+                ])
+            );
+        }
 
-    #[rstest]
-    fn blockquote_multiple_with_break(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        #[rstest]
+        fn multiple_with_break(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str(indoc! {"
                 > Blockquote 1
 
                 > Blockquote 2
             "}),
-            Text::from_iter([
-                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
-                Line::default(),
-                Line::from_iter([">", " ", "Blockquote 2"]).style(styles::BLOCKQUOTE),
-            ])
-        );
-    }
+                Text::from_iter([
+                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
+                    Line::default(),
+                    Line::from_iter([">", " ", "Blockquote 2"]).style(STYLE),
+                ])
+            );
+        }
 
-    #[rstest]
-    fn blockquote_nested(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        #[rstest]
+        fn nested(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str(indoc! {"
                 > Blockquote 1
                 >> Nested Blockquote
             "}),
-            Text::from_iter([
-                Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
-                Line::from_iter([">", " "]).style(styles::BLOCKQUOTE),
-                Line::from_iter([">", ">", " ", "Nested Blockquote"]).style(styles::BLOCKQUOTE),
-            ])
-        );
+                Text::from_iter([
+                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
+                    Line::from_iter([">", " "]).style(STYLE),
+                    Line::from_iter([">", ">", " ", "Nested Blockquote"]).style(STYLE),
+                ])
+            );
+        }
     }
 
     #[rstest]
@@ -814,7 +818,7 @@ mod tests {
             text,
             Line::from_iter([
                 Span::from("Example of "),
-                Span::styled("Inline code", styles::CODE)
+                Span::styled("Inline code", Style::new().white().on_black())
             ])
             .into()
         );
