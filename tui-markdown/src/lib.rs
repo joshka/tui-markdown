@@ -52,17 +52,36 @@ use syntect::{
 use tracing::{debug, instrument, warn};
 
 pub use crate::options::Options;
-pub use crate::style_sheet::{BuiltinStyleSheet, DefaultStyleSheet, StyleSheet};
+pub use crate::style_sheet::{DefaultStyleSheet, StyleSheet};
 
 mod options;
 mod style_sheet;
 
+/// Render Markdown `input` into a [`ratatui::text::Text`] using the default [`Options`].
+///
+/// This is a convenience function that uses the default options, which are defined in
+/// [`Options::default`]. It is suitable for most use cases where you want to render Markdown
 pub fn from_str(input: &str) -> Text<'_> {
     from_str_with_options(input, &Options::default())
 }
 
 /// Render Markdown `input` into a [`ratatui::text::Text`] using the supplied [`Options`].
-pub fn from_str_with_options<'a, S>(input: &'a str, opts: &Options<S>) -> Text<'a>
+///
+/// This allows you to customize the styles and other rendering options.
+///
+/// # Example
+///
+/// ```
+/// use tui_markdown::{from_str_with_options, Options, DefaultStyleSheet};
+///
+/// let input = "This is a **bold** text.";
+/// let options = Options {
+///     styles: DefaultStyleSheet,
+///     ..Default::default()
+/// };
+/// let text = from_str_with_options(input, &options);
+/// ```
+pub fn from_str_with_options<'a, S>(input: &'a str, options: &Options<S>) -> Text<'a>
 where
     S: StyleSheet,
 {
@@ -71,7 +90,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
     let parser = Parser::new_ext(input, parse_opts);
 
-    let mut writer = TextWriter::new(parser, opts.styles.clone());
+    let mut writer = TextWriter::new(parser, options.styles.clone());
     writer.run();
     writer.text
 }
