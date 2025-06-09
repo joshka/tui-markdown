@@ -51,10 +51,8 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
-pub use crate::{
-    options::Options,
-    style_sheet::{BuiltinStyleSheet, DefaultStyleSheet, StyleSheet},
-};
+pub use crate::options::Options;
+pub use crate::style_sheet::{BuiltinStyleSheet, DefaultStyleSheet, StyleSheet};
 
 mod options;
 mod style_sheet;
@@ -584,11 +582,12 @@ mod tests {
     }
 
     mod blockquote {
-        use super::*;
         use pretty_assertions::assert_eq;
         use ratatui::style::Color;
 
-        pub const STYLE: Style = Style::new().fg(Color::Green);
+        use super::*;
+
+        const STYLE: Style = Style::new().fg(Color::Green);
 
         /// I was having difficulty getting the right number of newlines between paragraphs, so this
         /// test is to help debug and ensure that.
