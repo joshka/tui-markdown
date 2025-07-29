@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.26](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.25...markdown-reader-v0.1.26) - 2025-07-29
+
+### Other
+
+- *(deps)* bump the cargo-dependencies group across 1 directory with 2 updates ([#91](https://github.com/joshka/tui-markdown/pull/91))
+- *(deps)* bump the cargo-dependencies group across 1 directory with 2 updates ([#86](https://github.com/joshka/tui-markdown/pull/86))
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
 ## [unreleased]
 
 ## [0.1.25](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.24...markdown-reader-v0.1.25) - 2025-05-07
