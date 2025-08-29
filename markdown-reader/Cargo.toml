@@ -20,7 +20,7 @@ itertools = "0.14.0"
 ratatui = { workspace = true, default-features = true, features = ["unstable-widget-ref"] }
 tracing = "0.1.41"
 tracing-error = "0.2.1"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 time = { version = "0.3.41", features = ["formatting", "macros"] }
 tui-markdown.workspace = true
 
