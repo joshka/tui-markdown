@@ -13,7 +13,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-clap = { version = "4.5.47", features = ["derive"] }
+clap = { version = "4.5.50", features = ["derive"] }
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
 itertools = "0.14.0"
@@ -21,7 +21,7 @@ ratatui = { workspace = true, default-features = true, features = ["unstable-wid
 tracing = "0.1.41"
 tracing-error = "0.2.1"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-time = { version = "0.3.43", features = ["formatting", "macros"] }
+time = { version = "0.3.44", features = ["formatting", "macros"] }
 tui-markdown.workspace = true
 
 [[bin]]
