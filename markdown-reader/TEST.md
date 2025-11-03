@@ -70,3 +70,11 @@ fn rust_code() {
   println!("hello world");
 }
 ```
+
+- aaaa
+- aaaa
+
+**ddd**, ~xxx~
+
+- [ ] ddd
+- [x] ddd
