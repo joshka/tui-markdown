@@ -59,7 +59,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [ ] Tables
 - [ ] Linebreak handling
 - [ ] Rule
-- [ ] Tasklists
+- [x] Tasklists
 - [ ] Links
 - [ ] Images
 - [ ] Metadata blocks

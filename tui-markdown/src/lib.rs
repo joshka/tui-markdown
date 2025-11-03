@@ -50,9 +50,10 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
-pub fn from_str(input: &str) -> Text {
+pub fn from_str(input: &str) -> Text<'_> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_TASKLISTS);
     let parser = Parser::new_ext(input, options);
     let mut writer = TextWriter::new(parser);
     writer.run();
@@ -134,7 +135,7 @@ where
             Event::SoftBreak => self.soft_break(),
             Event::HardBreak => self.hard_break(),
             Event::Rule => warn!("Rule not yet supported"),
-            Event::TaskListMarker(_) => warn!("Task list marker not yet supported"),
+            Event::TaskListMarker(checked) => self.task_list_marker(checked),
             Event::InlineMath(_) => warn!("Inline math not yet supported"),
             Event::DisplayMath(_) => warn!("Display math not yet supported"),
         }
@@ -314,6 +315,27 @@ where
             self.push_span(span);
         }
         self.needs_newline = false;
+    }
+
+    fn task_list_marker(&mut self, checked: bool) {
+        let marker = if checked { 'x' } else { ' ' };
+        let marker_span = Span::from(format!("[{}] ", marker));
+        if let Some(line) = self.text.lines.last_mut() {
+            if let Some(first_span) = line.spans.first_mut() {
+                let content = first_span.content.to_mut();
+                if content.ends_with("- ") {
+                    let len = content.len();
+                    content.truncate(len - 2);
+                    content.push_str("- [");
+                    content.push(marker);
+                    content.push_str("] ");
+                    return;
+                }
+            }
+            line.spans.insert(1, marker_span);
+        } else {
+            self.push_span(marker_span);
+        }
     }
 
     fn soft_break(&mut self) {
@@ -673,6 +695,34 @@ mod tests {
             Text::from_iter([
                 Line::from_iter(["- ", "List item 1"]),
                 Line::from_iter(["    - ", "Nested list item 1"]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn list_task_items(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                - [ ] Incomplete
+                - [x] Complete
+            "}),
+            Text::from_iter([
+                Line::from_iter(["- [ ] ", "Incomplete"]),
+                Line::from_iter(["- [x] ", "Complete"]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn list_task_items_ordered(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                1. [ ] Incomplete
+                2. [x] Complete
+            "}),
+            Text::from_iter([
+                Line::from_iter(["1. ".light_blue(), "[ ] ".into(), "Incomplete".into(),]),
+                Line::from_iter(["2. ".light_blue(), "[x] ".into(), "Complete".into(),]),
             ])
         );
     }
