@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.6](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.5...tui-markdown-v0.3.6) - 2025-11-03
+
+### Added
+
+- Implement task list support ([#99](https://github.com/joshka/tui-markdown/pull/99))
+
+### Other
+
+- *(deps)* bump the cargo-dependencies group across 1 directory with 5 updates ([#97](https://github.com/joshka/tui-markdown/pull/97))
+- *(deps)* bump the cargo-dependencies group across 1 directory with 4 updates ([#94](https://github.com/joshka/tui-markdown/pull/94))
+- *(deps)* bump the cargo-dependencies group across 1 directory with 2 updates ([#91](https://github.com/joshka/tui-markdown/pull/91))
+
 ## [0.3.5](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.4...tui-markdown-v0.3.5) - 2025-05-07
 
 ### Other
