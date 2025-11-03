@@ -1,6 +1,6 @@
 # Contribution guidelines
 
-First off, thank you for considering contributing to tui-markdown / markdown-reader.
+First off, thank you for considering contributing to tui-markdown / markdown-reader. Before you dive in, skim the repository-wide [AGENTS.md](./AGENTS.md) for build, test, and style expectations.
 
 If your contribution is not straightforward, please first discuss the change you
 wish to make by creating a new issue before making the change.
