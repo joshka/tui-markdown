@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.27](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.26...markdown-reader-v0.1.27) - 2025-11-04
+
+### Other
+
+- *(deps)* bump clap from 4.5.50 to 4.5.51 in the cargo-dependencies group ([#102](https://github.com/joshka/tui-markdown/pull/102))
+- Add AGENTS.md ([#100](https://github.com/joshka/tui-markdown/pull/100))
+
 ## [0.1.26](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.25...markdown-reader-v0.1.26) - 2025-11-03
 
 ### Added
