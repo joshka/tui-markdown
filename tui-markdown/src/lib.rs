@@ -447,7 +447,7 @@ where
     }
 
     fn soft_break(&mut self) {
-        self.push_line(Line::default());
+        self.push_span(Span::raw(" "));
     }
 
     fn start_codeblock(&mut self, kind: CodeBlockKind<'_>) {
@@ -598,7 +598,11 @@ mod tests {
                 Hello
                 World
             "}),
-            Text::from_iter(["Hello", "World"])
+            Text::from(Line::from_iter([
+                Span::from("Hello"),
+                Span::from(" "),
+                Span::from("World"),
+            ]))
         );
     }
 
@@ -720,10 +724,9 @@ mod tests {
                 > Blockquote 1
                 > Blockquote 2
             "}),
-                Text::from_iter([
-                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
-                    Line::from_iter([">", " ", "Blockquote 2"]).style(STYLE),
-                ])
+                Text::from(
+                    Line::from_iter([">", " ", "Blockquote 1", " ", "Blockquote 2"]).style(STYLE)
+                )
             );
         }
 
