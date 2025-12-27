@@ -34,6 +34,9 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Style for heading attribute metadata appended to the heading text.
     fn heading_meta(&self) -> Style;
+
+    /// Style for metadata blocks (front matter).
+    fn metadata_block(&self) -> Style;
 }
 
 /// The default style set
@@ -48,6 +51,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - code: white on black
 /// - link: blue, underlined
 /// - blockquote: green
+/// - metadata block: light yellow
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 
@@ -78,5 +82,9 @@ impl StyleSheet for DefaultStyleSheet {
     fn heading_meta(&self) -> Style {
         // De-emphasize metadata so the heading text stays primary.
         Style::new().dim()
+    }
+
+    fn metadata_block(&self) -> Style {
+        Style::new().light_yellow()
     }
 }

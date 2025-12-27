@@ -86,6 +86,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
     parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
     parse_opts.insert(ParseOptions::ENABLE_HEADING_ATTRIBUTES);
+    parse_opts.insert(ParseOptions::ENABLE_YAML_STYLE_METADATA_BLOCKS);
     parse_opts.insert(ParseOptions::ENABLE_SUPERSCRIPT);
     parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
     let parser = Parser::new_ext(input, parse_opts);
@@ -175,6 +176,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Heading attributes to append after heading content.
     heading_meta: Option<HeadingMeta<'a>>,
 
+    /// Whether we are inside a metadata block.
+    in_metadata_block: bool,
+
     needs_newline: bool,
 }
 
@@ -202,6 +206,7 @@ where
             link: None,
             styles,
             heading_meta: None,
+            in_metadata_block: false,
         }
     }
 
@@ -257,7 +262,7 @@ where
             Tag::Superscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
-            Tag::MetadataBlock(_) => warn!("Metadata block not yet supported"),
+            Tag::MetadataBlock(_) => self.start_metadata_block(),
             Tag::DefinitionList => warn!("Definition list not yet supported"),
             Tag::DefinitionListTitle => warn!("Definition list title not yet supported"),
             Tag::DefinitionListDefinition => warn!("Definition list definition not yet supported"),
@@ -285,7 +290,7 @@ where
             TagEnd::Superscript => self.pop_inline_style(),
             TagEnd::Link => self.pop_link(),
             TagEnd::Image => {}
-            TagEnd::MetadataBlock(_) => {}
+            TagEnd::MetadataBlock(_) => self.end_metadata_block(),
             TagEnd::DefinitionList => {}
             TagEnd::DefinitionListTitle => {}
             TagEnd::DefinitionListDefinition => {}
@@ -391,6 +396,25 @@ where
         self.push_line(Line::default());
     }
 
+    fn start_metadata_block(&mut self) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.line_styles.push(self.styles.metadata_block());
+        self.push_line(Line::from("---"));
+        self.push_line(Line::default());
+        self.in_metadata_block = true;
+    }
+
+    fn end_metadata_block(&mut self) {
+        if self.in_metadata_block {
+            self.push_line(Line::from("---"));
+            self.line_styles.pop();
+            self.in_metadata_block = false;
+            self.needs_newline = true;
+        }
+    }
+
     fn rule(&mut self) {
         if self.needs_newline {
             self.push_line(Line::default());
@@ -449,7 +473,11 @@ where
     }
 
     fn soft_break(&mut self) {
-        self.push_span(Span::raw(" "));
+        if self.in_metadata_block {
+            self.hard_break();
+        } else {
+            self.push_span(Span::raw(" "));
+        }
     }
 
     fn start_codeblock(&mut self, kind: CodeBlockKind<'_>) {
@@ -948,6 +976,26 @@ mod tests {
                 Span::styled("2", Style::new().dim().italic()),
                 Span::from(" O"),
             ]))
+        );
+    }
+
+    #[rstest]
+    fn metadata_block(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                ---
+                title: Demo
+                ---
+
+                Body
+            "}),
+            Text::from_iter([
+                Line::from("---").style(Style::new().light_yellow()),
+                Line::from("title: Demo").style(Style::new().light_yellow()),
+                Line::from("---").style(Style::new().light_yellow()),
+                Line::default(),
+                Line::from("Body"),
+            ])
         );
     }
 
