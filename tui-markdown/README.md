@@ -31,7 +31,7 @@ text.render(area, &mut buf);
 This is working code, but not every markdown feature is supported. PRs welcome!
 
 - [x] Headings
-- [ ] Heading attributes / classes / anchors
+- [x] Heading attributes / classes / anchors
 - [x] Normal paragraphs
 - [x] Block quotes
 - [x] Nested block quotes
