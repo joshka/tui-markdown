@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.27](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.26...markdown-reader-v0.1.27) - 2025-12-27
+
+### Other
+
+- *(markdown-reader)* sync supported features ([#113](https://github.com/joshka/tui-markdown/pull/113))
+- *(markdown-reader)* expand TEST.md coverage ([#112](https://github.com/joshka/tui-markdown/pull/112))
+- *(deps)* update ratatui 0.30 ([#105](https://github.com/joshka/tui-markdown/pull/105))
+- *(deps)* bump the cargo-dependencies group across 1 directory with 4 updates ([#104](https://github.com/joshka/tui-markdown/pull/104))
+- *(deps)* bump clap from 4.5.50 to 4.5.51 in the cargo-dependencies group ([#102](https://github.com/joshka/tui-markdown/pull/102))
+- Add AGENTS.md ([#100](https://github.com/joshka/tui-markdown/pull/100))
+
 ## [0.1.26](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.25...markdown-reader-v0.1.26) - 2025-11-03
 
 ### Added
