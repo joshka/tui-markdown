@@ -3,16 +3,16 @@
 //! The library used to hard–code all color and attribute choices in an internal `styles` module.
 //! That made it impossible for downstream crates to provide their own look-and-feel. The
 //! [`StyleSheet`] trait makes it possible to customize the styles used to display the
-//! [`ratatui::style::Style`] values the renderer needs.
+//! [`ratatui_core::style::Style`] values the renderer needs.
 //!
 //! Users that are happy with the stock colors do not have to do anything – the crate exports a
 //! [`DefaultStyleSheet`] which matches the old behaviour and is used by default. Projects that want
 //! to theme the output can implement the trait for their own type and pass an instance via
 //! [`crate::Options`].
 
-use ratatui::style::{Style, Stylize};
+use ratatui_core::style::Style;
 
-/// A collection of `ratatui::style::Style`s consumed by the renderer.
+/// A collection of `ratatui_core::style::Style`s consumed by the renderer.
 ///
 /// The trait purposefully stays tiny: whenever the renderer needs a color choice we add a new
 /// getter here. The default implementation maintains full backward-compatibility with the styles

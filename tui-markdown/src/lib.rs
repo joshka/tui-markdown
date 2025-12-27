@@ -251,8 +251,16 @@ where
         if self.needs_newline {
             self.push_line(Line::default());
         }
-        let style = self.styles.heading(level as u8);
-        let content = format!("{} ", "#".repeat(level as usize));
+        let heading_level = match level {
+            HeadingLevel::H1 => 1,
+            HeadingLevel::H2 => 2,
+            HeadingLevel::H3 => 3,
+            HeadingLevel::H4 => 4,
+            HeadingLevel::H5 => 5,
+            HeadingLevel::H6 => 6,
+        };
+        let style = self.styles.heading(heading_level);
+        let content = format!("{} ", "#".repeat(heading_level as usize));
         self.push_line(Line::styled(content, style));
         self.needs_newline = false;
     }
@@ -480,33 +488,6 @@ where
     }
 }
 
-mod styles {
-    use ratatui_core::style::{Color, Modifier, Style};
-
-    pub const H1: Style = Style::new()
-        .bg(Color::Cyan)
-        .add_modifier(Modifier::BOLD)
-        .add_modifier(Modifier::UNDERLINED);
-    pub const H2: Style = Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD);
-    pub const H3: Style = Style::new()
-        .fg(Color::Cyan)
-        .add_modifier(Modifier::BOLD)
-        .add_modifier(Modifier::ITALIC);
-    pub const H4: Style = Style::new()
-        .fg(Color::LightCyan)
-        .add_modifier(Modifier::ITALIC);
-    pub const H5: Style = Style::new()
-        .fg(Color::LightCyan)
-        .add_modifier(Modifier::ITALIC);
-    pub const H6: Style = Style::new()
-        .fg(Color::LightCyan)
-        .add_modifier(Modifier::ITALIC);
-    pub const BLOCKQUOTE: Style = Style::new().fg(Color::Green);
-    pub const CODE: Style = Style::new().fg(Color::White).bg(Color::Black);
-    pub const LINK: Style = Style::new()
-        .fg(Color::Blue)
-        .add_modifier(Modifier::UNDERLINED);
-}
 #[cfg(test)]
 mod tests {
     use indoc::indoc;

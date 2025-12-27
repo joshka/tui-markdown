@@ -14,12 +14,12 @@ use crate::{DefaultStyleSheet, StyleSheet};
 /// # Example
 ///
 /// ```
-/// use tui_markdown::{Options, DefaultStyleSheet};
+/// use tui_markdown::{DefaultStyleSheet, Options};
 /// let options = Options::default();
 ///
 /// // or with a custom style sheet
 ///
-/// use ratatui::style::{Style, Stylize};
+/// use ratatui_core::style::{Style, Stylize};
 /// use tui_markdown::StyleSheet;
 ///
 /// #[derive(Debug, Clone)]
@@ -68,7 +68,7 @@ impl Default for Options<DefaultStyleSheet> {
 
 #[cfg(test)]
 mod tests {
-    use ratatui::style::{Style, Stylize};
+    use ratatui_core::style::Style;
 
     use super::*;
 
