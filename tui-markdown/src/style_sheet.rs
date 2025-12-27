@@ -31,6 +31,9 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Base style applied to blockquotes (`>` prefix and body text).
     fn blockquote(&self) -> Style;
+
+    /// Style for heading attribute metadata appended to the heading text.
+    fn heading_meta(&self) -> Style;
 }
 
 /// The default style set
@@ -70,5 +73,10 @@ impl StyleSheet for DefaultStyleSheet {
 
     fn blockquote(&self) -> Style {
         Style::new().green()
+    }
+
+    fn heading_meta(&self) -> Style {
+        // De-emphasize metadata so the heading text stays primary.
+        Style::new().dim()
     }
 }

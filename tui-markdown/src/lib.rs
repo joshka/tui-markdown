@@ -85,11 +85,58 @@ where
     let mut parse_opts = ParseOptions::empty();
     parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
     parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
+    parse_opts.insert(ParseOptions::ENABLE_HEADING_ATTRIBUTES);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
     writer.run();
     writer.text
+}
+
+// Heading attributes collected from pulldown-cmark to render after the heading text.
+struct HeadingMeta<'a> {
+    id: Option<CowStr<'a>>,
+    classes: Vec<CowStr<'a>>,
+    attrs: Vec<(CowStr<'a>, Option<CowStr<'a>>)>,
+}
+
+impl<'a> HeadingMeta<'a> {
+    fn into_option(self) -> Option<Self> {
+        let has_id = self.id.is_some();
+        let has_classes = !self.classes.is_empty();
+        let has_attrs = !self.attrs.is_empty();
+        if has_id || has_classes || has_attrs {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    // Format as a Markdown attribute block suffix, e.g. "{#id .class key=value}".
+    fn to_suffix(&self) -> Option<String> {
+        let mut parts = Vec::new();
+
+        if let Some(id) = &self.id {
+            parts.push(format!("#{}", id));
+        }
+
+        for class in &self.classes {
+            parts.push(format!(".{}", class));
+        }
+
+        for (key, value) in &self.attrs {
+            match value {
+                Some(value) => parts.push(format!("{}={}", key, value)),
+                None => parts.push(key.to_string()),
+            }
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(format!(" {{{}}}", parts.join(" ")))
+        }
+    }
 }
 
 struct TextWriter<'a, I, S: StyleSheet> {
@@ -123,6 +170,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// The [`StyleSheet`] to use to style the output.
     styles: S,
 
+    /// Heading attributes to append after heading content.
+    heading_meta: Option<HeadingMeta<'a>>,
+
     needs_newline: bool,
 }
 
@@ -149,6 +199,7 @@ where
             code_highlighter: None,
             link: None,
             styles,
+            heading_meta: None,
         }
     }
 
@@ -181,7 +232,12 @@ where
     fn start_tag(&mut self, tag: Tag<'a>) {
         match tag {
             Tag::Paragraph => self.start_paragraph(),
-            Tag::Heading { level, .. } => self.start_heading(level),
+            Tag::Heading {
+                level,
+                id,
+                classes,
+                attrs,
+            } => self.start_heading(level, HeadingMeta { id, classes, attrs }),
             Tag::BlockQuote(kind) => self.start_blockquote(kind),
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
             Tag::HtmlBlock => warn!("Html block not yet supported"),
@@ -247,7 +303,7 @@ where
         self.needs_newline = true
     }
 
-    fn start_heading(&mut self, level: HeadingLevel) {
+    fn start_heading(&mut self, level: HeadingLevel, heading_meta: HeadingMeta<'a>) {
         if self.needs_newline {
             self.push_line(Line::default());
         }
@@ -262,10 +318,16 @@ where
         let style = self.styles.heading(heading_level);
         let content = format!("{} ", "#".repeat(heading_level as usize));
         self.push_line(Line::styled(content, style));
+        self.heading_meta = heading_meta.into_option();
         self.needs_newline = false;
     }
 
     fn end_heading(&mut self) {
+        if let Some(meta) = self.heading_meta.take() {
+            if let Some(suffix) = meta.to_suffix() {
+                self.push_span(Span::styled(suffix, self.styles.heading_meta()));
+            }
+        }
         self.needs_newline = true
     }
 
@@ -575,6 +637,24 @@ mod tests {
                 Line::default(),
                 Line::from_iter(["###### ", "Heading 6"]).style(h6),
             ])
+        );
+    }
+
+    #[rstest]
+    fn heading_attributes(_with_tracing: DefaultGuard) {
+        let h1 = Style::new().on_cyan().bold().underlined();
+        let meta = Style::new().dim();
+
+        assert_eq!(
+            from_str("# Heading {#title .primary data-kind=doc}"),
+            Text::from(
+                Line::from_iter([
+                    Span::from("# "),
+                    Span::from("Heading"),
+                    Span::styled(" {#title .primary data-kind=doc}", meta),
+                ])
+                .style(h1)
+            )
         );
     }
 

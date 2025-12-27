@@ -41,6 +41,10 @@ use crate::{DefaultStyleSheet, StyleSheet};
 ///     fn blockquote(&self) -> Style {
 ///         Style::new().yellow()
 ///     }
+///
+///     fn heading_meta(&self) -> Style {
+///         Style::new().dim()
+///     }
 /// }
 ///
 /// let options = Options::new(MyStyleSheet);
@@ -105,6 +109,10 @@ mod tests {
             fn blockquote(&self) -> Style {
                 Style::new().yellow()
             }
+
+            fn heading_meta(&self) -> Style {
+                Style::new().dim()
+            }
         }
 
         let options = Options {
@@ -116,5 +124,6 @@ mod tests {
         assert_eq!(options.styles.code(), Style::new().white().on_black());
         assert_eq!(options.styles.link(), Style::new().blue().underlined());
         assert_eq!(options.styles.blockquote(), Style::new().yellow());
+        assert_eq!(options.styles.heading_meta(), Style::new().dim());
     }
 }
