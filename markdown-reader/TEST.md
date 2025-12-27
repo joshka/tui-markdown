@@ -1,6 +1,12 @@
+---
+tags:
+  - demo
+  - renderer
+---
+
 # Markdown Reader
 
-This is a test file to check that how markdown renders
+This is a test file to check that how markdown renders.
 
 ## Heading 2
 
@@ -21,6 +27,10 @@ This text will be **bold**
 *You **can** combine them*
 
 This is a ~~complicated~~ *very simple* example.
+
+## Super/Subscript
+
+H^2^O and H ~2~ O
 
 ## Lists
 
@@ -59,6 +69,10 @@ After the quote
 > Multi indent
 >
 >> quote
+
+## Rule
+
+---
 
 ```plain
 plain
