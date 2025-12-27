@@ -647,10 +647,14 @@ mod tests {
 
         assert_eq!(
             from_str("# Heading {#title .primary data-kind=doc}"),
-            Text::from(Line::from_iter([
-                Span::styled("# Heading ", h1),
-                Span::styled("{#title .primary data-kind=doc}", meta),
-            ]))
+            Text::from(
+                Line::from_iter([
+                    Span::from("# "),
+                    Span::from("Heading"),
+                    Span::styled(" {#title .primary data-kind=doc}", meta),
+                ])
+                .style(h1)
+            )
         );
     }
 
