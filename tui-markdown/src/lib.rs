@@ -87,6 +87,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
     parse_opts.insert(ParseOptions::ENABLE_HEADING_ATTRIBUTES);
     parse_opts.insert(ParseOptions::ENABLE_SUPERSCRIPT);
+    parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -252,7 +253,7 @@ where
             Tag::Emphasis => self.push_inline_style(Style::new().italic()),
             Tag::Strong => self.push_inline_style(Style::new().bold()),
             Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
-            Tag::Subscript => warn!("Subscript not yet supported"),
+            Tag::Subscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Superscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
@@ -280,7 +281,7 @@ where
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
             TagEnd::Strikethrough => self.pop_inline_style(),
-            TagEnd::Subscript => {}
+            TagEnd::Subscript => self.pop_inline_style(),
             TagEnd::Superscript => self.pop_inline_style(),
             TagEnd::Link => self.pop_link(),
             TagEnd::Image => {}
@@ -930,6 +931,18 @@ mod tests {
     fn superscript(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str("H ^2^ O"),
+            Text::from(Line::from_iter([
+                Span::from("H "),
+                Span::styled("2", Style::new().dim().italic()),
+                Span::from(" O"),
+            ]))
+        );
+    }
+
+    #[rstest]
+    fn subscript(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("H ~2~ O"),
             Text::from(Line::from_iter([
                 Span::from("H "),
                 Span::styled("2", Style::new().dim().italic()),
