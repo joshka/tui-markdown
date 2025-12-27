@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.7](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.6...tui-markdown-v0.3.7) - 2025-12-27
+
+### Added
+
+- *(renderer)* render metadata blocks ([#111](https://github.com/joshka/tui-markdown/pull/111))
+- *(renderer)* add subscript support ([#110](https://github.com/joshka/tui-markdown/pull/110))
+- *(renderer)* add superscript support ([#109](https://github.com/joshka/tui-markdown/pull/109))
+- *(renderer)* render soft line breaks ([#108](https://github.com/joshka/tui-markdown/pull/108))
+- *(renderer)* render horizontal rules ([#107](https://github.com/joshka/tui-markdown/pull/107))
+- *(renderer)* add stylesheet options API ([#80](https://github.com/joshka/tui-markdown/pull/80))
+
+### Fixed
+
+- *(renderer)* add heading metadata rendering ([#106](https://github.com/joshka/tui-markdown/pull/106))
+
+### Other
+
+- *(deps)* update ratatui 0.30 ([#105](https://github.com/joshka/tui-markdown/pull/105))
+- *(deps)* bump the cargo-dependencies group across 1 directory with 4 updates ([#104](https://github.com/joshka/tui-markdown/pull/104))
+
 ## [0.3.6](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.5...tui-markdown-v0.3.6) - 2025-11-03
 
 ### Added
