@@ -222,7 +222,7 @@ where
             Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
             Event::SoftBreak => self.soft_break(),
             Event::HardBreak => self.hard_break(),
-            Event::Rule => warn!("Rule not yet supported"),
+            Event::Rule => self.rule(),
             Event::TaskListMarker(checked) => self.task_list_marker(checked),
             Event::InlineMath(_) => warn!("Inline math not yet supported"),
             Event::DisplayMath(_) => warn!("Display math not yet supported"),
@@ -387,6 +387,14 @@ where
 
     fn hard_break(&mut self) {
         self.push_line(Line::default());
+    }
+
+    fn rule(&mut self) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.push_line(Line::from("---"));
+        self.needs_newline = true;
     }
 
     fn start_list(&mut self, index: Option<u64>) {
@@ -603,6 +611,20 @@ mod tests {
                 Paragraph 2
             "}),
             Text::from_iter(["Paragraph 1", "", "Paragraph 2",])
+        );
+    }
+
+    #[rstest]
+    fn rule(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str(indoc! {"
+                Paragraph 1
+
+                ---
+
+                Paragraph 2
+            "}),
+            Text::from_iter(["Paragraph 1", "", "---", "", "Paragraph 2"])
         );
     }
 
