@@ -86,6 +86,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
     parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
     parse_opts.insert(ParseOptions::ENABLE_HEADING_ATTRIBUTES);
+    parse_opts.insert(ParseOptions::ENABLE_SUPERSCRIPT);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -252,7 +253,7 @@ where
             Tag::Strong => self.push_inline_style(Style::new().bold()),
             Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
             Tag::Subscript => warn!("Subscript not yet supported"),
-            Tag::Superscript => warn!("Superscript not yet supported"),
+            Tag::Superscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
             Tag::MetadataBlock(_) => warn!("Metadata block not yet supported"),
@@ -280,7 +281,7 @@ where
             TagEnd::Strong => self.pop_inline_style(),
             TagEnd::Strikethrough => self.pop_inline_style(),
             TagEnd::Subscript => {}
-            TagEnd::Superscript => {}
+            TagEnd::Superscript => self.pop_inline_style(),
             TagEnd::Link => self.pop_link(),
             TagEnd::Image => {}
             TagEnd::MetadataBlock(_) => {}
@@ -922,6 +923,18 @@ mod tests {
                 Span::styled("Inline code", Style::new().white().on_black())
             ])
             .into()
+        );
+    }
+
+    #[rstest]
+    fn superscript(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("H ^2^ O"),
+            Text::from(Line::from_iter([
+                Span::from("H "),
+                Span::styled("2", Style::new().dim().italic()),
+                Span::from(" O"),
+            ]))
         );
     }
 

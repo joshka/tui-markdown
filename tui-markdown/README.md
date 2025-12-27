@@ -50,7 +50,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [ ] Links
 - [ ] Images
 - [ ] Metadata blocks
-- [ ] Superscript
+- [x] Superscript
 - [ ] Subscript
 
 Linebreaks are rendered with Markdown defaults: soft breaks become spaces, hard breaks insert a
