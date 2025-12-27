@@ -45,6 +45,10 @@ use crate::{DefaultStyleSheet, StyleSheet};
 ///     fn heading_meta(&self) -> Style {
 ///         Style::new().dim()
 ///     }
+///
+///     fn metadata_block(&self) -> Style {
+///         Style::new().light_yellow()
+///     }
 /// }
 ///
 /// let options = Options::new(MyStyleSheet);
@@ -113,6 +117,10 @@ mod tests {
             fn heading_meta(&self) -> Style {
                 Style::new().dim()
             }
+
+            fn metadata_block(&self) -> Style {
+                Style::new().light_yellow()
+            }
         }
 
         let options = Options {
@@ -125,5 +133,6 @@ mod tests {
         assert_eq!(options.styles.link(), Style::new().blue().underlined());
         assert_eq!(options.styles.blockquote(), Style::new().yellow());
         assert_eq!(options.styles.heading_meta(), Style::new().dim());
+        assert_eq!(options.styles.metadata_block(), Style::new().light_yellow());
     }
 }

@@ -49,12 +49,45 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Tasklists
 - [ ] Links
 - [ ] Images
-- [ ] Metadata blocks
+- [x] Metadata blocks
 - [x] Superscript
 - [x] Subscript
 
 Linebreaks are rendered with Markdown defaults: soft breaks become spaces, hard breaks insert a
 new line.
+
+Metadata blocks are rendered using the metadata block style so front matter is visible, including
+the delimiter lines (for example `---` in YAML-style blocks).
+
+```rust
+use ratatui::text::Text;
+use tui_markdown::from_str;
+
+let markdown = r#"---
+title: Demo
+tags:
+  - one
+  - two
+---
+
+Body
+"#;
+
+let text = from_str(markdown);
+assert_eq!(
+    text,
+    Text::from_iter([
+        "---".into(),
+        "title: Demo".into(),
+        "tags:".into(),
+        "  - one".into(),
+        "  - two".into(),
+        "---".into(),
+        "".into(),
+        "Body".into(),
+    ])
+);
+```
 
 ## License
 
