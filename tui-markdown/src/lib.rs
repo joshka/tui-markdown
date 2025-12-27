@@ -39,8 +39,8 @@ use itertools::{Itertools, Position};
 use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span, Text};
+use ratatui_core::style::{Style, Stylize};
+use ratatui_core::text::{Line, Span, Text};
 #[cfg(feature = "highlight-code")]
 use syntect::{
     easy::HighlightLines,
@@ -451,7 +451,7 @@ where
 }
 
 mod styles {
-    use ratatui::style::{Color, Modifier, Style};
+    use ratatui_core::style::{Color, Modifier, Style};
 
     pub const H1: Style = Style::new()
         .bg(Color::Cyan)

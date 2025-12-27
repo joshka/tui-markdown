@@ -3,7 +3,7 @@ resolver = "2"
 members = ["tui-markdown", "markdown-reader"]
 
 [workspace.package]
-rust-version = "1.82.0"
+rust-version = "1.86.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/joshka/tui-markdown"
@@ -11,7 +11,8 @@ authors = ["Joshka"]
 
 
 [workspace.dependencies]
-ratatui = { version = "0.29.0", default-features = false }
+ratatui = { version = "0.30.0", default-features = false }
+ratatui-core = { version = "0.1.0", default-features = false }
 tui-markdown = { version = "0.3.6", path = "tui-markdown" }
 
 [patch.crates-io]

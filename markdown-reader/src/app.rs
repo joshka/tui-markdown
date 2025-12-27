@@ -7,8 +7,8 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{
-    ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
-    StatefulWidgetRef, Widget, Wrap,
+    FrameExt, ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    StatefulWidget, StatefulWidgetRef, Widget, Wrap,
 };
 use ratatui::DefaultTerminal;
 
