@@ -43,15 +43,18 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Code blocks
 - [ ] Html
 - [ ] Footnotes
-- [ ] Tables
-- [ ] Linebreak handling
+- [x] Linebreak handling
 - [x] Rule
+- [ ] Tables
 - [x] Tasklists
 - [ ] Links
 - [ ] Images
 - [ ] Metadata blocks
 - [ ] Superscript
 - [ ] Subscript
+
+Linebreaks are rendered with Markdown defaults: soft breaks become spaces, hard breaks insert a
+new line.
 
 ## License
 
