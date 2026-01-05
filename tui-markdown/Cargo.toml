@@ -37,6 +37,6 @@ tracing = "0.1.44"
 
 [dev-dependencies]
 indoc = "2.0.7"
-insta = "1.45.1"
+insta = "1.46.0"
 ratatui.workspace = true
 tracing-subscriber = "0.3.22"
