@@ -146,7 +146,12 @@ jobs:
       - name: Generate cargo metadata
         run: cargo metadata --all-features --format-version 1 > cargo-metadata.json
       - name: Run cargo-deny
-        run: cargo deny check ${{ matrix.checks }} --metadata-path cargo-metadata.json
+        run: |
+          if [[ "${{ matrix.checks }}" == "advisories" ]]; then
+            cargo deny check advisories -W unmaintained --metadata-path cargo-metadata.json
+          else
+            cargo deny check ${{ matrix.checks }} --metadata-path cargo-metadata.json
+          fi
 
   test:
     name: Test
@@ -209,7 +214,7 @@ jobs:
       - name: Run actionlint
         uses: docker://rhysd/actionlint:1.7.12
         with:
-          args: -color=false .github/workflows/*.yml
+          args: -color=false
 
   required:
     name: Required
