@@ -16,13 +16,23 @@ mod app;
 mod events;
 mod logging;
 
+/// Path to the comprehensive test fixture bundled with tui-markdown.
+const TEST_FIXTURE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tui-markdown/tests/fixtures/comprehensive.md"
+);
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let terminal = ratatui::init();
     let log_events = logging::init_logger(Level::DEBUG)?;
 
     let args = Cli::parse();
-    let path = args.path;
+    let path = if args.test {
+        PathBuf::from(TEST_FIXTURE)
+    } else {
+        args.path
+    };
     let events = Events::new()?;
     info!("Reading file {:?}", path);
     let markdown = read_file(&path)?;
@@ -57,4 +67,8 @@ struct Cli {
     /// The path to the markdown file to read
     #[arg(default_value = "README.md")]
     path: PathBuf,
+
+    /// Load the comprehensive test fixture for visual validation
+    #[arg(long)]
+    test: bool,
 }

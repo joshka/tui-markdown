@@ -18,6 +18,9 @@ default = ["highlight-code"]
 ## Enable syntax highlighting using syntect and ansi-to-tui
 highlight-code = ["dep:syntect", "dep:ansi-to-tui"]
 
+## Enable inline terminal image rendering via ratatui-image
+terminal-images = ["dep:ratatui-image", "dep:image"]
+
 [package.metadata.docs.rs]
 all-features = true
 # see https://doc.rust-lang.org/nightly/rustdoc/scraped-examples.html
@@ -33,7 +36,10 @@ pulldown-cmark = "0.13.0"
 ratatui-core.workspace = true
 rstest = "0.26.1"
 syntect = { version = "5.3.0", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["png", "jpeg", "gif"] }
+ratatui-image = { version = "6", optional = true }
 tracing = "0.1.44"
+unicode-width = "0.2"
 
 [dev-dependencies]
 indoc = "2.0.7"

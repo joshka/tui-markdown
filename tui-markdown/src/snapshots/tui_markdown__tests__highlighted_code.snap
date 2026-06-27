@@ -3,7 +3,7 @@ source: tui-markdown/src/lib.rs
 expression: highlighted_code
 ---
 ```rust
-fn main() {
-    println!("Hello, highlighted code!");
-}
+  1 │ fn main() {
+  2 │     println!("Hello, highlighted code!");
+  3 │ }
 ```

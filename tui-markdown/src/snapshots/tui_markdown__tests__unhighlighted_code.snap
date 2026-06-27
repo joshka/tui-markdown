@@ -3,7 +3,7 @@ source: tui-markdown/src/lib.rs
 expression: unhiglighted_code
 ---
 ```rust
-fn main() {
-    println!("Hello, unhighlighted code!");
-}
+  1 │ fn main() {
+  2 │     println!("Hello, unhighlighted code!");
+  3 │ }
 ```

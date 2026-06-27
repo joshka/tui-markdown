@@ -3,12 +3,12 @@ source: tui-markdown/src/lib.rs
 expression: highlighted_code_indented
 ---
 ```rust
-fn main() {
-    // This is a comment
-    HelloWorldBuilder::new()
-        .with_text("Hello, highlighted code!")
-        .build()
-        .show();
-                
-}
+  1 │ fn main() {
+  2 │     // This is a comment
+  3 │     HelloWorldBuilder::new()
+  4 │         .with_text("Hello, highlighted code!")
+  5 │         .build()
+  6 │         .show();
+  7 │                 
+  8 │ }
 ```

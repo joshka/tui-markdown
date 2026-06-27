@@ -1,11 +1,11 @@
 ---
 source: tui-markdown/src/lib.rs
 expression: highlighted_code_indented
-snapshot_kind: text
 ---
 Text::from_iter([
-    Line::from("```rust"),
+    Line::from(Span::from("```rust").dark_gray()),
     Line::from_iter([
+        Span::from("  1 │ ").dark_gray(),
         Span::from("fn").fg(Color::Rgb(180, 142, 173)),
         Span::from(" ").fg(Color::Rgb(192, 197, 206)),
         Span::from("main").fg(Color::Rgb(143, 161, 179)),
@@ -15,11 +15,13 @@ Text::from_iter([
         Span::from("{").fg(Color::Rgb(192, 197, 206)),
     ]),
     Line::from_iter([
+        Span::from("  2 │ ").dark_gray(),
         Span::from("    ").fg(Color::Rgb(192, 197, 206)),
         Span::from("//").fg(Color::Rgb(101, 115, 126)),
         Span::from(" This is a comment").fg(Color::Rgb(101, 115, 126)),
     ]),
     Line::from_iter([
+        Span::from("  3 │ ").dark_gray(),
         Span::from("    ").fg(Color::Rgb(192, 197, 206)),
         Span::from("HelloWorldBuilder").fg(Color::Rgb(192, 197, 206)),
         Span::from("::").fg(Color::Rgb(192, 197, 206)),
@@ -28,6 +30,7 @@ Text::from_iter([
         Span::from(")").fg(Color::Rgb(192, 197, 206)),
     ]),
     Line::from_iter([
+        Span::from("  4 │ ").dark_gray(),
         Span::from("        .").fg(Color::Rgb(192, 197, 206)),
         Span::from("with_text").fg(Color::Rgb(150, 181, 180)),
         Span::from("(").fg(Color::Rgb(192, 197, 206)),
@@ -37,19 +40,27 @@ Text::from_iter([
         Span::from(")").fg(Color::Rgb(192, 197, 206)),
     ]),
     Line::from_iter([
+        Span::from("  5 │ ").dark_gray(),
         Span::from("        .").fg(Color::Rgb(192, 197, 206)),
         Span::from("build").fg(Color::Rgb(150, 181, 180)),
         Span::from("(").fg(Color::Rgb(192, 197, 206)),
         Span::from(")").fg(Color::Rgb(192, 197, 206)),
     ]),
     Line::from_iter([
+        Span::from("  6 │ ").dark_gray(),
         Span::from("        .").fg(Color::Rgb(192, 197, 206)),
         Span::from("show").fg(Color::Rgb(150, 181, 180)),
         Span::from("(").fg(Color::Rgb(192, 197, 206)),
         Span::from(")").fg(Color::Rgb(192, 197, 206)),
         Span::from(";").fg(Color::Rgb(192, 197, 206)),
     ]),
-    Line::from(Span::from("                ").fg(Color::Rgb(192, 197, 206))),
-    Line::from(Span::from("}").fg(Color::Rgb(192, 197, 206))),
-    Line::from("```"),
+    Line::from_iter([
+        Span::from("  7 │ ").dark_gray(),
+        Span::from("                ").fg(Color::Rgb(192, 197, 206)),
+    ]),
+    Line::from_iter([
+        Span::from("  8 │ ").dark_gray(),
+        Span::from("}").fg(Color::Rgb(192, 197, 206)),
+    ]),
+    Line::from(Span::from("```").dark_gray()),
 ])

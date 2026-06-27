@@ -37,6 +37,80 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Style for metadata blocks (front matter).
     fn metadata_block(&self) -> Style;
+
+    /// Style for the alt-text fallback when rendering images.
+    fn image_alt(&self) -> Style;
+
+    /// Style for the table header row (bold, prominent).
+    fn table_header(&self) -> Style;
+
+    /// Style for table border characters (box-drawing glyphs).
+    fn table_border(&self) -> Style;
+
+    /// Style for a GFM alert/callout blockquote.
+    ///
+    /// `kind` is one of `"note"`, `"tip"`, `"important"`, `"warning"`, `"caution"`.
+    fn alert(&self, kind: &str) -> Style {
+        use ratatui_core::style::Color;
+        match kind {
+            "note" => Style::new().fg(Color::Blue),
+            "tip" => Style::new().fg(Color::Green),
+            "important" => Style::new().fg(Color::Magenta),
+            "warning" => Style::new().fg(Color::Yellow),
+            "caution" => Style::new().fg(Color::Red),
+            _ => Style::default(),
+        }
+    }
+
+    /// Style for raw HTML blocks and inline HTML tags.
+    fn html(&self) -> Style {
+        Style::new().dim()
+    }
+
+    /// Style for inline math (`$...$`).
+    fn math_inline(&self) -> Style {
+        Style::new().italic().magenta()
+    }
+
+    /// Style for display math (`$$...$$`).
+    fn math_display(&self) -> Style {
+        Style::new().magenta()
+    }
+
+    /// Style for footnote references (`[^label]`).
+    fn footnote_ref(&self) -> Style {
+        Style::new().dim().italic()
+    }
+
+    /// Style for footnote definitions.
+    fn footnote_def(&self) -> Style {
+        Style::new().dim()
+    }
+
+    /// Style for definition list terms.
+    fn definition_title(&self) -> Style {
+        Style::new().bold()
+    }
+
+    /// Style for definition list descriptions.
+    fn definition_desc(&self) -> Style {
+        Style::default()
+    }
+
+    /// Style for horizontal rules (`---`).
+    fn rule(&self) -> Style {
+        Style::new().dark_gray()
+    }
+
+    /// Style for code block fence markers (`` ``` ``).
+    fn code_fence(&self) -> Style {
+        Style::new().dark_gray()
+    }
+
+    /// Style for code block line number gutters.
+    fn code_line_number(&self) -> Style {
+        Style::new().dark_gray()
+    }
 }
 
 /// The default style set
@@ -86,5 +160,17 @@ impl StyleSheet for DefaultStyleSheet {
 
     fn metadata_block(&self) -> Style {
         Style::new().light_yellow()
+    }
+
+    fn image_alt(&self) -> Style {
+        Style::new().dim().italic()
+    }
+
+    fn table_header(&self) -> Style {
+        Style::new().bold().cyan()
+    }
+
+    fn table_border(&self) -> Style {
+        Style::new().dark_gray()
     }
 }

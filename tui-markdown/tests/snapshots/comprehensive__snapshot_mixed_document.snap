@@ -1,0 +1,46 @@
+---
+source: tui-markdown/tests/comprehensive.rs
+expression: text
+---
+Text::from_iter([
+    Line::from_iter([
+        Span::from("# "),
+        Span::from("Title"),
+    ]).on_cyan().bold().underlined(),
+    Line::default(),
+    Line::from_iter([
+        Span::from("A paragraph with "),
+        Span::from("bold").bold(),
+        Span::from(", "),
+        Span::from("italic").italic(),
+        Span::from(", and "),
+        Span::from("code").white().on_black(),
+        Span::from("."),
+    ]),
+    Line::default(),
+    Line::from_iter([
+        Span::from("- "),
+        Span::from("Item 1"),
+    ]),
+    Line::from_iter([
+        Span::from("- "),
+        Span::from("Item 2"),
+    ]),
+    Line::default(),
+    Line::from_iter([
+        Span::from("│"),
+        Span::from(" "),
+        Span::from("A quote"),
+    ]).green(),
+    Line::default(),
+    Line::from("────────────────────────────────────────").dark_gray(),
+    Line::default(),
+    Line::from(Span::from("[img] img").dim().italic()),
+    Line::default(),
+    Line::from_iter([
+        Span::from("link").blue().underlined(),
+        Span::from(" ("),
+        Span::from("https://example.com").blue().underlined(),
+        Span::from(")"),
+    ]),
+])
