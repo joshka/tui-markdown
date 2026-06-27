@@ -1,6 +1,6 @@
 [package]
 name = "tui-markdown"
-description = "A simple library for converting markdown to a Rataui Text value"
+description = "A simple library for converting markdown to a Ratatui Text value"
 version = "0.3.7"
 documentation = "https://docs.rs/tui-markdown"
 categories = ["command-line-interface"]
@@ -25,18 +25,18 @@ cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-ansi-to-tui = { version = "8.0.1", optional = true }
-document-features = { version = "0.2.12", optional = true }
-itertools = "0.15.0"
-pretty_assertions = "1.4.1"
-pulldown-cmark = "0.13.0"
+ansi-to-tui = { version = "8", optional = true }
+document-features = { version = "0.2.11", optional = true }
+itertools = "0.15"
+pretty_assertions = "1"
+pulldown-cmark = "0.13"
 ratatui-core.workspace = true
-rstest = "0.26.1"
-syntect = { version = "5.3.0", optional = true }
-tracing = "0.1.44"
+rstest = "0.26"
+syntect = { version = "5", optional = true }
+tracing = "0.1.37"
 
 [dev-dependencies]
-indoc = "2.0.7"
-insta = "1.46.0"
+indoc = "2"
+insta = "1"
 ratatui.workspace = true
-tracing-subscriber = "0.3.22"
+tracing-subscriber = "0.3"

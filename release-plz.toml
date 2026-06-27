@@ -1,0 +1,2 @@
+[workspace]
+pr_branch_prefix = "release-plz-"

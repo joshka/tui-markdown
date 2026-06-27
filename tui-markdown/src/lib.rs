@@ -57,7 +57,7 @@ pub use crate::style_sheet::{DefaultStyleSheet, StyleSheet};
 mod options;
 mod style_sheet;
 
-/// Render Markdown `input` into a [`ratatui::text::Text`] using the default [`Options`].
+/// Render Markdown `input` into a [`Text`] using the default [`Options`].
 ///
 /// This is a convenience function that uses the default options, which are defined in
 /// [`Options::default`]. It is suitable for most use cases where you want to render Markdown
@@ -65,7 +65,7 @@ pub fn from_str(input: &str) -> Text<'_> {
     from_str_with_options(input, &Options::default())
 }
 
-/// Render Markdown `input` into a [`ratatui::text::Text`] using the supplied [`Options`].
+/// Render Markdown `input` into a [`Text`] using the supplied [`Options`].
 ///
 /// This allows you to customize the styles and other rendering options.
 ///

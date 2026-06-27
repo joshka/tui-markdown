@@ -21,7 +21,7 @@ cargo add tui-markdown
 ## Usage
 
 ```rust
-let input = "# Heading\n\n**bold**"; // this can come from whereever
+let input = "# Heading\n\n**bold**"; // this can come from wherever
 let text = tui_markdown::from_str(input);
 text.render(area, &mut buf);
 ```

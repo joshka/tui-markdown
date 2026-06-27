@@ -1,0 +1,26 @@
+config:
+  MD013:
+    line_length: 100
+    heading_line_length: 100
+    code_block_line_length: 100
+    code_blocks: true
+    tables: false
+    headings: true
+    strict: false
+    stern: false
+  MD024:
+    siblings_only: true
+  MD033:
+    allowed_elements:
+      - br
+      - details
+      - summary
+  MD055:
+    style: leading_and_trailing
+  MD060:
+    style: aligned
+    aligned_delimiter: true
+
+ignores:
+  - "target/**"
+  - "**/CHANGELOG.md"
