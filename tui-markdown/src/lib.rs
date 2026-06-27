@@ -35,7 +35,7 @@ use std::vec;
 
 #[cfg(feature = "highlight-code")]
 use ansi_to_tui::IntoText;
-use itertools::{Itertools, Position};
+use itertools::Itertools;
 use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options as ParseOptions, Parser,
     Tag, TagEnd,
@@ -374,7 +374,7 @@ where
                 self.push_line(Line::default());
                 self.needs_newline = false;
             }
-            if matches!(position, Position::Middle | Position::Last) {
+            if !position.is_first() {
                 self.push_line(Line::default());
             }
 

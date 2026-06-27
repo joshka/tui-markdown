@@ -3,7 +3,7 @@ resolver = "2"
 members = ["tui-markdown", "markdown-reader"]
 
 [workspace.package]
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/joshka/tui-markdown"
