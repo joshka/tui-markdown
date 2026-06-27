@@ -27,7 +27,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 ansi-to-tui = { version = "8.0.1", optional = true }
 document-features = { version = "0.2.12", optional = true }
-itertools = "0.14.0"
+itertools = "0.15.0"
 pretty_assertions = "1.4.1"
 pulldown-cmark = "0.13.0"
 ratatui-core.workspace = true
