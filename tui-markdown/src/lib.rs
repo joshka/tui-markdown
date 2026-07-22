@@ -1038,7 +1038,7 @@ mod tests {
     }
 
     #[rstest]
-    fn link(_with_tracing: DefaultGuard) {
+    fn link_uses_default_style(_with_tracing: DefaultGuard) {
         let link_style = Style::new().blue().underlined();
         assert_eq!(
             from_str("[Link](https://example.com)"),
@@ -1051,43 +1051,17 @@ mod tests {
         );
     }
 
-    mod link_styling {
-        use pretty_assertions::assert_eq;
-
-        use super::*;
-
-        #[rstest]
-        fn link_text_is_styled(_with_tracing: DefaultGuard) {
-            let link_style = Style::new().blue().underlined();
-            let text = from_str("[Click here](https://example.com)");
-            let line = &text.lines[0];
-            // The link text "Click here" should have the link style.
-            let text_span = line
-                .spans
-                .iter()
-                .find(|span| span.content.contains("Click here"))
-                .expect("link text span");
-            assert_eq!(text_span.style, link_style);
-        }
-
-        #[rstest]
-        fn bold_inside_link(_with_tracing: DefaultGuard) {
-            let text = from_str("[**Bold link**](https://example.com)");
-            let line = &text.lines[0];
-            // The bold link text should combine bold + link styles.
-            let bold_span = line
-                .spans
-                .iter()
-                .find(|span| span.content.contains("Bold link"))
-                .expect("bold link span");
-            assert!(bold_span
-                .style
-                .add_modifier
-                .contains(ratatui_core::style::Modifier::BOLD));
-            assert!(bold_span
-                .style
-                .add_modifier
-                .contains(ratatui_core::style::Modifier::UNDERLINED));
-        }
+    #[rstest]
+    fn link_combines_with_bold_style(_with_tracing: DefaultGuard) {
+        let link_style = Style::new().blue().underlined();
+        assert_eq!(
+            from_str("[**Bold link**](https://example.com)"),
+            Text::from(Line::from_iter([
+                Span::styled("Bold link", link_style.bold()),
+                Span::from(" ("),
+                Span::styled("https://example.com", link_style),
+                Span::from(")"),
+            ]))
+        );
     }
 }

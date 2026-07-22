@@ -60,7 +60,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Linebreak handling
 - [x] Rule
 - [x] Tasklists
-- [ ] Links
+- [x] Links
 - [ ] Images
 - [x] Metadata blocks
 - [x] Superscript
