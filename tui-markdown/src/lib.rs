@@ -966,7 +966,46 @@ mod tests {
     }
 
     mod definition_list {
+        use pretty_assertions::assert_eq;
+
         use super::*;
+
+        #[derive(Clone)]
+        struct CustomDefinitionStyleSheet;
+
+        impl StyleSheet for CustomDefinitionStyleSheet {
+            fn heading(&self, level: u8) -> Style {
+                DefaultStyleSheet.heading(level)
+            }
+
+            fn code(&self) -> Style {
+                DefaultStyleSheet.code()
+            }
+
+            fn link(&self) -> Style {
+                DefaultStyleSheet.link()
+            }
+
+            fn blockquote(&self) -> Style {
+                DefaultStyleSheet.blockquote()
+            }
+
+            fn heading_meta(&self) -> Style {
+                DefaultStyleSheet.heading_meta()
+            }
+
+            fn metadata_block(&self) -> Style {
+                DefaultStyleSheet.metadata_block()
+            }
+
+            fn definition_title(&self) -> Style {
+                Style::new().red().underlined()
+            }
+
+            fn definition_desc(&self) -> Style {
+                Style::new().blue().italic()
+            }
+        }
 
         #[rstest]
         fn basic_definition_list(_with_tracing: DefaultGuard) {
@@ -1011,6 +1050,36 @@ mod tests {
                 .iter()
                 .any(|span| span.content.contains(": "));
             assert!(has_colon_prefix, "definition should have colon prefix");
+        }
+
+        #[rstest]
+        fn exact_output_and_default_styles(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: Definition\n"),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([Span::raw(": "), Span::raw("Definition")]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn custom_styles_apply_to_terms_and_definitions(_with_tracing: DefaultGuard) {
+            let options = Options::new(CustomDefinitionStyleSheet);
+            let text = from_str_with_options("Term\n: Definition\n", &options);
+            let title_style = Style::new().red().underlined();
+            let description_style = Style::new().blue().italic();
+
+            assert_eq!(
+                text,
+                Text::from_iter([
+                    Line::from(Span::styled("Term", title_style)),
+                    Line::from_iter([
+                        Span::styled(": ", description_style),
+                        Span::styled("Definition", description_style),
+                    ]),
+                ])
+            );
         }
     }
 
