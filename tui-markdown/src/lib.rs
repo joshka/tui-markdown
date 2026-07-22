@@ -57,6 +57,7 @@ pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
 mod options;
 mod style_sheet;
+mod tables;
 
 /// Render Markdown `input` into a [`Text`] using the default [`Options`].
 ///
@@ -94,6 +95,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_FOOTNOTES);
     parse_opts.insert(ParseOptions::ENABLE_DEFINITION_LIST);
     parse_opts.insert(ParseOptions::ENABLE_GFM);
+    parse_opts.insert(ParseOptions::ENABLE_TABLES);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -200,6 +202,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Whether we are inside a definition-list description.
     in_definition_description: bool,
 
+    /// Active table builder that accumulates cells during table parsing.
+    table_builder: Option<tables::TableBuilder<'a>>,
+
     needs_newline: bool,
 }
 
@@ -230,6 +235,7 @@ where
             in_metadata_block: false,
             in_footnote_definition: false,
             in_definition_description: false,
+            table_builder: None,
         }
     }
 
@@ -274,10 +280,9 @@ where
             Tag::List(start_index) => self.start_list(start_index),
             Tag::Item => self.start_item(),
             Tag::FootnoteDefinition(label) => self.start_footnote_definition(label),
-            Tag::Table(_) => warn!("Table not yet supported"),
-            Tag::TableHead => warn!("Table head not yet supported"),
-            Tag::TableRow => warn!("Table row not yet supported"),
-            Tag::TableCell => warn!("Table cell not yet supported"),
+            Tag::Table(alignments) => self.start_table(alignments),
+            Tag::TableHead | Tag::TableRow => self.start_table_row(),
+            Tag::TableCell => self.start_table_cell(),
             Tag::Emphasis => self.push_inline_style(Style::new().italic()),
             Tag::Strong => self.push_inline_style(Style::new().bold()),
             Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
@@ -302,10 +307,10 @@ where
             TagEnd::List(_is_ordered) => self.end_list(),
             TagEnd::Item => {}
             TagEnd::FootnoteDefinition => self.end_footnote_definition(),
-            TagEnd::Table => {}
-            TagEnd::TableHead => {}
-            TagEnd::TableRow => {}
-            TagEnd::TableCell => {}
+            TagEnd::Table => self.end_table(),
+            TagEnd::TableHead => self.end_table_head(),
+            TagEnd::TableRow => self.end_table_row(),
+            TagEnd::TableCell => self.end_table_cell(),
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
             TagEnd::Strikethrough => self.pop_inline_style(),
@@ -422,6 +427,12 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
+        if let Some(builder) = &mut self.table_builder {
+            let style = self.inline_styles.last().copied().unwrap_or_default();
+            builder.push_span(Span::styled(text.into_string(), style));
+            return;
+        }
+
         #[cfg(feature = "highlight-code")]
         if let Some(highlighter) = &mut self.code_highlighter {
             let text: Text = LinesWithEndings::from(&text)
@@ -456,6 +467,11 @@ where
     }
 
     fn code(&mut self, code: CowStr<'a>) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.push_span(Span::styled(code.into_string(), self.styles.code()));
+            return;
+        }
+
         let span = Span::styled(code, self.styles.code());
         self.push_span(span);
     }
@@ -776,6 +792,54 @@ where
         self.pop_inline_style();
         self.in_definition_description = false;
         self.needs_newline = false;
+    }
+
+    fn start_table(&mut self, alignments: Vec<pulldown_cmark::Alignment>) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.table_builder = Some(tables::TableBuilder::new(alignments));
+        self.needs_newline = false;
+    }
+
+    fn start_table_row(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.start_row();
+        }
+    }
+
+    fn start_table_cell(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.start_cell();
+        }
+    }
+
+    fn end_table_cell(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.finish_cell();
+        }
+    }
+
+    fn end_table_row(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.finish_row();
+        }
+    }
+
+    fn end_table_head(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.finish_row();
+            builder.finish_header();
+        }
+    }
+
+    fn end_table(&mut self) {
+        if let Some(builder) = self.table_builder.take() {
+            for line in builder.render(&self.styles) {
+                self.push_line(line);
+            }
+            self.needs_newline = true;
+        }
     }
 }
 
@@ -1992,4 +2056,6 @@ mod tests {
             );
         }
     }
+
+    include!("table_tests.rs");
 }

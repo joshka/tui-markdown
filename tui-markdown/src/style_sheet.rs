@@ -97,7 +97,6 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn definition_description(&self) -> Style {
         Style::default()
     }
-
     /// Style for a GFM alert heading and body.
     ///
     /// The generated icon and label are bold in addition to this base style.
@@ -132,6 +131,12 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn alert_label(&self, kind: AlertKind) -> &str {
         kind.label()
     }
+
+    /// Style for the table header row.
+    fn table_header(&self) -> Style;
+
+    /// Style for table border characters.
+    fn table_border(&self) -> Style;
 }
 
 /// The default style set
@@ -193,5 +198,13 @@ impl StyleSheet for DefaultStyleSheet {
 
     fn metadata_block(&self) -> Style {
         Style::new().light_yellow()
+    }
+
+    fn table_header(&self) -> Style {
+        Style::new().bold().cyan()
+    }
+
+    fn table_border(&self) -> Style {
+        Style::new().dark_gray()
     }
 }
