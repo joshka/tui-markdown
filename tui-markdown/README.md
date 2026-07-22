@@ -63,6 +63,16 @@ Images render as text fallbacks rather than terminal graphics. The default outpu
 followed by the image description, or the destination when the description is empty. For example,
 `Before ![diagram](diagram.png) after` renders as `Before [img] diagram after`.
 
+Use [`ImageFallback`] to show the destination instead, or to include it after the description:
+
+```rust
+use tui_markdown::{from_str_with_options, ImageFallback, Options};
+
+let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+let text = from_str_with_options("![diagram](diagram.png)", &options);
+assert_eq!(text.to_string(), "[img] diagram (diagram.png)");
+```
+
 GFM tables render with Unicode box-drawing borders and honor left, center, and right column
 alignment:
 
@@ -179,6 +189,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::table_border()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_border
 [`StyleSheet::table_cell()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_cell
 [`StyleSheet::table_header()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_header
+[`ImageFallback`]: https://docs.rs/tui-markdown/latest/tui_markdown/enum.ImageFallback.html
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge

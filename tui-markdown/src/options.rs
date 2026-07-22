@@ -1,21 +1,38 @@
 //! Rendering configuration for tui-markdown.
 //!
-//! Options control the renderer's style sheet and image fallback content. This struct is
-//! `#[non_exhaustive]`, which allows us to add more options in the future without breaking
-//! existing code.
+//! Options control the renderer's style sheet and image fallback content. [`Options`] is
+//! non-exhaustive, allowing new rendering choices to be added without breaking existing code.
 
 use crate::{DefaultStyleSheet, StyleSheet};
 
-/// Text used in place of images when rendering Markdown in a terminal.
+/// Text used to represent Markdown images in rendered terminal output.
+///
+/// This option does not load or render image resources. It controls whether the text fallback
+/// contains the image description, destination, or both. [`AltText`](Self::AltText) is the
+/// default.
+///
+/// # Example
+///
+/// ```
+/// use tui_markdown::{from_str_with_options, ImageFallback, Options};
+///
+/// let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+/// let text = from_str_with_options("![Architecture diagram](diagram.png)", &options);
+///
+/// assert_eq!(
+///     text.to_string(),
+///     "[img] Architecture diagram (diagram.png)"
+/// );
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ImageFallback {
-    /// Show the image's alt text, or its URL when the alt text is empty.
+    /// Show `[img]` followed by the description, or the destination when the description is empty.
     #[default]
     AltText,
-    /// Always show the image's URL.
+    /// Show `[img]` followed by the destination, ignoring the description.
     Url,
-    /// Show both the image's alt text and URL, or only its URL when the alt text is empty.
+    /// Show `[img] {description} ({destination})`, omitting either value when it is empty.
     AltTextAndUrl,
 }
 
@@ -28,7 +45,7 @@ pub enum ImageFallback {
 /// # Example
 ///
 /// ```
-/// use tui_markdown::{DefaultStyleSheet, Options};
+/// use tui_markdown::Options;
 /// let options = Options::default();
 ///
 /// // or with a custom style sheet
@@ -40,7 +57,7 @@ pub enum ImageFallback {
 /// struct MyStyleSheet;
 ///
 /// impl StyleSheet for MyStyleSheet {
-///     fn heading(&self, level: u8) -> Style {
+///     fn heading(&self, _level: u8) -> Style {
 ///         Style::new().bold()
 ///     }
 ///
@@ -63,7 +80,6 @@ pub enum ImageFallback {
 ///     fn metadata_block(&self) -> Style {
 ///         Style::new().light_yellow()
 ///     }
-///
 /// }
 ///
 /// let options = Options::new(MyStyleSheet);
@@ -87,7 +103,9 @@ impl<S: StyleSheet> Options<S> {
         }
     }
 
-    /// Selects the content to render in place of images.
+    /// Selects the text used to represent Markdown images.
+    ///
+    /// See [`ImageFallback`] for the exact output of each mode.
     #[must_use]
     pub fn image_fallback(mut self, image_fallback: ImageFallback) -> Self {
         self.image_fallback = image_fallback;
