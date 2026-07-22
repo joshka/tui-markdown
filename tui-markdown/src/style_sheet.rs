@@ -37,6 +37,11 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Style for metadata blocks (front matter).
     fn metadata_block(&self) -> Style;
+
+    /// Style for raw HTML blocks and inline HTML tags.
+    fn html(&self) -> Style {
+        Style::new().dim()
+    }
 }
 
 /// The default style set

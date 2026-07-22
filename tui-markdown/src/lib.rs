@@ -225,8 +225,8 @@ where
             Event::End(tag) => self.end_tag(tag),
             Event::Text(text) => self.text(text),
             Event::Code(code) => self.code(code),
-            Event::Html(_) => warn!("Html not yet supported"),
-            Event::InlineHtml(_) => warn!("Inline html not yet supported"),
+            Event::Html(html) => self.html_block(html),
+            Event::InlineHtml(html) => self.inline_html(html),
             Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
             Event::SoftBreak => self.soft_break(),
             Event::HardBreak => self.hard_break(),
@@ -248,7 +248,7 @@ where
             } => self.start_heading(level, HeadingMeta { id, classes, attrs }),
             Tag::BlockQuote(kind) => self.start_blockquote(kind),
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
-            Tag::HtmlBlock => warn!("Html block not yet supported"),
+            Tag::HtmlBlock => self.start_html_block(),
             Tag::List(start_index) => self.start_list(start_index),
             Tag::Item => self.start_item(),
             Tag::FootnoteDefinition(_) => warn!("Footnote definition not yet supported"),
@@ -276,7 +276,7 @@ where
             TagEnd::Heading(_) => self.end_heading(),
             TagEnd::BlockQuote(_) => self.end_blockquote(),
             TagEnd::CodeBlock => self.end_codeblock(),
-            TagEnd::HtmlBlock => {}
+            TagEnd::HtmlBlock => self.end_html_block(),
             TagEnd::List(_is_ordered) => self.end_list(),
             TagEnd::Item => {}
             TagEnd::FootnoteDefinition => {}
@@ -588,6 +588,37 @@ where
             self.push_span(Span::styled(link, self.styles.link()));
             self.push_span(")".into());
         }
+    }
+
+    fn start_html_block(&mut self) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.push_line(Line::default());
+        self.line_styles.push(self.styles.html());
+        self.needs_newline = false;
+    }
+
+    fn end_html_block(&mut self) {
+        self.line_styles.pop();
+        self.needs_newline = true;
+    }
+
+    fn html_block(&mut self, html: CowStr<'a>) {
+        let style = self.styles.html();
+        for line in html.lines() {
+            if self.needs_newline {
+                self.push_line(Line::default());
+                self.needs_newline = false;
+            }
+            self.push_span(Span::styled(line.to_owned(), style));
+            self.needs_newline = true;
+        }
+    }
+
+    fn inline_html(&mut self, html: CowStr<'a>) {
+        let style = self.styles.html();
+        self.push_span(Span::styled(html, style));
     }
 }
 
@@ -1063,5 +1094,26 @@ mod tests {
                 Span::from(")"),
             ]))
         );
+    }
+
+    mod html {
+        use pretty_assertions::assert_eq;
+
+        use super::*;
+
+        #[rstest]
+        fn inline_html_tag(_with_tracing: DefaultGuard) {
+            let text = from_str("Hello <em>world</em>");
+            // Inline HTML tags are rendered as dim text alongside normal text.
+            assert_eq!(text.lines.len(), 1);
+            assert!(text.lines[0].spans.len() >= 2);
+        }
+
+        #[rstest]
+        fn html_block_renders(_with_tracing: DefaultGuard) {
+            let text = from_str("<div>Custom HTML</div>\n");
+            // HTML blocks should render something (not be silently dropped).
+            assert!(!text.lines.is_empty());
+        }
     }
 }
