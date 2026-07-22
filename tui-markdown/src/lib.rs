@@ -92,6 +92,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
     parse_opts.insert(ParseOptions::ENABLE_MATH);
     parse_opts.insert(ParseOptions::ENABLE_FOOTNOTES);
+    parse_opts.insert(ParseOptions::ENABLE_DEFINITION_LIST);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -185,6 +186,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Whether we are inside a footnote definition.
     in_footnote_definition: bool,
 
+    /// Whether we are inside a definition-list description.
+    in_definition_description: bool,
+
     needs_newline: bool,
 }
 
@@ -214,6 +218,7 @@ where
             heading_meta: None,
             in_metadata_block: false,
             in_footnote_definition: false,
+            in_definition_description: false,
         }
     }
 
@@ -270,9 +275,9 @@ where
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
             Tag::MetadataBlock(_) => self.start_metadata_block(),
-            Tag::DefinitionList => warn!("Definition list not yet supported"),
-            Tag::DefinitionListTitle => warn!("Definition list title not yet supported"),
-            Tag::DefinitionListDefinition => warn!("Definition list definition not yet supported"),
+            Tag::DefinitionList => self.start_definition_list(),
+            Tag::DefinitionListTitle => self.start_definition_title(),
+            Tag::DefinitionListDefinition => self.start_definition_description(),
         }
     }
 
@@ -298,23 +303,24 @@ where
             TagEnd::Link => self.pop_link(),
             TagEnd::Image => {}
             TagEnd::MetadataBlock(_) => self.end_metadata_block(),
-            TagEnd::DefinitionList => {}
-            TagEnd::DefinitionListTitle => {}
-            TagEnd::DefinitionListDefinition => {}
+            TagEnd::DefinitionList => self.end_definition_list(),
+            TagEnd::DefinitionListTitle => self.end_definition_title(),
+            TagEnd::DefinitionListDefinition => self.end_definition_description(),
         }
     }
 
     fn start_paragraph(&mut self) {
-        // A footnote definition starts with a paragraph event after
-        // `start_footnote_definition` has already written `[label]: ` to the current line. Skip
-        // normal paragraph handling only for that first paragraph so its content stays beside the
-        // label. For a later paragraph, `needs_newline` is true; allowing the normal path below to
-        // run preserves the blank line in definitions such as:
+        // Footnote definitions and loose definition-list descriptions start with a paragraph event
+        // after their handlers have already written a visible prefix (`[label]: ` or `: `) to the
+        // current line. Skip normal paragraph handling only for that first paragraph so its content
+        // stays beside the prefix. For a later paragraph, `needs_newline` is true; allowing the
+        // normal path below to run preserves the blank line in definitions such as:
         //
         //     [^label]: First paragraph.
         //
         //         Second paragraph.
-        if self.in_footnote_definition && !self.needs_newline {
+        let prefix_line_is_open = self.in_footnote_definition || self.in_definition_description;
+        if prefix_line_is_open && !self.needs_newline {
             return;
         }
         // Insert an empty line between paragraphs if there is at least one line of text already.
@@ -687,6 +693,47 @@ where
         self.in_footnote_definition = false;
         self.needs_newline = true;
     }
+
+    fn start_definition_list(&mut self) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.needs_newline = false;
+    }
+
+    fn end_definition_list(&mut self) {
+        self.needs_newline = true;
+    }
+
+    fn start_definition_title(&mut self) {
+        // Definition-list terms contain inline events without an ordinary paragraph start, so the
+        // term handler owns the output line and applies the term style before consuming them.
+        self.push_line(Line::default());
+        self.push_inline_style(self.styles.definition_term());
+        self.needs_newline = false;
+    }
+
+    fn end_definition_title(&mut self) {
+        self.pop_inline_style();
+        self.needs_newline = false;
+    }
+
+    fn start_definition_description(&mut self) {
+        // A tight description contains inline events without an ordinary paragraph start. Create
+        // its line here and write the visible Markdown `: ` marker before consuming the content so
+        // the marker and content share the description style.
+        self.push_line(Line::default());
+        self.push_span(Span::styled(": ", self.styles.definition_description()));
+        self.push_inline_style(self.styles.definition_description());
+        self.in_definition_description = true;
+        self.needs_newline = false;
+    }
+
+    fn end_definition_description(&mut self) {
+        self.pop_inline_style();
+        self.in_definition_description = false;
+        self.needs_newline = false;
+    }
 }
 
 #[cfg(test)]
@@ -925,6 +972,156 @@ mod tests {
                         Span::raw("Note."),
                     ])
                     .style(definition_style),
+                ])
+            );
+        }
+    }
+
+    mod definition_list {
+        use pretty_assertions::assert_eq;
+
+        use super::*;
+
+        #[derive(Clone)]
+        struct CustomDefinitionStyleSheet;
+
+        impl StyleSheet for CustomDefinitionStyleSheet {
+            fn heading(&self, level: u8) -> Style {
+                DefaultStyleSheet.heading(level)
+            }
+
+            fn code(&self) -> Style {
+                DefaultStyleSheet.code()
+            }
+
+            fn link(&self) -> Style {
+                DefaultStyleSheet.link()
+            }
+
+            fn blockquote(&self) -> Style {
+                DefaultStyleSheet.blockquote()
+            }
+
+            fn heading_meta(&self) -> Style {
+                DefaultStyleSheet.heading_meta()
+            }
+
+            fn metadata_block(&self) -> Style {
+                DefaultStyleSheet.metadata_block()
+            }
+
+            fn definition_term(&self) -> Style {
+                Style::new().red().underlined()
+            }
+
+            fn definition_description(&self) -> Style {
+                Style::new().blue().italic()
+            }
+        }
+
+        #[rstest]
+        fn exact_output_and_default_styles(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: Definition\n"),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([Span::raw(": "), Span::raw("Definition")]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn custom_styles_apply_to_terms_and_definitions(_with_tracing: DefaultGuard) {
+            let options = Options::new(CustomDefinitionStyleSheet);
+            let text = from_str_with_options("Term\n: Definition\n", &options);
+            let title_style = Style::new().red().underlined();
+            let description_style = Style::new().blue().italic();
+
+            assert_eq!(
+                text,
+                Text::from_iter([
+                    Line::from(Span::styled("Term", title_style)),
+                    Line::from_iter([
+                        Span::styled(": ", description_style),
+                        Span::styled("Definition", description_style),
+                    ]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn inline_formatting_combines_with_definition_styles(_with_tracing: DefaultGuard) {
+            let options = Options::new(CustomDefinitionStyleSheet);
+            let term_style = Style::new().red().underlined().italic();
+            let description_style = Style::new().blue().italic();
+
+            assert_eq!(
+                from_str_with_options("*Term*\n: **Description**\n", &options),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", term_style)),
+                    Line::from_iter([
+                        Span::styled(": ", description_style),
+                        Span::styled("Description", description_style.bold()),
+                    ]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiline_definition(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: First line\n  second line\n"),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([
+                        Span::raw(": "),
+                        Span::raw("First line"),
+                        Span::raw(" "),
+                        Span::raw("second line"),
+                    ]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiple_descriptions(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: First description\n: Second description\n"),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([Span::raw(": "), Span::raw("First description")]),
+                    Line::from_iter([Span::raw(": "), Span::raw("Second description")]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiple_description_paragraphs_keep_prefix_and_blank_line(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: First paragraph.\n\n  Second paragraph."),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([Span::raw(": "), Span::raw("First paragraph.")]),
+                    Line::default(),
+                    Line::from("Second paragraph."),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn repeated_items_do_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+            let term_style = Style::new().bold();
+            assert_eq!(
+                from_str(
+                    "Term one\n: First description.\n\nTerm two\n: Second description.\n\nAfter."
+                ),
+                Text::from_iter([
+                    Line::from(Span::styled("Term one", term_style)),
+                    Line::from_iter([Span::raw(": "), Span::raw("First description.")]),
+                    Line::from(Span::styled("Term two", term_style)),
+                    Line::from_iter([Span::raw(": "), Span::raw("Second description.")]),
+                    Line::default(),
+                    Line::from("After."),
                 ])
             );
         }
