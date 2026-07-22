@@ -62,6 +62,11 @@ new line.
 Links are rendered as `label (URL)`. The link style applies to both the visible label and URL while
 preserving nested inline formatting such as bold text.
 
+GFM alerts render a bold icon and canonical English label above their quoted body. Customize each
+kind's color with [`StyleSheet::alert()`], its terminal-friendly icon with
+[`StyleSheet::alert_icon()`], and its label with [`StyleSheet::alert_label()`]. Returning an empty
+icon or label displays only the other component.
+
 Raw inline HTML tags and HTML blocks are displayed literally rather than interpreted as terminal
 markup. They are dimmed by default and can be customized with [`StyleSheet::html()`].
 
@@ -142,6 +147,9 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::footnote_ref()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.footnote_ref
 [`StyleSheet::definition_description()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.definition_description
 [`StyleSheet::definition_term()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.definition_term
+[`StyleSheet::alert()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert
+[`StyleSheet::alert_icon()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert_icon
+[`StyleSheet::alert_label()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert_label
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge

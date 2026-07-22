@@ -147,6 +147,16 @@ impl<'a> HeadingMeta<'a> {
     }
 }
 
+fn alert_kind(kind: BlockQuoteKind) -> AlertKind {
+    match kind {
+        BlockQuoteKind::Note => AlertKind::Note,
+        BlockQuoteKind::Tip => AlertKind::Tip,
+        BlockQuoteKind::Important => AlertKind::Important,
+        BlockQuoteKind::Warning => AlertKind::Warning,
+        BlockQuoteKind::Caution => AlertKind::Caution,
+    }
+}
+
 struct TextWriter<'a, I, S: StyleSheet> {
     /// Iterator supplying events.
     iter: I,
@@ -370,23 +380,38 @@ where
             self.needs_newline = false;
         }
 
-        if let Some(alert_kind) = kind {
-            let (kind, icon, label) = match alert_kind {
-                BlockQuoteKind::Note => (AlertKind::Note, "\u{2139}\u{FE0F}", "Note"),
-                BlockQuoteKind::Tip => (AlertKind::Tip, "\u{1F4A1}", "Tip"),
-                BlockQuoteKind::Important => (AlertKind::Important, "\u{2757}", "Important"),
-                BlockQuoteKind::Warning => (AlertKind::Warning, "\u{26A0}\u{FE0F}", "Warning"),
-                BlockQuoteKind::Caution => (AlertKind::Caution, "\u{1F534}", "Caution"),
-            };
-            let style = self.styles.alert(kind);
-            self.line_prefixes.push(Span::from(">"));
-            self.line_styles.push(style);
-            self.push_line(Line::default());
-            self.push_span(Span::styled(format!("{icon} {label}"), style.bold()));
-            self.needs_newline = false;
-        } else {
-            self.line_prefixes.push(Span::from(">"));
-            self.line_styles.push(self.styles.blockquote());
+        match kind {
+            Some(kind) => self.start_alert(alert_kind(kind)),
+            None => self.start_plain_blockquote(),
+        }
+    }
+
+    fn start_alert(&mut self, kind: AlertKind) {
+        let style = self.styles.alert(kind);
+        self.push_blockquote_style(style);
+        self.push_line(Line::default());
+        self.push_span(Span::styled(self.alert_heading(kind), style.bold()));
+        self.needs_newline = false;
+    }
+
+    fn start_plain_blockquote(&mut self) {
+        self.push_blockquote_style(self.styles.blockquote());
+    }
+
+    fn push_blockquote_style(&mut self, style: Style) {
+        self.line_prefixes.push(Span::from(">"));
+        self.line_styles.push(style);
+    }
+
+    fn alert_heading(&self, kind: AlertKind) -> String {
+        let icon = self.styles.alert_icon(kind);
+        let label = self.styles.alert_label(kind);
+        // Either component may be intentionally suppressed; add a separator only when both exist.
+        match (icon.is_empty(), label.is_empty()) {
+            (false, false) => format!("{icon} {label}"),
+            (false, true) => icon.to_owned(),
+            (true, false) => label.to_owned(),
+            (true, true) => String::new(),
         }
     }
 
@@ -1186,6 +1211,51 @@ mod tests {
             }
         }
 
+        #[derive(Clone)]
+        struct CustomAlertHeadingStyleSheet;
+
+        impl StyleSheet for CustomAlertHeadingStyleSheet {
+            fn heading(&self, level: u8) -> Style {
+                DefaultStyleSheet.heading(level)
+            }
+
+            fn code(&self) -> Style {
+                DefaultStyleSheet.code()
+            }
+
+            fn link(&self) -> Style {
+                DefaultStyleSheet.link()
+            }
+
+            fn blockquote(&self) -> Style {
+                DefaultStyleSheet.blockquote()
+            }
+
+            fn heading_meta(&self) -> Style {
+                DefaultStyleSheet.heading_meta()
+            }
+
+            fn metadata_block(&self) -> Style {
+                DefaultStyleSheet.metadata_block()
+            }
+
+            fn alert_icon(&self, kind: AlertKind) -> &str {
+                match kind {
+                    AlertKind::Note => "!!",
+                    AlertKind::Caution => "",
+                    _ => DefaultStyleSheet.alert_icon(kind),
+                }
+            }
+
+            fn alert_label(&self, kind: AlertKind) -> &str {
+                match kind {
+                    AlertKind::Tip => "Hint",
+                    AlertKind::Important => "",
+                    _ => kind.label(),
+                }
+            }
+        }
+
         #[rstest]
         #[case("NOTE", "\u{2139}\u{FE0F} Note", Style::new().blue())]
         #[case("TIP", "\u{1F4A1} Tip", Style::new().green())]
@@ -1226,6 +1296,86 @@ mod tests {
                         Span::raw(">"),
                         Span::raw(" "),
                         Span::styled("\u{2139}\u{FE0F} Note", style.bold()),
+                    ])
+                    .style(style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
+                        .style(style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn custom_alert_icon_replaces_default(_with_tracing: DefaultGuard) {
+            let style = DefaultStyleSheet.alert(AlertKind::Note);
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            assert_eq!(
+                from_str_with_options("> [!NOTE]\n> Body", &options),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::styled("!! Note", style.bold()),
+                    ])
+                    .style(style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
+                        .style(style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn empty_alert_icon_suppresses_icon_and_separator(_with_tracing: DefaultGuard) {
+            let style = DefaultStyleSheet.alert(AlertKind::Caution);
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            assert_eq!(
+                from_str_with_options("> [!CAUTION]\n> Body", &options),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::styled("Caution", style.bold()),
+                    ])
+                    .style(style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
+                        .style(style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn custom_alert_label_replaces_default(_with_tracing: DefaultGuard) {
+            let style = DefaultStyleSheet.alert(AlertKind::Tip);
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            assert_eq!(
+                from_str_with_options("> [!TIP]\n> Body", &options),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::styled("💡 Hint", style.bold()),
+                    ])
+                    .style(style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
+                        .style(style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn empty_alert_label_suppresses_label_and_separator(_with_tracing: DefaultGuard) {
+            let style = DefaultStyleSheet.alert(AlertKind::Important);
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            assert_eq!(
+                from_str_with_options("> [!IMPORTANT]\n> Body", &options),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::styled("❗", style.bold()),
                     ])
                     .style(style),
                     Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])

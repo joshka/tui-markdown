@@ -2,8 +2,7 @@
 //!
 //! The library used to hard–code all color and attribute choices in an internal `styles` module.
 //! That made it impossible for downstream crates to provide their own look-and-feel. The
-//! [`StyleSheet`] trait makes it possible to customize the styles used to display the
-//! [`ratatui_core::style::Style`] values the renderer needs.
+//! [`StyleSheet`] trait makes it possible to customize the styles and symbols the renderer uses.
 //!
 //! Users that are happy with the stock colors do not have to do anything – the crate exports a
 //! [`DefaultStyleSheet`] which matches the old behaviour and is used by default. Projects that want
@@ -27,11 +26,23 @@ pub enum AlertKind {
     Caution,
 }
 
-/// A collection of `ratatui_core::style::Style`s consumed by the renderer.
+impl AlertKind {
+    /// The canonical English label for this alert kind.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Note => "Note",
+            Self::Tip => "Tip",
+            Self::Important => "Important",
+            Self::Warning => "Warning",
+            Self::Caution => "Caution",
+        }
+    }
+}
+
+/// Visual styles and symbols consumed by the renderer.
 ///
-/// The trait purposefully stays tiny: whenever the renderer needs a color choice we add a new
-/// getter here. The default implementation maintains full backward-compatibility with the styles
-/// that lived in the old `mod styles`.
+/// The trait purposefully stays tiny: whenever the renderer needs a presentation choice we add a
+/// new getter here. The default implementation maintains the renderer's standard appearance.
 pub trait StyleSheet: Clone + Send + Sync + 'static {
     /// Style for a Markdown heading.
     ///
@@ -100,6 +111,26 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
             AlertKind::Warning => Style::new().fg(Color::Yellow),
             AlertKind::Caution => Style::new().fg(Color::Red),
         }
+    }
+
+    /// Icon displayed before a GFM alert label.
+    ///
+    /// Return an empty string to render the label without an icon.
+    fn alert_icon(&self, kind: AlertKind) -> &str {
+        match kind {
+            AlertKind::Note => "\u{2139}\u{FE0F}",
+            AlertKind::Tip => "\u{1F4A1}",
+            AlertKind::Important => "\u{2757}",
+            AlertKind::Warning => "\u{26A0}\u{FE0F}",
+            AlertKind::Caution => "\u{1F534}",
+        }
+    }
+
+    /// Label displayed after a GFM alert icon.
+    ///
+    /// Return an empty string to render the icon without a label.
+    fn alert_label(&self, kind: AlertKind) -> &str {
+        kind.label()
     }
 }
 
