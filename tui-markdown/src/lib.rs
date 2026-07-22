@@ -663,9 +663,9 @@ where
             self.push_line(Line::default());
         }
         let style = self.styles.footnote_def();
+        self.line_styles.push(style);
         self.push_line(Line::default());
         self.push_span(Span::styled(format!("[{label}]: "), style));
-        self.line_styles.push(style);
         self.in_footnote_definition = true;
         self.needs_newline = false;
     }
@@ -738,6 +738,8 @@ mod tests {
     }
 
     mod footnotes {
+        use pretty_assertions::assert_eq;
+
         use super::*;
 
         #[rstest]
@@ -759,6 +761,54 @@ mod tests {
                     .any(|span| span.content.contains("[note]:"))
             });
             assert!(has_definition, "footnote definition should render");
+        }
+
+        #[rstest]
+        fn multiline_definition_has_exact_layout(_with_tracing: DefaultGuard) {
+            let reference_style = Style::new().dim().italic();
+            let definition_style = Style::new().dim();
+
+            assert_eq!(
+                from_str("Text[^one]\n\n[^one]: First line\n    continued line."),
+                Text::from_iter([
+                    Line::from_iter([Span::raw("Text"), Span::styled("[one]", reference_style),]),
+                    Line::default(),
+                    Line::from_iter([
+                        Span::styled("[one]: ", definition_style),
+                        Span::raw("First line"),
+                        Span::raw(" "),
+                        Span::raw("continued line."),
+                    ])
+                    .style(definition_style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiple_definitions_have_exact_layout(_with_tracing: DefaultGuard) {
+            let reference_style = Style::new().dim().italic();
+            let definition_style = Style::new().dim();
+
+            assert_eq!(
+                from_str("First[^a] second[^b].\n\n[^a]: Alpha.\n\n[^b]: Beta."),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw("First"),
+                        Span::styled("[a]", reference_style),
+                        Span::raw(" second"),
+                        Span::styled("[b]", reference_style),
+                        Span::raw("."),
+                    ]),
+                    Line::default(),
+                    Line::from_iter(
+                        [Span::styled("[a]: ", definition_style), Span::raw("Alpha."),]
+                    )
+                    .style(definition_style),
+                    Line::default(),
+                    Line::from_iter([Span::styled("[b]: ", definition_style), Span::raw("Beta."),])
+                        .style(definition_style),
+                ])
+            );
         }
     }
 
