@@ -50,9 +50,6 @@ use crate::{DefaultStyleSheet, StyleSheet};
 ///         Style::new().light_yellow()
 ///     }
 ///
-///     fn image_alt(&self) -> Style {
-///         Style::new().dim().italic()
-///     }
 /// }
 ///
 /// let options = Options::new(MyStyleSheet);
@@ -124,10 +121,6 @@ mod tests {
 
             fn metadata_block(&self) -> Style {
                 Style::new().light_yellow()
-            }
-
-            fn image_alt(&self) -> Style {
-                Style::new().dim().italic()
             }
         }
 

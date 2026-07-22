@@ -1178,10 +1178,6 @@ mod tests {
                     DefaultStyleSheet.metadata_block()
                 }
 
-                fn image_alt(&self) -> Style {
-                    DefaultStyleSheet.image_alt()
-                }
-
                 fn footnote_ref(&self) -> Style {
                     Style::new().red().underlined()
                 }
@@ -1243,10 +1239,6 @@ mod tests {
 
             fn metadata_block(&self) -> Style {
                 DefaultStyleSheet.metadata_block()
-            }
-
-            fn image_alt(&self) -> Style {
-                DefaultStyleSheet.image_alt()
             }
 
             fn definition_term(&self) -> Style {
@@ -1399,10 +1391,6 @@ mod tests {
                 DefaultStyleSheet.metadata_block()
             }
 
-            fn image_alt(&self) -> Style {
-                DefaultStyleSheet.image_alt()
-            }
-
             fn alert(&self, kind: AlertKind) -> Style {
                 match kind {
                     AlertKind::Note => Style::new().on_red(),
@@ -1437,10 +1425,6 @@ mod tests {
 
             fn metadata_block(&self) -> Style {
                 DefaultStyleSheet.metadata_block()
-            }
-
-            fn image_alt(&self) -> Style {
-                DefaultStyleSheet.image_alt()
             }
 
             fn alert_icon(&self, kind: AlertKind) -> &str {
@@ -2176,10 +2160,6 @@ mod tests {
 
                 fn metadata_block(&self) -> Style {
                     DefaultStyleSheet.metadata_block()
-                }
-
-                fn image_alt(&self) -> Style {
-                    DefaultStyleSheet.image_alt()
                 }
 
                 fn math_display(&self) -> Style {
