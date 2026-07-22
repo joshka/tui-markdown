@@ -47,7 +47,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Rule
 - [ ] Tables
 - [x] Tasklists
-- [ ] Links
+- [x] Links
 - [ ] Images
 - [x] Metadata blocks
 - [x] Superscript
@@ -55,6 +55,9 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 
 Linebreaks are rendered with Markdown defaults: soft breaks become spaces, hard breaks insert a
 new line.
+
+Links are rendered as `label (URL)`. The link style applies to both the visible label and URL while
+preserving nested inline formatting such as bold text.
 
 Metadata blocks are rendered using the metadata block style so front matter is visible, including
 the delimiter lines (for example `---` in YAML-style blocks).

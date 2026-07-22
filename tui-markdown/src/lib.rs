@@ -572,15 +572,17 @@ where
         }
     }
 
-    /// Store the link to be appended to the link text
+    /// Store the link and push the link style so the link text is also styled.
     #[instrument(level = "trace", skip(self))]
     fn push_link(&mut self, dest_url: CowStr<'a>) {
         self.link = Some(dest_url);
+        self.push_inline_style(self.styles.link());
     }
 
-    /// Append the link to the current line
+    /// Pop the link style and append the link URL to the current line.
     #[instrument(level = "trace", skip(self))]
     fn pop_link(&mut self) {
+        self.pop_inline_style();
         if let Some(link) = self.link.take() {
             self.push_span(" (".into());
             self.push_span(Span::styled(link, self.styles.link()));
@@ -1036,14 +1038,29 @@ mod tests {
     }
 
     #[rstest]
-    fn link(_with_tracing: DefaultGuard) {
+    fn link_uses_default_style(_with_tracing: DefaultGuard) {
+        let link_style = Style::new().blue().underlined();
         assert_eq!(
             from_str("[Link](https://example.com)"),
             Text::from(Line::from_iter([
-                Span::from("Link"),
+                Span::styled("Link", link_style),
                 Span::from(" ("),
-                Span::from("https://example.com").blue().underlined(),
+                Span::styled("https://example.com", link_style),
                 Span::from(")")
+            ]))
+        );
+    }
+
+    #[rstest]
+    fn link_combines_with_bold_style(_with_tracing: DefaultGuard) {
+        let link_style = Style::new().blue().underlined();
+        assert_eq!(
+            from_str("[**Bold link**](https://example.com)"),
+            Text::from(Line::from_iter([
+                Span::styled("Bold link", link_style.bold()),
+                Span::from(" ("),
+                Span::styled("https://example.com", link_style),
+                Span::from(")"),
             ]))
         );
     }
