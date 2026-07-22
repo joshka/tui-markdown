@@ -21,8 +21,17 @@ mod table {
             |:-----|:------:|------:|
             | a    | b      | c     |
         "});
-        assert_eq!(text.lines.len(), 5);
-        assert!(format!("{}", text.lines[2]).contains('┼'));
+        let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+        assert_eq!(
+            rendered,
+            [
+                "┌──────┬────────┬───────┐",
+                "│ Left │ Center │ Right │",
+                "├──────┼────────┼───────┤",
+                "│ a    │   b    │     c │",
+                "└──────┴────────┴───────┘",
+            ]
+        );
     }
 
     #[rstest]
@@ -130,6 +139,22 @@ mod table {
             .iter()
             .any(|span| span.style.add_modifier.contains(ratatui::style::Modifier::BOLD));
         assert!(has_bold);
+    }
+
+    #[rstest]
+    fn table_keeps_link_destination_in_cell(_with_tracing: DefaultGuard) {
+        let text = from_str("| Link |\n|------|\n| [docs](u) |");
+        let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+        assert_eq!(
+            rendered,
+            [
+                "┌──────────┐",
+                "│ Link     │",
+                "├──────────┤",
+                "│ docs (u) │",
+                "└──────────┘",
+            ]
+        );
     }
 
     #[rstest]

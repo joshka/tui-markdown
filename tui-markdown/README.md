@@ -48,7 +48,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Definition lists
 - [x] Linebreak handling
 - [x] Rule
-- [ ] Tables
+- [x] Tables
 - [x] Tasklists
 - [x] Links
 - [ ] Images

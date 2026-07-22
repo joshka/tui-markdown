@@ -132,12 +132,12 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         kind.label()
     }
 
-    /// Style for the table header row.
+    /// Style patched onto inline styles in the table header row.
     fn table_header(&self) -> Style {
         Style::new().bold().cyan()
     }
 
-    /// Style for table border characters.
+    /// Style for the Unicode box-drawing characters around table cells.
     fn table_border(&self) -> Style {
         Style::new().dark_gray()
     }
@@ -168,6 +168,8 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - important alerts: magenta
 /// - warning alerts: yellow
 /// - caution alerts: red
+/// - table headers: bold cyan
+/// - table borders: dark gray
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

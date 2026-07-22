@@ -428,7 +428,7 @@ where
     fn text(&mut self, text: CowStr<'a>) {
         if let Some(builder) = &mut self.table_builder {
             let style = self.inline_styles.last().copied().unwrap_or_default();
-            builder.push_span(Span::styled(text.into_string(), style));
+            builder.push_span(Span::styled(text, style));
             return;
         }
 
@@ -466,13 +466,8 @@ where
     }
 
     fn code(&mut self, code: CowStr<'a>) {
-        if let Some(builder) = &mut self.table_builder {
-            builder.push_span(Span::styled(code.into_string(), self.styles.code()));
-            return;
-        }
-
         let span = Span::styled(code, self.styles.code());
-        self.push_span(span);
+        self.push_inline_span(span);
     }
 
     fn hard_break(&mut self) {
@@ -654,6 +649,15 @@ where
         }
     }
 
+    /// Append inline content to the active table cell or the current output line.
+    fn push_inline_span(&mut self, span: Span<'a>) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.push_span(span);
+        } else {
+            self.push_span(span);
+        }
+    }
+
     /// Store the link and push the link style so the link text is also styled.
     #[instrument(level = "trace", skip(self))]
     fn push_link(&mut self, dest_url: CowStr<'a>) {
@@ -666,9 +670,9 @@ where
     fn pop_link(&mut self) {
         self.pop_inline_style();
         if let Some(link) = self.link.take() {
-            self.push_span(" (".into());
-            self.push_span(Span::styled(link, self.styles.link()));
-            self.push_span(")".into());
+            self.push_inline_span(" (".into());
+            self.push_inline_span(Span::styled(link, self.styles.link()));
+            self.push_inline_span(")".into());
         }
     }
     fn start_html_block(&mut self) {
