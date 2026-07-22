@@ -48,6 +48,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Normal paragraphs
 - [x] Block quotes
 - [x] Nested block quotes
+- [x] GFM alerts
 - [x] Bold (strong)
 - [x] Italic (emphasis)
 - [x] Strikethrough

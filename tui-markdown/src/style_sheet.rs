@@ -87,8 +87,9 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         Style::default()
     }
 
-    /// Style for a GFM alert/callout blockquote.
+    /// Style for a GFM alert heading and body.
     ///
+    /// The generated icon and label are bold in addition to this base style.
     fn alert(&self, kind: AlertKind) -> Style {
         use ratatui_core::style::Color;
 
@@ -122,6 +123,11 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - footnote definitions: dim
 /// - definition list terms: bold
 /// - definition list descriptions: the surrounding style
+/// - note alerts: blue
+/// - tip alerts: green
+/// - important alerts: magenta
+/// - warning alerts: yellow
+/// - caution alerts: red
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

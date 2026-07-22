@@ -1186,53 +1186,31 @@ mod tests {
             }
         }
 
-        fn contains(text: &Text<'_>, expected: &str) -> bool {
-            text.lines.iter().any(|line| {
-                line.spans
-                    .iter()
-                    .any(|span| span.content.contains(expected))
-            })
-        }
-
         #[rstest]
-        fn note_alert(_with_tracing: DefaultGuard) {
-            let text = from_str("> [!NOTE]\n> This is a note.");
-            assert!(
-                contains(&text, "Note"),
-                "note alert should render Note label"
-            );
-        }
-
-        #[rstest]
-        fn tip_alert(_with_tracing: DefaultGuard) {
-            let text = from_str("> [!TIP]\n> A helpful tip.");
-            assert!(contains(&text, "Tip"), "tip alert should render Tip label");
-        }
-
-        #[rstest]
-        fn important_alert(_with_tracing: DefaultGuard) {
-            let text = from_str("> [!IMPORTANT]\n> Key information.");
-            assert!(
-                contains(&text, "Important"),
-                "important alert should render Important label"
-            );
-        }
-
-        #[rstest]
-        fn warning_alert(_with_tracing: DefaultGuard) {
-            let text = from_str("> [!WARNING]\n> Be careful!");
-            assert!(
-                contains(&text, "Warning"),
-                "warning alert should render Warning label"
-            );
-        }
-
-        #[rstest]
-        fn caution_alert(_with_tracing: DefaultGuard) {
-            let text = from_str("> [!CAUTION]\n> Risk of harm.");
-            assert!(
-                contains(&text, "Caution"),
-                "caution alert should render Caution label"
+        #[case("NOTE", "\u{2139}\u{FE0F} Note", Style::new().blue())]
+        #[case("TIP", "\u{1F4A1} Tip", Style::new().green())]
+        #[case("IMPORTANT", "\u{2757} Important", Style::new().magenta())]
+        #[case("WARNING", "\u{26A0}\u{FE0F} Warning", Style::new().yellow())]
+        #[case("CAUTION", "\u{1F534} Caution", Style::new().red())]
+        fn alert_kind_renders_exact_output(
+            _with_tracing: DefaultGuard,
+            #[case] marker: &str,
+            #[case] heading: &str,
+            #[case] style: Style,
+        ) {
+            let markdown = format!("> [!{marker}]\n> Body");
+            assert_eq!(
+                from_str(&markdown),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::styled(heading.to_owned(), style.bold()),
+                    ])
+                    .style(style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
+                        .style(style),
+                ])
             );
         }
 
@@ -1274,6 +1252,33 @@ mod tests {
                     Line::from_iter([">", " ", "Parent"]).style(style),
                     Line::from_iter([">", " "]).style(style),
                     Line::from_iter([">", ">", " ", "Child"]).style(style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn alert_preserves_nested_blockquote(_with_tracing: DefaultGuard) {
+            let alert_style = Style::new().blue();
+            let blockquote_style = DefaultStyleSheet.blockquote();
+            assert_eq!(
+                from_str("> [!NOTE]\n> Parent\n>> Child"),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::styled("\u{2139}\u{FE0F} Note", alert_style.bold()),
+                    ])
+                    .style(alert_style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Parent")])
+                        .style(alert_style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" ")]).style(alert_style),
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::raw("Child"),
+                    ])
+                    .style(blockquote_style),
                 ])
             );
         }
