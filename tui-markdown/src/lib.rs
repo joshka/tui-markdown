@@ -225,8 +225,8 @@ where
             Event::End(tag) => self.end_tag(tag),
             Event::Text(text) => self.text(text),
             Event::Code(code) => self.code(code),
-            Event::Html(_) => warn!("Html not yet supported"),
-            Event::InlineHtml(_) => warn!("Inline html not yet supported"),
+            Event::Html(html) => self.html_block(html),
+            Event::InlineHtml(html) => self.inline_html(html),
             Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
             Event::SoftBreak => self.soft_break(),
             Event::HardBreak => self.hard_break(),
@@ -248,7 +248,7 @@ where
             } => self.start_heading(level, HeadingMeta { id, classes, attrs }),
             Tag::BlockQuote(kind) => self.start_blockquote(kind),
             Tag::CodeBlock(kind) => self.start_codeblock(kind),
-            Tag::HtmlBlock => warn!("Html block not yet supported"),
+            Tag::HtmlBlock => self.start_html_block(),
             Tag::List(start_index) => self.start_list(start_index),
             Tag::Item => self.start_item(),
             Tag::FootnoteDefinition(_) => warn!("Footnote definition not yet supported"),
@@ -276,7 +276,7 @@ where
             TagEnd::Heading(_) => self.end_heading(),
             TagEnd::BlockQuote(_) => self.end_blockquote(),
             TagEnd::CodeBlock => self.end_codeblock(),
-            TagEnd::HtmlBlock => {}
+            TagEnd::HtmlBlock => self.end_html_block(),
             TagEnd::List(_is_ordered) => self.end_list(),
             TagEnd::Item => {}
             TagEnd::FootnoteDefinition => {}
@@ -588,6 +588,38 @@ where
             self.push_span(Span::styled(link, self.styles.link()));
             self.push_span(")".into());
         }
+    }
+
+    fn start_html_block(&mut self) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.push_line(Line::default());
+        self.line_styles.push(self.styles.html());
+        self.needs_newline = false;
+    }
+
+    fn end_html_block(&mut self) {
+        self.line_styles.pop();
+        self.needs_newline = true;
+    }
+
+    fn html_block(&mut self, html: CowStr<'a>) {
+        let style = self.styles.html();
+        for line in html.lines() {
+            if self.needs_newline {
+                self.push_line(Line::default());
+                self.needs_newline = false;
+            }
+            self.push_span(Span::styled(line.to_owned(), style));
+            self.needs_newline = true;
+        }
+    }
+
+    fn inline_html(&mut self, html: CowStr<'a>) {
+        let inline_style = self.inline_styles.last().copied().unwrap_or_default();
+        let style = inline_style.patch(self.styles.html());
+        self.push_span(Span::styled(html, style));
     }
 }
 
@@ -1063,5 +1095,57 @@ mod tests {
                 Span::from(")"),
             ]))
         );
+    }
+
+    mod html {
+        use pretty_assertions::assert_eq;
+
+        use super::*;
+
+        #[rstest]
+        fn inline_html_tag(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Hello <em>world</em>"),
+                Text::from(Line::from_iter([
+                    Span::from("Hello "),
+                    Span::styled("<em>", Style::new().dim()),
+                    Span::from("world"),
+                    Span::styled("</em>", Style::new().dim()),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn inline_html_combines_with_emphasis(_with_tracing: DefaultGuard) {
+            let italic = Style::new().italic();
+            let html = italic.dim();
+            assert_eq!(
+                from_str("*Hello <em>world</em>*"),
+                Text::from(Line::from_iter([
+                    Span::styled("Hello ", italic),
+                    Span::styled("<em>", html),
+                    Span::styled("world", italic),
+                    Span::styled("</em>", html),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn html_block_preserves_paragraph_spacing(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Before\n\n<div>\nCustom HTML\n</div>\n\nAfter"),
+                Text::from_iter([
+                    Line::from("Before"),
+                    Line::default(),
+                    Line::from(Span::styled("<div>", Style::new().dim())),
+                    Line::from(Span::styled("Custom HTML", Style::new().dim()))
+                        .style(Style::new().dim()),
+                    Line::from(Span::styled("</div>", Style::new().dim()))
+                        .style(Style::new().dim()),
+                    Line::default(),
+                    Line::from("After"),
+                ])
+            );
+        }
     }
 }

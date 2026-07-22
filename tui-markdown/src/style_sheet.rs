@@ -37,6 +37,11 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Style for metadata blocks (front matter).
     fn metadata_block(&self) -> Style;
+
+    /// Style for raw HTML blocks and inline HTML tags.
+    fn html(&self) -> Style {
+        Style::new().dim()
+    }
 }
 
 /// The default style set
@@ -52,6 +57,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - link: blue, underlined
 /// - blockquote: green
 /// - metadata block: light yellow
+/// - raw HTML: dim
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 
