@@ -90,6 +90,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_YAML_STYLE_METADATA_BLOCKS);
     parse_opts.insert(ParseOptions::ENABLE_SUPERSCRIPT);
     parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
+    parse_opts.insert(ParseOptions::ENABLE_MATH);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -232,8 +233,8 @@ where
             Event::HardBreak => self.hard_break(),
             Event::Rule => self.rule(),
             Event::TaskListMarker(checked) => self.task_list_marker(checked),
-            Event::InlineMath(_) => warn!("Inline math not yet supported"),
-            Event::DisplayMath(_) => warn!("Display math not yet supported"),
+            Event::InlineMath(math) => self.inline_math(math),
+            Event::DisplayMath(math) => self.display_math(math),
         }
     }
 
@@ -589,7 +590,6 @@ where
             self.push_span(")".into());
         }
     }
-
     fn start_html_block(&mut self) {
         if self.needs_newline {
             self.push_line(Line::default());
@@ -620,6 +620,27 @@ where
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.html());
         self.push_span(Span::styled(html, style));
+    }
+
+    fn inline_math(&mut self, math: CowStr<'a>) {
+        let inline_style = self.inline_styles.last().copied().unwrap_or_default();
+        let style = inline_style.patch(self.styles.math_inline());
+        self.push_span(Span::styled(format!("${math}$"), style));
+    }
+
+    fn display_math(&mut self, math: CowStr<'a>) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        let style = self.styles.math_display();
+        let display_math = format!("$${math}$$");
+        for (index, line) in display_math.lines().enumerate() {
+            if index > 0 {
+                self.push_line(Line::default());
+            }
+            self.push_span(Span::styled(line.to_owned(), style));
+        }
+        self.needs_newline = true;
     }
 }
 
@@ -1082,7 +1103,6 @@ mod tests {
             ]))
         );
     }
-
     #[rstest]
     fn link_combines_with_bold_style(_with_tracing: DefaultGuard) {
         let link_style = Style::new().blue().underlined();
@@ -1144,6 +1164,100 @@ mod tests {
                         .style(Style::new().dim()),
                     Line::default(),
                     Line::from("After"),
+                ])
+            );
+        }
+    }
+
+    mod math {
+        use pretty_assertions::assert_eq;
+        use ratatui_core::style::Color;
+
+        use super::*;
+
+        #[rstest]
+        fn inline_math_has_exact_output_and_style(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("The formula $E=mc^2$ is famous."),
+                Text::from(Line::from_iter([
+                    Span::raw("The formula "),
+                    Span::styled("$E=mc^2$", Style::new().italic().fg(Color::Magenta)),
+                    Span::raw(" is famous."),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn inline_math_combines_with_enclosing_style(_with_tracing: DefaultGuard) {
+            let style = Style::new().bold().italic().fg(Color::Magenta);
+            assert_eq!(
+                from_str("**$x$**"),
+                Text::from(Line::from(Span::styled("$x$", style)))
+            );
+        }
+
+        #[rstest]
+        fn multiline_display_math_styles_every_line(_with_tracing: DefaultGuard) {
+            let style = Style::new().fg(Color::Magenta);
+            assert_eq!(
+                from_str("Before\n\n$$\nx = y\ny = z\n$$\n\nAfter"),
+                Text::from_iter([
+                    Line::from("Before"),
+                    Line::default(),
+                    Line::from(Span::styled("$$", style)),
+                    Line::from(Span::styled("x = y", style)),
+                    Line::from(Span::styled("y = z", style)),
+                    Line::from(Span::styled("$$", style)),
+                    Line::default(),
+                    Line::from("After"),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiline_display_math_uses_custom_style(_with_tracing: DefaultGuard) {
+            #[derive(Clone, Copy)]
+            struct CustomMathStyle;
+
+            impl StyleSheet for CustomMathStyle {
+                fn heading(&self, level: u8) -> Style {
+                    DefaultStyleSheet.heading(level)
+                }
+
+                fn code(&self) -> Style {
+                    DefaultStyleSheet.code()
+                }
+
+                fn link(&self) -> Style {
+                    DefaultStyleSheet.link()
+                }
+
+                fn blockquote(&self) -> Style {
+                    DefaultStyleSheet.blockquote()
+                }
+
+                fn heading_meta(&self) -> Style {
+                    DefaultStyleSheet.heading_meta()
+                }
+
+                fn metadata_block(&self) -> Style {
+                    DefaultStyleSheet.metadata_block()
+                }
+
+                fn math_display(&self) -> Style {
+                    Style::new().red().bold()
+                }
+            }
+
+            let style = Style::new().red().bold();
+            let options = Options::new(CustomMathStyle);
+            assert_eq!(
+                from_str_with_options("$$\nx = y\ny = z\n$$", &options),
+                Text::from_iter([
+                    Line::from(Span::styled("$$", style)),
+                    Line::from(Span::styled("x = y", style)),
+                    Line::from(Span::styled("y = z", style)),
+                    Line::from(Span::styled("$$", style)),
                 ])
             );
         }

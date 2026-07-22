@@ -37,10 +37,19 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Style for metadata blocks (front matter).
     fn metadata_block(&self) -> Style;
-
     /// Style for raw HTML blocks and inline HTML tags.
     fn html(&self) -> Style {
         Style::new().dim()
+    }
+
+    /// Style for inline math (`$...$`).
+    fn math_inline(&self) -> Style {
+        Style::new().italic().magenta()
+    }
+
+    /// Style for display math (`$$...$$`).
+    fn math_display(&self) -> Style {
+        Style::new().magenta()
     }
 }
 
@@ -58,6 +67,8 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - blockquote: green
 /// - metadata block: light yellow
 /// - raw HTML: dim
+/// - inline math: magenta, italic
+/// - display math: magenta
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

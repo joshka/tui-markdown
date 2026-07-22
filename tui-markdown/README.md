@@ -42,6 +42,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Unordered lists
 - [x] Code blocks
 - [x] HTML
+- [x] Math
 - [ ] Footnotes
 - [x] Linebreak handling
 - [x] Rule
@@ -61,6 +62,11 @@ preserving nested inline formatting such as bold text.
 
 Raw inline HTML tags and HTML blocks are displayed literally rather than interpreted as terminal
 markup. They are dimmed by default and can be customized with [`StyleSheet::html()`].
+
+Inline and display math keep their `$...$` and `$$...$$` delimiters visible. Inline math is
+magenta and italic by default, while display math is magenta and preserves multiline formulas as
+separate terminal lines. Customize these styles with [`StyleSheet::math_inline()`] and
+[`StyleSheet::math_display()`].
 
 Metadata blocks are rendered using the metadata block style so front matter is visible, including
 the delimiter lines (for example `---` in YAML-style blocks).
@@ -120,6 +126,8 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [markdown-reader]: https://crates.io/crates/markdown-reader
 [Ratatui]: https://crates.io/crates/ratatui
 [`StyleSheet::html()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.html
+[`StyleSheet::math_display()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.math_display
+[`StyleSheet::math_inline()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.math_inline
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge
