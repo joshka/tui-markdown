@@ -186,6 +186,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Whether we are inside a footnote definition.
     in_footnote_definition: bool,
 
+    /// Whether we are inside a definition-list description.
+    in_definition_description: bool,
+
     needs_newline: bool,
 }
 
@@ -215,6 +218,7 @@ where
             heading_meta: None,
             in_metadata_block: false,
             in_footnote_definition: false,
+            in_definition_description: false,
         }
     }
 
@@ -306,16 +310,17 @@ where
     }
 
     fn start_paragraph(&mut self) {
-        // A footnote definition starts with a paragraph event after
-        // `start_footnote_definition` has already written `[label]: ` to the current line. Skip
-        // normal paragraph handling only for that first paragraph so its content stays beside the
-        // label. For a later paragraph, `needs_newline` is true; allowing the normal path below to
-        // run preserves the blank line in definitions such as:
+        // Footnote definitions and loose definition-list descriptions start with a paragraph event
+        // after their handlers have already written a visible prefix (`[label]: ` or `: `) to the
+        // current line. Skip normal paragraph handling only for that first paragraph so its content
+        // stays beside the prefix. For a later paragraph, `needs_newline` is true; allowing the
+        // normal path below to run preserves the blank line in definitions such as:
         //
         //     [^label]: First paragraph.
         //
         //         Second paragraph.
-        if self.in_footnote_definition && !self.needs_newline {
+        let prefix_line_is_open = self.in_footnote_definition || self.in_definition_description;
+        if prefix_line_is_open && !self.needs_newline {
             return;
         }
         // Insert an empty line between paragraphs if there is at least one line of text already.
@@ -720,11 +725,13 @@ where
         self.push_line(Line::default());
         self.push_span(Span::styled(": ", self.styles.definition_description()));
         self.push_inline_style(self.styles.definition_description());
+        self.in_definition_description = true;
         self.needs_newline = false;
     }
 
     fn end_definition_description(&mut self) {
         self.pop_inline_style();
+        self.in_definition_description = false;
         self.needs_newline = false;
     }
 }
@@ -1084,6 +1091,37 @@ mod tests {
                     Line::from(Span::styled("Term", Style::new().bold())),
                     Line::from_iter([Span::raw(": "), Span::raw("First description")]),
                     Line::from_iter([Span::raw(": "), Span::raw("Second description")]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiple_description_paragraphs_keep_prefix_and_blank_line(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: First paragraph.\n\n  Second paragraph."),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([Span::raw(": "), Span::raw("First paragraph.")]),
+                    Line::default(),
+                    Line::from("Second paragraph."),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn repeated_items_do_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+            let term_style = Style::new().bold();
+            assert_eq!(
+                from_str(
+                    "Term one\n: First description.\n\nTerm two\n: Second description.\n\nAfter."
+                ),
+                Text::from_iter([
+                    Line::from(Span::styled("Term one", term_style)),
+                    Line::from_iter([Span::raw(": "), Span::raw("First description.")]),
+                    Line::from(Span::styled("Term two", term_style)),
+                    Line::from_iter([Span::raw(": "), Span::raw("Second description.")]),
+                    Line::default(),
+                    Line::from("After."),
                 ])
             );
         }
