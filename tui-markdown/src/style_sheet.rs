@@ -63,12 +63,12 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     }
 
     /// Style for definition list terms.
-    fn definition_title(&self) -> Style {
+    fn definition_term(&self) -> Style {
         Style::new().bold()
     }
 
     /// Style for definition list descriptions.
-    fn definition_desc(&self) -> Style {
+    fn definition_description(&self) -> Style {
         Style::default()
     }
 }
@@ -91,6 +91,8 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - display math: magenta
 /// - footnote references: dim, italic
 /// - footnote definitions: dim
+/// - definition list terms: bold
+/// - definition list descriptions: the surrounding style
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

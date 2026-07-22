@@ -273,7 +273,7 @@ where
             Tag::MetadataBlock(_) => self.start_metadata_block(),
             Tag::DefinitionList => self.start_definition_list(),
             Tag::DefinitionListTitle => self.start_definition_title(),
-            Tag::DefinitionListDefinition => self.start_definition_desc(),
+            Tag::DefinitionListDefinition => self.start_definition_description(),
         }
     }
 
@@ -301,7 +301,7 @@ where
             TagEnd::MetadataBlock(_) => self.end_metadata_block(),
             TagEnd::DefinitionList => self.end_definition_list(),
             TagEnd::DefinitionListTitle => self.end_definition_title(),
-            TagEnd::DefinitionListDefinition => self.end_definition_desc(),
+            TagEnd::DefinitionListDefinition => self.end_definition_description(),
         }
     }
 
@@ -701,8 +701,10 @@ where
     }
 
     fn start_definition_title(&mut self) {
+        // Definition-list terms contain inline events without an ordinary paragraph start, so the
+        // term handler owns the output line and applies the term style before consuming them.
         self.push_line(Line::default());
-        self.push_inline_style(self.styles.definition_title());
+        self.push_inline_style(self.styles.definition_term());
         self.needs_newline = false;
     }
 
@@ -711,14 +713,17 @@ where
         self.needs_newline = false;
     }
 
-    fn start_definition_desc(&mut self) {
+    fn start_definition_description(&mut self) {
+        // A tight description contains inline events without an ordinary paragraph start. Create
+        // its line here and write the visible Markdown `: ` marker before consuming the content so
+        // the marker and content share the description style.
         self.push_line(Line::default());
-        self.push_span(Span::styled(": ", self.styles.definition_desc()));
-        self.push_inline_style(self.styles.definition_desc());
+        self.push_span(Span::styled(": ", self.styles.definition_description()));
+        self.push_inline_style(self.styles.definition_description());
         self.needs_newline = false;
     }
 
-    fn end_definition_desc(&mut self) {
+    fn end_definition_description(&mut self) {
         self.pop_inline_style();
         self.needs_newline = false;
     }
@@ -998,58 +1003,13 @@ mod tests {
                 DefaultStyleSheet.metadata_block()
             }
 
-            fn definition_title(&self) -> Style {
+            fn definition_term(&self) -> Style {
                 Style::new().red().underlined()
             }
 
-            fn definition_desc(&self) -> Style {
+            fn definition_description(&self) -> Style {
                 Style::new().blue().italic()
             }
-        }
-
-        #[rstest]
-        fn basic_definition_list(_with_tracing: DefaultGuard) {
-            let text = from_str(indoc! {"
-                Term 1
-                : Definition 1
-            "});
-            let has_term = text.lines.iter().any(|line| {
-                line.spans
-                    .iter()
-                    .any(|span| span.content.contains("Term 1"))
-            });
-            assert!(has_term, "definition list should render the term");
-            let has_definition = text.lines.iter().any(|line| {
-                line.spans
-                    .iter()
-                    .any(|span| span.content.contains("Definition 1"))
-            });
-            assert!(
-                has_definition,
-                "definition list should render the definition"
-            );
-        }
-
-        #[rstest]
-        fn definition_list_indentation(_with_tracing: DefaultGuard) {
-            let text = from_str(indoc! {"
-                Term
-                : Description here
-            "});
-            let definition_line = text
-                .lines
-                .iter()
-                .find(|line| {
-                    line.spans
-                        .iter()
-                        .any(|span| span.content.contains("Description"))
-                })
-                .expect("should have definition line");
-            let has_colon_prefix = definition_line
-                .spans
-                .iter()
-                .any(|span| span.content.contains(": "));
-            assert!(has_colon_prefix, "definition should have colon prefix");
         }
 
         #[rstest]
@@ -1078,6 +1038,52 @@ mod tests {
                         Span::styled(": ", description_style),
                         Span::styled("Definition", description_style),
                     ]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn inline_formatting_combines_with_definition_styles(_with_tracing: DefaultGuard) {
+            let options = Options::new(CustomDefinitionStyleSheet);
+            let term_style = Style::new().red().underlined().italic();
+            let description_style = Style::new().blue().italic();
+
+            assert_eq!(
+                from_str_with_options("*Term*\n: **Description**\n", &options),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", term_style)),
+                    Line::from_iter([
+                        Span::styled(": ", description_style),
+                        Span::styled("Description", description_style.bold()),
+                    ]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiline_definition(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: First line\n  second line\n"),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([
+                        Span::raw(": "),
+                        Span::raw("First line"),
+                        Span::raw(" "),
+                        Span::raw("second line"),
+                    ]),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiple_descriptions(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Term\n: First description\n: Second description\n"),
+                Text::from_iter([
+                    Line::from(Span::styled("Term", Style::new().bold())),
+                    Line::from_iter([Span::raw(": "), Span::raw("First description")]),
+                    Line::from_iter([Span::raw(": "), Span::raw("Second description")]),
                 ])
             );
         }

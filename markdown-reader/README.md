@@ -56,6 +56,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Code blocks
 - [x] HTML
 - [x] Footnotes
+- [x] Definition lists
 - [ ] Tables
 - [x] Linebreak handling
 - [x] Rule

@@ -44,6 +44,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] HTML
 - [x] Math
 - [x] Footnotes
+- [x] Definition lists
 - [x] Linebreak handling
 - [x] Rule
 - [ ] Tables
@@ -71,6 +72,10 @@ separate terminal lines. Customize these styles with [`StyleSheet::math_inline()
 Footnote references such as `[^source]` are displayed as `[source]`, and definitions are displayed
 as `[source]: ...`. References are dim and italic by default, while definitions are dim. Customize
 these styles with [`StyleSheet::footnote_ref()`] and [`StyleSheet::footnote_def()`].
+
+Definition-list terms are bold by default, with each description rendered on its own line after a
+colon-and-space prefix. Customize them with [`StyleSheet::definition_term()`] and
+[`StyleSheet::definition_description()`].
 
 Metadata blocks are rendered using the metadata block style so front matter is visible, including
 the delimiter lines (for example `---` in YAML-style blocks).
@@ -134,6 +139,8 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::math_inline()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.math_inline
 [`StyleSheet::footnote_def()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.footnote_def
 [`StyleSheet::footnote_ref()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.footnote_ref
+[`StyleSheet::definition_description()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.definition_description
+[`StyleSheet::definition_term()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.definition_term
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge
