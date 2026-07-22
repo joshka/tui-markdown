@@ -6,7 +6,7 @@
 use ratatui_core::text::Text;
 
 /// A single renderable block within a parsed Markdown document.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MarkdownBlock<'a> {
     /// Regular text content such as headings, paragraphs, lists, and code blocks.
     Text(Text<'a>),
@@ -43,7 +43,7 @@ pub enum MarkdownBlock<'a> {
 ///     }
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarkdownContent<'a> {
     /// The ordered sequence of blocks in this document.
     pub blocks: Vec<MarkdownBlock<'a>>,
