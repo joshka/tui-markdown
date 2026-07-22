@@ -7,6 +7,10 @@
 //! GitHub-flavored Markdown tables render with Unicode box-drawing borders, terminal-width-aware
 //! columns, and the alignment declared by the Markdown delimiter row. Use [`StyleSheet`] to
 //! customize header cells, body cells, and borders.
+//!
+//! Images render as `[img]` followed by their description, or by their destination when the
+//! description is empty. This is a text fallback; the crate does not load or render image
+//! resources.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example
@@ -68,7 +72,8 @@ const IMAGE_INDICATOR: &str = "[img]";
 /// Render Markdown `input` into a [`Text`] using the default [`Options`].
 ///
 /// This is a convenience function that uses the default options, which are defined in
-/// [`Options::default`]. It is suitable for most use cases where you want to render Markdown
+/// [`Options::default`]. Image syntax renders as a styled text fallback so its description or
+/// destination remains visible in terminals without image graphics.
 pub fn from_str(input: &str) -> Text<'_> {
     from_str_with_options(input, &Options::default())
 }
@@ -187,6 +192,51 @@ struct ListItemLayout {
     continuation_width: usize,
 }
 
+/// An image whose description is still being emitted by pulldown-cmark.
+///
+/// Image descriptions arrive as the same inline event stream used for ordinary text: formatting,
+/// code, HTML, math, and even nested images are separate events between the image's start and end.
+/// Buffer the rendered spans until the end event so the fallback marker stays at the correct image
+/// boundary and the destination is used only when the description produced no content. A stack is
+/// required because pulldown-cmark can emit nested image events inside a description.
+#[derive(Debug)]
+struct PendingImage<'a> {
+    destination: CowStr<'a>,
+    style: Style,
+    description: Vec<Span<'a>>,
+}
+
+impl<'a> PendingImage<'a> {
+    fn new(destination: CowStr<'a>, style: Style) -> Self {
+        Self {
+            destination,
+            style,
+            description: Vec::new(),
+        }
+    }
+
+    fn push_span(&mut self, span: Span<'a>) {
+        self.description.push(span);
+    }
+
+    fn into_fallback(self) -> Vec<Span<'a>> {
+        let mut content = self.description;
+        if content.is_empty() && !self.destination.is_empty() {
+            content.push(Span::styled(self.destination, self.style));
+        }
+
+        let indicator = if content.is_empty() {
+            IMAGE_INDICATOR.to_owned()
+        } else {
+            format!("{IMAGE_INDICATOR} ")
+        };
+        let mut fallback = Vec::with_capacity(content.len() + 1);
+        fallback.push(Span::styled(indicator, self.style));
+        fallback.extend(content);
+        fallback
+    }
+}
+
 struct TextWriter<'a, I, S: StyleSheet> {
     /// Iterator supplying events.
     iter: I,
@@ -218,11 +268,8 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// A link which will be appended to the current line when the link tag is closed.
     link: Option<CowStr<'a>>,
 
-    /// Image destination URL stored between image start and end events.
-    image_url: Option<CowStr<'a>>,
-
-    /// Whether any alt text was rendered for the current image.
-    image_had_alt: bool,
+    /// Images whose descriptions are currently being collected.
+    images: Vec<PendingImage<'a>>,
 
     /// The [`StyleSheet`] to use to style the output.
     styles: S,
@@ -268,8 +315,7 @@ where
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
             link: None,
-            image_url: None,
-            image_had_alt: false,
+            images: vec![],
             styles,
             heading_meta: None,
             in_metadata_block: false,
@@ -468,10 +514,6 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
-        if self.image_url.is_some() {
-            self.image_had_alt = true;
-        }
-
         if self.table_builder.is_some() {
             let style = self.inline_styles.last().copied().unwrap_or_default();
             self.push_span(Span::styled(text, style));
@@ -512,12 +554,23 @@ where
     }
 
     fn code(&mut self, code: CowStr<'a>) {
-        let span = Span::styled(code, self.styles.code());
+        let style = if self.images.is_empty() {
+            self.styles.code()
+        } else {
+            let inline_style = self.inline_styles.last().copied().unwrap_or_default();
+            inline_style.patch(self.styles.code())
+        };
+
+        let span = Span::styled(code, style);
         self.push_span(span);
     }
 
     fn hard_break(&mut self) {
-        self.push_line(Line::default());
+        if self.images.is_empty() {
+            self.push_line(Line::default());
+        } else {
+            self.image_description_break();
+        }
     }
 
     fn start_metadata_block(&mut self) {
@@ -611,9 +664,18 @@ where
     fn soft_break(&mut self) {
         if self.in_metadata_block {
             self.hard_break();
-        } else {
+        } else if self.images.is_empty() {
             self.push_span(Span::raw(" "));
+        } else {
+            self.image_description_break();
         }
+    }
+
+    fn image_description_break(&mut self) {
+        // Image descriptions are inline content. Keep a break readable without allowing it to
+        // split the surrounding document, and retain the image style in case it has a background.
+        let style = self.inline_styles.last().copied().unwrap_or_default();
+        self.push_span(Span::styled(" ", style));
     }
 
     fn start_codeblock(&mut self, kind: CodeBlockKind<'_>) {
@@ -700,6 +762,13 @@ where
 
     #[instrument(level = "trace", skip(self))]
     fn push_span(&mut self, span: Span<'a>) {
+        // An active image owns every span produced by its inline event stream. Checking it before
+        // the table sink also lets a completed fallback enter a table cell as one ordered unit.
+        if let Some(image) = self.images.last_mut() {
+            image.push_span(span);
+            return;
+        }
+
         // GFM tables are leaf blocks: their cells parse inline content, and block-level elements
         // cannot occur inside them. Pulldown-cmark preserves that boundary by emitting only inline
         // events inside `TableCell`. Keep the active cell as the single span sink anyway so a new
@@ -735,34 +804,26 @@ where
         }
     }
 
-    /// Store the image URL and style its alt text.
+    /// Begin collecting the rendered image description.
     #[instrument(level = "trace", skip(self))]
     fn start_image(&mut self, dest_url: CowStr<'a>) {
-        self.image_url = Some(dest_url);
-        self.image_had_alt = false;
         self.push_inline_style(self.styles.image_alt());
+        let style = self.inline_styles.last().copied().unwrap_or_default();
+        self.images.push(PendingImage::new(dest_url, style));
     }
 
-    /// Render an image as styled alt text, falling back to its URL when the alt text is empty.
+    /// Finish the current image and emit its text fallback to the enclosing output.
+    ///
+    /// Pop the image before emitting so a nested image becomes part of its parent's description,
+    /// while an outer image continues through the usual table or document span sink.
     #[instrument(level = "trace", skip(self))]
     fn end_image(&mut self) {
         self.pop_inline_style();
-        if let Some(url) = self.image_url.take() {
-            let style = self.styles.image_alt();
-            let prefix = format!("{IMAGE_INDICATOR} ");
-            if self.image_had_alt {
-                if let Some(line) = self.text.lines.last_mut() {
-                    if let Some(span) = line.spans.iter_mut().find(|span| span.style == style) {
-                        span.content.to_mut().insert_str(0, &prefix);
-                    } else {
-                        line.spans.push(Span::styled(prefix, style));
-                    }
-                }
-            } else {
-                self.push_span(Span::styled(format!("{prefix}{url}"), style));
+        if let Some(image) = self.images.pop() {
+            for span in image.into_fallback() {
+                self.push_span(span);
             }
         }
-        self.image_had_alt = false;
     }
 
     fn start_html_block(&mut self) {
@@ -2188,11 +2249,47 @@ mod tests {
 
         const IMAGE_STYLE: Style = Style::new().dim().italic();
 
+        #[derive(Clone)]
+        struct UnstyledImageStyleSheet;
+
+        impl StyleSheet for UnstyledImageStyleSheet {
+            fn heading(&self, _level: u8) -> Style {
+                Style::default()
+            }
+
+            fn code(&self) -> Style {
+                Style::default()
+            }
+
+            fn link(&self) -> Style {
+                Style::default()
+            }
+
+            fn blockquote(&self) -> Style {
+                Style::default()
+            }
+
+            fn heading_meta(&self) -> Style {
+                Style::default()
+            }
+
+            fn metadata_block(&self) -> Style {
+                Style::default()
+            }
+
+            fn image_alt(&self) -> Style {
+                Style::default()
+            }
+        }
+
         #[rstest]
         fn image_with_alt(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("![Alt text](https://example.com/image.png)"),
-                Text::from(Line::from(Span::styled("[img] Alt text", IMAGE_STYLE)))
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("Alt text", IMAGE_STYLE),
+                ]))
             );
         }
 
@@ -2200,10 +2297,10 @@ mod tests {
         fn image_without_alt(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("![](https://example.com/image.png)"),
-                Text::from(Line::from(Span::styled(
-                    "[img] https://example.com/image.png",
-                    IMAGE_STYLE,
-                )))
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("https://example.com/image.png", IMAGE_STYLE),
+                ]))
             );
         }
 
@@ -2211,7 +2308,10 @@ mod tests {
         fn image_with_title(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("![Alt](https://example.com/img.png \"My Title\")"),
-                Text::from(Line::from(Span::styled("[img] Alt", IMAGE_STYLE)))
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("Alt", IMAGE_STYLE),
+                ]))
             );
         }
 
@@ -2221,8 +2321,187 @@ mod tests {
                 from_str("Before ![photo](url.png) after"),
                 Text::from(Line::from_iter([
                     Span::from("Before "),
-                    Span::styled("[img] photo", IMAGE_STYLE),
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("photo", IMAGE_STYLE),
                     Span::from(" after"),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn multiple_images_in_paragraph(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![first](first.png) and ![second](second.png)").to_string(),
+                "[img] first and [img] second"
+            );
+        }
+
+        #[rstest]
+        fn formatted_alt_text_keeps_prefix_before_content(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![**bold**](image.png)"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("bold", IMAGE_STYLE.bold()),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn inline_code_counts_as_alt_text(_with_tracing: DefaultGuard) {
+            let code_style = IMAGE_STYLE.patch(DefaultStyleSheet.code());
+            assert_eq!(
+                from_str("![`code`](image.png)"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("code", code_style),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn marker_and_alt_compose_with_enclosing_style(_with_tracing: DefaultGuard) {
+            let style = IMAGE_STYLE.bold();
+            assert_eq!(
+                from_str("**![diagram](diagram.png)**"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", style),
+                    Span::styled("diagram", style),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn marker_and_url_compose_with_enclosing_style(_with_tracing: DefaultGuard) {
+            let style = IMAGE_STYLE.bold();
+            assert_eq!(
+                from_str("**![](diagram.png)**"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", style),
+                    Span::styled("diagram.png", style),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn inline_math_counts_as_alt_text(_with_tracing: DefaultGuard) {
+            let math_style = IMAGE_STYLE.magenta();
+            assert_eq!(
+                from_str("![$x$](equation.png)"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("$x$", math_style),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn inline_html_counts_as_alt_text(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![<br>](break.png)"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("<br>", IMAGE_STYLE),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn nested_image_description_preserves_order_and_style(_with_tracing: DefaultGuard) {
+            let code_style = IMAGE_STYLE.patch(DefaultStyleSheet.code());
+            assert_eq!(
+                from_str("![outer ![inner](inner.png) `code`](outer.png)"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("outer ", IMAGE_STYLE),
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("inner", IMAGE_STYLE),
+                    Span::styled(" ", IMAGE_STYLE),
+                    Span::styled("code", code_style),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn empty_description_and_destination_omit_trailing_space(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Before ![]() after"),
+                Text::from(Line::from_iter([
+                    Span::raw("Before "),
+                    Span::styled("[img]", IMAGE_STYLE),
+                    Span::raw(" after"),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn multiline_description_renders_as_styled_inline_text(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                ![first line
+                second line](image.png)
+            "};
+            assert_eq!(
+                from_str(markdown),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("first line", IMAGE_STYLE),
+                    Span::styled(" ", IMAGE_STYLE),
+                    Span::styled("second line", IMAGE_STYLE),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn hard_break_in_description_stays_inline(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                ![first line  
+                second line](image.png)
+            "};
+            assert_eq!(
+                from_str(markdown),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("first line", IMAGE_STYLE),
+                    Span::styled(" ", IMAGE_STYLE),
+                    Span::styled("second line", IMAGE_STYLE),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn image_fallback_stays_inside_table_cell(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                | Image |
+                |-------|
+                | ![photo](photo.png) |
+            "};
+            let rendered = from_str(markdown)
+                .lines
+                .iter()
+                .map(ToString::to_string)
+                .collect_vec();
+            assert_eq!(
+                rendered,
+                [
+                    "┌─────────────┐",
+                    "│ Image       │",
+                    "├─────────────┤",
+                    "│ [img] photo │",
+                    "└─────────────┘",
+                ]
+            );
+        }
+
+        #[rstest]
+        fn unstyled_fallback_does_not_modify_surrounding_text(_with_tracing: DefaultGuard) {
+            let options = Options::new(UnstyledImageStyleSheet);
+            assert_eq!(
+                from_str_with_options("Before ![photo](photo.png) after", &options),
+                Text::from(Line::from_iter([
+                    Span::raw("Before "),
+                    Span::raw("[img] "),
+                    Span::raw("photo"),
+                    Span::raw(" after"),
                 ]))
             );
         }

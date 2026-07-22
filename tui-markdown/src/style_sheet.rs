@@ -155,7 +155,9 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         Style::new().dark_gray()
     }
 
-    /// Style for the alt-text fallback when rendering images.
+    /// Style for the marker and text used to represent Markdown images.
+    ///
+    /// The default is dim and italic. The renderer patches this over any enclosing inline style.
     fn image_alt(&self) -> Style {
         Style::new().dim().italic()
     }
@@ -189,6 +191,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - table headers: bold cyan
 /// - table cells: the surrounding style
 /// - table borders: dark gray
+/// - image fallback text: dim and italic
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

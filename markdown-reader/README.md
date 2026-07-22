@@ -63,7 +63,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Rule
 - [x] Tasklists
 - [x] Links
-- [ ] Images
+- [x] Images
 - [x] Metadata blocks
 - [x] Superscript
 - [x] Subscript
