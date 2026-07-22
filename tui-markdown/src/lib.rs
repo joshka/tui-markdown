@@ -103,8 +103,29 @@ where
 
 /// Parse Markdown `input` into structured content using the default [`Options`].
 ///
-/// Unlike [`from_str`], images are represented as separate [`MarkdownBlock::Image`] blocks rather
+/// Unlike [`from_str`], images are represented as separate [`MarkdownBlock::Image`] segments rather
 /// than being flattened to alt text. This allows consumers to provide custom image rendering.
+/// Inline images split their surrounding text into ordered text, image, and text segments.
+///
+/// # Example
+///
+/// ```
+/// use tui_markdown::{parse, MarkdownBlock};
+///
+/// let content = parse("Before ![diagram](diagram.png \"Architecture\") after");
+/// for block in content.blocks {
+///     match block {
+///         MarkdownBlock::Text(text) => {
+///             // Render `text` with Ratatui.
+///         }
+///         MarkdownBlock::Image { url, alt, title } => {
+///             assert_eq!(url, "diagram.png");
+///             assert_eq!(alt, "diagram");
+///             assert_eq!(title.as_deref(), Some("Architecture"));
+///         }
+///     }
+/// }
+/// ```
 pub fn parse(input: &str) -> MarkdownContent<'_> {
     parse_with_options(input, &Options::default())
 }
@@ -325,6 +346,16 @@ where
 
     #[instrument(level = "debug", skip(self))]
     fn handle_event(&mut self, event: Event<'a>) {
+        if self.collecting_image_alt {
+            match event {
+                Event::End(TagEnd::Image) => self.end_image(),
+                Event::Text(text) | Event::Code(text) => self.image_alt_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => self.image_alt_buffer.push(' '),
+                _ => {}
+            }
+            return;
+        }
+
         match event {
             Event::Start(tag) => self.start_tag(tag),
             Event::End(tag) => self.end_tag(tag),
@@ -462,11 +493,6 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
-        if self.collecting_image_alt {
-            self.image_alt_buffer.push_str(&text);
-            return;
-        }
-
         if self.image_url.is_some() {
             self.image_had_alt = true;
         }
@@ -1405,6 +1431,48 @@ mod tests {
                             url: "pic.png".to_string(),
                             alt: "photo".to_string(),
                             title: Some("A photo".to_string()),
+                        },
+                        MarkdownBlock::Text(Text::from(" after")),
+                    ],
+                }
+            );
+        }
+
+        #[rstest]
+        fn parse_collects_formatted_image_description_without_leaking_text(
+            _with_tracing: DefaultGuard,
+        ) {
+            let content = parse("Before ![an *important* `diagram`](pic.png) after");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Text(Text::from("Before ")),
+                        MarkdownBlock::Image {
+                            url: "pic.png".to_string(),
+                            alt: "an important diagram".to_string(),
+                            title: None,
+                        },
+                        MarkdownBlock::Text(Text::from(" after")),
+                    ],
+                }
+            );
+        }
+
+        #[rstest]
+        fn parse_normalizes_breaks_in_image_description(_with_tracing: DefaultGuard) {
+            let content = parse("Before ![first line\nsecond line](pic.png) after");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Text(Text::from("Before ")),
+                        MarkdownBlock::Image {
+                            url: "pic.png".to_string(),
+                            alt: "first line second line".to_string(),
+                            title: None,
                         },
                         MarkdownBlock::Text(Text::from(" after")),
                     ],

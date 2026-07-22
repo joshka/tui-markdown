@@ -5,7 +5,11 @@
 
 use ratatui_core::text::Text;
 
-/// A single renderable block within a parsed Markdown document.
+/// A single renderable segment within a parsed Markdown document.
+///
+/// Inline images split their surrounding text into ordered [`Text`](Self::Text),
+/// [`Image`](Self::Image), and [`Text`](Self::Text) segments. These values are output segments, not
+/// a representation of Markdown's block-level syntax.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MarkdownBlock<'a> {
     /// Regular text content such as headings, paragraphs, lists, and code blocks.
@@ -21,10 +25,10 @@ pub enum MarkdownBlock<'a> {
     },
 }
 
-/// An ordered sequence of renderable Markdown blocks.
+/// An ordered sequence of renderable Markdown segments.
 ///
 /// Returned by [`crate::parse`] and [`crate::parse_with_options`]. Images are represented as
-/// separate blocks rather than being flattened to alt text.
+/// separate segments rather than being flattened to alt text.
 ///
 /// # Example
 ///
