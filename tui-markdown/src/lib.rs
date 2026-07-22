@@ -572,15 +572,17 @@ where
         }
     }
 
-    /// Store the link to be appended to the link text
+    /// Store the link and push the link style so the link text is also styled.
     #[instrument(level = "trace", skip(self))]
     fn push_link(&mut self, dest_url: CowStr<'a>) {
         self.link = Some(dest_url);
+        self.push_inline_style(self.styles.link());
     }
 
-    /// Append the link to the current line
+    /// Pop the link style and append the link URL to the current line.
     #[instrument(level = "trace", skip(self))]
     fn pop_link(&mut self) {
+        self.pop_inline_style();
         if let Some(link) = self.link.take() {
             self.push_span(" (".into());
             self.push_span(Span::styled(link, self.styles.link()));
@@ -1037,14 +1039,55 @@ mod tests {
 
     #[rstest]
     fn link(_with_tracing: DefaultGuard) {
+        let link_style = Style::new().blue().underlined();
         assert_eq!(
             from_str("[Link](https://example.com)"),
             Text::from(Line::from_iter([
-                Span::from("Link"),
+                Span::styled("Link", link_style),
                 Span::from(" ("),
-                Span::from("https://example.com").blue().underlined(),
+                Span::styled("https://example.com", link_style),
                 Span::from(")")
             ]))
         );
+    }
+
+    mod link_styling {
+        use pretty_assertions::assert_eq;
+
+        use super::*;
+
+        #[rstest]
+        fn link_text_is_styled(_with_tracing: DefaultGuard) {
+            let link_style = Style::new().blue().underlined();
+            let text = from_str("[Click here](https://example.com)");
+            let line = &text.lines[0];
+            // The link text "Click here" should have the link style.
+            let text_span = line
+                .spans
+                .iter()
+                .find(|span| span.content.contains("Click here"))
+                .expect("link text span");
+            assert_eq!(text_span.style, link_style);
+        }
+
+        #[rstest]
+        fn bold_inside_link(_with_tracing: DefaultGuard) {
+            let text = from_str("[**Bold link**](https://example.com)");
+            let line = &text.lines[0];
+            // The bold link text should combine bold + link styles.
+            let bold_span = line
+                .spans
+                .iter()
+                .find(|span| span.content.contains("Bold link"))
+                .expect("bold link span");
+            assert!(bold_span
+                .style
+                .add_modifier
+                .contains(ratatui_core::style::Modifier::BOLD));
+            assert!(bold_span
+                .style
+                .add_modifier
+                .contains(ratatui_core::style::Modifier::UNDERLINED));
+        }
     }
 }
