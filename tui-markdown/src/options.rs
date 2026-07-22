@@ -1,7 +1,8 @@
 //! Rendering configuration for tui-markdown.
 //!
-//! Options control the renderer's style sheet and image fallback content. [`Options`] is
-//! non-exhaustive, allowing new rendering choices to be added without breaking existing code.
+//! Options control the renderer's style sheet, image fallback content, and syntax-highlighting
+//! theme. [`Options`] is non-exhaustive, allowing new rendering choices to be added without
+//! breaking existing code.
 
 use crate::{DefaultStyleSheet, StyleSheet};
 
@@ -82,7 +83,7 @@ pub enum ImageFallback {
 ///     }
 /// }
 ///
-/// let options = Options::new(MyStyleSheet);
+/// let options = Options::new(MyStyleSheet).code_theme("Solarized (dark)");
 /// ```
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -92,14 +93,22 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     pub(crate) styles: S,
     /// The content to render in place of images.
     pub(crate) image_fallback: ImageFallback,
+    /// Name of the syntect theme used for syntax-highlighted code blocks.
+    ///
+    /// When the `highlight-code` feature is disabled this field has no effect.
+    pub(crate) code_theme: String,
 }
 
 impl<S: StyleSheet> Options<S> {
+    /// The default syntax-highlighting theme name.
+    pub const DEFAULT_CODE_THEME: &str = "base16-ocean.dark";
+
     /// Creates a new `Options` instance with the provided style sheet.
     pub fn new(styles: S) -> Self {
         Self {
             styles,
             image_fallback: ImageFallback::default(),
+            code_theme: Self::DEFAULT_CODE_THEME.to_owned(),
         }
     }
 
@@ -109,6 +118,17 @@ impl<S: StyleSheet> Options<S> {
     #[must_use]
     pub fn image_fallback(mut self, image_fallback: ImageFallback) -> Self {
         self.image_fallback = image_fallback;
+        self
+    }
+
+    /// Sets the syntax-highlighting theme by name.
+    ///
+    /// The name must match a theme returned by [`crate::available_themes`]. Invalid names fall back
+    /// to [`Self::DEFAULT_CODE_THEME`] when a code block is rendered.
+    ///
+    /// This setting has no effect when the `highlight-code` feature is disabled.
+    pub fn code_theme(mut self, theme_name: impl Into<String>) -> Self {
+        self.code_theme = theme_name.into();
         self
     }
 }
@@ -171,6 +191,7 @@ mod tests {
         let options = Options {
             styles: CustomStyleSheet,
             image_fallback: ImageFallback::default(),
+            code_theme: Options::<CustomStyleSheet>::DEFAULT_CODE_THEME.to_owned(),
         };
 
         assert_eq!(options.styles.heading(1), Style::new().red().bold());
@@ -195,5 +216,22 @@ mod tests {
         let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
 
         assert_eq!(options.image_fallback, ImageFallback::AltTextAndUrl);
+    }
+
+    #[test]
+    fn default_code_theme() {
+        let options: Options = Options::default();
+
+        assert_eq!(
+            options.code_theme,
+            Options::<DefaultStyleSheet>::DEFAULT_CODE_THEME
+        );
+    }
+
+    #[test]
+    fn custom_code_theme() {
+        let options = Options::default().code_theme("Solarized (dark)");
+
+        assert_eq!(options.code_theme, "Solarized (dark)");
     }
 }

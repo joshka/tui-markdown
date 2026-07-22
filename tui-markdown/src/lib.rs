@@ -109,9 +109,22 @@ where
     parse_opts.insert(ParseOptions::ENABLE_TABLES);
     let parser = Parser::new_ext(input, parse_opts);
 
-    let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
+    let mut writer = TextWriter::new(
+        parser,
+        options.styles.clone(),
+        options.image_fallback,
+        options.code_theme.clone(),
+    );
     writer.run();
     writer.text
+}
+
+/// Returns the names of all built-in syntax-highlighting themes.
+///
+/// These names can be passed to [`Options::code_theme`].
+#[cfg(feature = "highlight-code")]
+pub fn available_themes() -> Vec<&'static str> {
+    THEME_SET.themes.keys().map(String::as_str).collect()
 }
 
 // Heading attributes collected from pulldown-cmark to render after the heading text.
@@ -316,6 +329,10 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Active table builder that accumulates cells during table parsing.
     table_builder: Option<tables::TableBuilder<'a>>,
 
+    /// Name of the syntect theme for code highlighting.
+    #[cfg_attr(not(feature = "highlight-code"), allow(dead_code))]
+    code_theme_name: String,
+
     needs_newline: bool,
 }
 
@@ -329,7 +346,7 @@ where
     I: Iterator<Item = Event<'a>>,
     S: StyleSheet,
 {
-    fn new(iter: I, styles: S, image_fallback: ImageFallback) -> Self {
+    fn new(iter: I, styles: S, image_fallback: ImageFallback, code_theme_name: String) -> Self {
         Self {
             iter,
             text: Text::default(),
@@ -350,6 +367,7 @@ where
             in_footnote_definition: false,
             in_definition_description: false,
             table_builder: None,
+            code_theme_name,
         }
     }
 
@@ -743,7 +761,17 @@ where
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
             debug!("Starting code block with syntax: {:?}", lang);
-            let theme = &THEME_SET.themes["base16-ocean.dark"];
+            let theme = THEME_SET
+                .themes
+                .get(&self.code_theme_name)
+                .unwrap_or_else(|| {
+                    warn!(
+                        "Theme {:?} not found, falling back to {:?}",
+                        self.code_theme_name,
+                        Options::<DefaultStyleSheet>::DEFAULT_CODE_THEME,
+                    );
+                    &THEME_SET.themes[Options::<DefaultStyleSheet>::DEFAULT_CODE_THEME]
+                });
             let highlighter = HighlightLines::new(syntax, theme);
             self.code_highlighter = Some(highlighter);
         } else {
@@ -2590,6 +2618,33 @@ mod tests {
                     Span::raw(" after"),
                 ]))
             );
+        }
+    }
+
+    mod code_theme {
+        use super::*;
+
+        #[rstest]
+        fn invalid_theme_does_not_panic(_with_tracing: DefaultGuard) {
+            let options = Options::default().code_theme("nonexistent-theme");
+            let _text = from_str_with_options("```rust\nfn main() {}\n```", &options);
+        }
+
+        #[rstest]
+        #[cfg(feature = "highlight-code")]
+        fn different_theme_produces_different_output(_with_tracing: DefaultGuard) {
+            let default_out = from_str("```rust\nfn main() {}\n```");
+            let options = Options::default().code_theme("InspiredGitHub");
+            let custom_out = from_str_with_options("```rust\nfn main() {}\n```", &options);
+            assert_ne!(format!("{default_out:?}"), format!("{custom_out:?}"));
+        }
+
+        #[rstest]
+        #[cfg(feature = "highlight-code")]
+        fn available_themes_not_empty(_with_tracing: DefaultGuard) {
+            let themes = crate::available_themes();
+            assert!(!themes.is_empty());
+            assert!(themes.contains(&"base16-ocean.dark"));
         }
     }
 }
