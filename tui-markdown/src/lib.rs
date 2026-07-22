@@ -1103,17 +1103,29 @@ mod tests {
 
         #[rstest]
         fn inline_html_tag(_with_tracing: DefaultGuard) {
-            let text = from_str("Hello <em>world</em>");
-            // Inline HTML tags are rendered as dim text alongside normal text.
-            assert_eq!(text.lines.len(), 1);
-            assert!(text.lines[0].spans.len() >= 2);
+            assert_eq!(
+                from_str("Hello <em>world</em>"),
+                Text::from(Line::from_iter([
+                    Span::from("Hello "),
+                    Span::styled("<em>", Style::new().dim()),
+                    Span::from("world"),
+                    Span::styled("</em>", Style::new().dim()),
+                ]))
+            );
         }
 
         #[rstest]
         fn html_block_renders(_with_tracing: DefaultGuard) {
-            let text = from_str("<div>Custom HTML</div>\n");
-            // HTML blocks should render something (not be silently dropped).
-            assert!(!text.lines.is_empty());
+            assert_eq!(
+                from_str("<div>\nCustom HTML\n</div>\n"),
+                Text::from_iter([
+                    Line::from(Span::styled("<div>", Style::new().dim())),
+                    Line::from(Span::styled("Custom HTML", Style::new().dim()))
+                        .style(Style::new().dim()),
+                    Line::from(Span::styled("</div>", Style::new().dim()))
+                        .style(Style::new().dim()),
+                ])
+            );
         }
     }
 }
