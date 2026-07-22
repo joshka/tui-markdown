@@ -403,7 +403,15 @@ where
     }
 
     fn code(&mut self, code: CowStr<'a>) {
-        let span = Span::styled(code, self.styles.code());
+        let style = if self.image_url.is_some() {
+            self.image_had_alt = true;
+            let image_style = self.inline_styles.last().copied().unwrap_or_default();
+            image_style.patch(self.styles.code())
+        } else {
+            self.styles.code()
+        };
+
+        let span = Span::styled(code, style);
         self.push_span(span);
     }
 
@@ -607,7 +615,9 @@ where
     fn start_image(&mut self, dest_url: CowStr<'a>) {
         self.image_url = Some(dest_url);
         self.image_had_alt = false;
-        self.push_inline_style(self.styles.image_alt());
+        let style = self.styles.image_alt();
+        self.push_inline_style(style);
+        self.push_span(Span::styled(format!("{IMAGE_INDICATOR} "), style));
     }
 
     /// Render an image as styled alt text, falling back to its URL when the alt text is empty.
@@ -615,18 +625,8 @@ where
     fn end_image(&mut self) {
         self.pop_inline_style();
         if let Some(url) = self.image_url.take() {
-            let style = self.styles.image_alt();
-            let prefix = format!("{IMAGE_INDICATOR} ");
-            if self.image_had_alt {
-                if let Some(line) = self.text.lines.last_mut() {
-                    if let Some(span) = line.spans.iter_mut().find(|span| span.style == style) {
-                        span.content.to_mut().insert_str(0, &prefix);
-                    } else {
-                        line.spans.push(Span::styled(prefix, style));
-                    }
-                }
-            } else {
-                self.push_span(Span::styled(format!("{prefix}{url}"), style));
+            if !self.image_had_alt {
+                self.push_span(Span::styled(url, self.styles.image_alt()));
             }
         }
         self.image_had_alt = false;
@@ -1099,11 +1099,47 @@ mod tests {
 
         const IMAGE_STYLE: Style = Style::new().dim().italic();
 
+        #[derive(Clone)]
+        struct UnstyledImageStyleSheet;
+
+        impl StyleSheet for UnstyledImageStyleSheet {
+            fn heading(&self, _level: u8) -> Style {
+                Style::default()
+            }
+
+            fn code(&self) -> Style {
+                Style::default()
+            }
+
+            fn link(&self) -> Style {
+                Style::default()
+            }
+
+            fn blockquote(&self) -> Style {
+                Style::default()
+            }
+
+            fn heading_meta(&self) -> Style {
+                Style::default()
+            }
+
+            fn metadata_block(&self) -> Style {
+                Style::default()
+            }
+
+            fn image_alt(&self) -> Style {
+                Style::default()
+            }
+        }
+
         #[rstest]
         fn image_with_alt(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("![Alt text](https://example.com/image.png)"),
-                Text::from(Line::from(Span::styled("[img] Alt text", IMAGE_STYLE)))
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("Alt text", IMAGE_STYLE),
+                ]))
             );
         }
 
@@ -1111,10 +1147,10 @@ mod tests {
         fn image_without_alt(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("![](https://example.com/image.png)"),
-                Text::from(Line::from(Span::styled(
-                    "[img] https://example.com/image.png",
-                    IMAGE_STYLE,
-                )))
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("https://example.com/image.png", IMAGE_STYLE),
+                ]))
             );
         }
 
@@ -1122,7 +1158,10 @@ mod tests {
         fn image_with_title(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("![Alt](https://example.com/img.png \"My Title\")"),
-                Text::from(Line::from(Span::styled("[img] Alt", IMAGE_STYLE)))
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("Alt", IMAGE_STYLE),
+                ]))
             );
         }
 
@@ -1132,8 +1171,54 @@ mod tests {
                 from_str("Before ![photo](url.png) after"),
                 Text::from(Line::from_iter([
                     Span::from("Before "),
-                    Span::styled("[img] photo", IMAGE_STYLE),
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("photo", IMAGE_STYLE),
                     Span::from(" after"),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn multiple_images_in_paragraph(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![first](first.png) and ![second](second.png)").to_string(),
+                "[img] first and [img] second"
+            );
+        }
+
+        #[rstest]
+        fn formatted_alt_text_keeps_prefix_before_content(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![**bold**](image.png)"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("bold", IMAGE_STYLE.bold()),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn inline_code_counts_as_alt_text(_with_tracing: DefaultGuard) {
+            let code_style = IMAGE_STYLE.patch(DefaultStyleSheet.code());
+            assert_eq!(
+                from_str("![`code`](image.png)"),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("code", code_style),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn unstyled_fallback_does_not_modify_surrounding_text(_with_tracing: DefaultGuard) {
+            let options = Options::new(UnstyledImageStyleSheet);
+            assert_eq!(
+                from_str_with_options("Before ![photo](photo.png) after", &options),
+                Text::from(Line::from_iter([
+                    Span::raw("Before "),
+                    Span::raw("[img] "),
+                    Span::raw("photo"),
+                    Span::raw(" after"),
                 ]))
             );
         }

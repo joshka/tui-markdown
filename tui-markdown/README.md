@@ -48,7 +48,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [ ] Tables
 - [x] Tasklists
 - [ ] Links
-- [ ] Images
+- [x] Images
 - [x] Metadata blocks
 - [x] Superscript
 - [x] Subscript

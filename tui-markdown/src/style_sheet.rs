@@ -38,7 +38,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     /// Style for metadata blocks (front matter).
     fn metadata_block(&self) -> Style;
 
-    /// Style for the alt-text fallback when rendering images.
+    /// Style for image fallback text, including the `[img]` marker and alt text or URL.
     fn image_alt(&self) -> Style {
         Style::new().dim().italic()
     }
@@ -57,6 +57,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - link: blue, underlined
 /// - blockquote: green
 /// - metadata block: light yellow
+/// - image fallback text: dim and italic
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 
