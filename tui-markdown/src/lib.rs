@@ -52,9 +52,11 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
+pub use crate::content::{MarkdownBlock, MarkdownContent};
 pub use crate::options::Options;
 pub use crate::style_sheet::{DefaultStyleSheet, StyleSheet};
 
+mod content;
 mod options;
 mod style_sheet;
 
@@ -97,6 +99,56 @@ where
     let mut writer = TextWriter::new(parser, options.styles.clone());
     writer.run();
     writer.text
+}
+
+/// Parse Markdown `input` into structured content using the default [`Options`].
+///
+/// Unlike [`from_str`], images are represented as separate [`MarkdownBlock::Image`] segments rather
+/// than being flattened to alt text. This allows consumers to provide custom image rendering.
+/// Inline images split their surrounding text into ordered text, image, and text segments.
+///
+/// # Example
+///
+/// ```
+/// use tui_markdown::{parse, MarkdownBlock};
+///
+/// let content = parse("Before ![diagram](diagram.png \"Architecture\") after");
+/// for block in content.blocks {
+///     match block {
+///         MarkdownBlock::Text(text) => {
+///             // Render `text` with Ratatui.
+///         }
+///         MarkdownBlock::Image { url, alt, title } => {
+///             assert_eq!(url, "diagram.png");
+///             assert_eq!(alt, "diagram");
+///             assert_eq!(title.as_deref(), Some("Architecture"));
+///         }
+///     }
+/// }
+/// ```
+pub fn parse(input: &str) -> MarkdownContent<'_> {
+    parse_with_options(input, &Options::default())
+}
+
+/// Parse Markdown `input` into structured content using the supplied [`Options`].
+///
+/// See [`parse`] for the difference from [`from_str_with_options`].
+pub fn parse_with_options<'a, S>(input: &'a str, options: &Options<S>) -> MarkdownContent<'a>
+where
+    S: StyleSheet,
+{
+    let mut parse_opts = ParseOptions::empty();
+    parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
+    parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
+    parse_opts.insert(ParseOptions::ENABLE_HEADING_ATTRIBUTES);
+    parse_opts.insert(ParseOptions::ENABLE_YAML_STYLE_METADATA_BLOCKS);
+    parse_opts.insert(ParseOptions::ENABLE_SUPERSCRIPT);
+    parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
+    let parser = Parser::new_ext(input, parse_opts);
+
+    let mut writer = TextWriter::with_image_blocks(parser, options.styles.clone());
+    writer.run();
+    writer.into_content()
 }
 
 // Heading attributes collected from pulldown-cmark to render after the heading text.
@@ -176,6 +228,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Image destination URL stored between image start and end events.
     image_url: Option<CowStr<'a>>,
 
+    /// Image title stored between image start and end events.
+    image_title: Option<CowStr<'a>>,
+
     /// Whether any alt text was rendered for the current image.
     image_had_alt: bool,
 
@@ -187,6 +242,21 @@ struct TextWriter<'a, I, S: StyleSheet> {
 
     /// Whether we are inside a metadata block.
     in_metadata_block: bool,
+
+    /// Whether to emit image blocks instead of inline alt text.
+    emit_image_blocks: bool,
+
+    /// Accumulated content blocks when `emit_image_blocks` is true.
+    content_blocks: Vec<MarkdownBlock<'a>>,
+
+    /// Whether image alt text is currently being collected.
+    collecting_image_alt: bool,
+
+    /// Buffer for the current image's alt text.
+    image_alt_buffer: String,
+
+    /// Whether leading structural blank lines should be removed from the next text block.
+    trim_leading_text: bool,
 
     needs_newline: bool,
 }
@@ -202,6 +272,14 @@ where
     S: StyleSheet,
 {
     fn new(iter: I, styles: S) -> Self {
+        Self::create(iter, styles, false)
+    }
+
+    fn with_image_blocks(iter: I, styles: S) -> Self {
+        Self::create(iter, styles, true)
+    }
+
+    fn create(iter: I, styles: S, emit_image_blocks: bool) -> Self {
         Self {
             iter,
             text: Text::default(),
@@ -214,10 +292,16 @@ where
             code_highlighter: None,
             link: None,
             image_url: None,
+            image_title: None,
             image_had_alt: false,
             styles,
             heading_meta: None,
             in_metadata_block: false,
+            emit_image_blocks,
+            content_blocks: Vec::new(),
+            collecting_image_alt: false,
+            image_alt_buffer: String::new(),
+            trim_leading_text: false,
         }
     }
 
@@ -226,10 +310,52 @@ where
         while let Some(event) = self.iter.next() {
             self.handle_event(event);
         }
+        if self.emit_image_blocks {
+            self.flush_text_block(false);
+        }
+    }
+
+    /// Flush the current text into a structured text block.
+    fn flush_text_block(&mut self, trim_trailing: bool) {
+        let mut text = std::mem::take(&mut self.text);
+        if self.trim_leading_text {
+            let first_content = text
+                .lines
+                .iter()
+                .position(|line| !line.spans.is_empty())
+                .unwrap_or(text.lines.len());
+            text.lines.drain(..first_content);
+            self.trim_leading_text = false;
+        }
+        if trim_trailing {
+            while text.lines.last().is_some_and(|line| line.spans.is_empty()) {
+                text.lines.pop();
+            }
+        }
+        if !text.lines.is_empty() {
+            self.content_blocks.push(MarkdownBlock::Text(text));
+        }
+    }
+
+    /// Consume this writer and return its structured content.
+    fn into_content(self) -> MarkdownContent<'a> {
+        MarkdownContent {
+            blocks: self.content_blocks,
+        }
     }
 
     #[instrument(level = "debug", skip(self))]
     fn handle_event(&mut self, event: Event<'a>) {
+        if self.collecting_image_alt {
+            match event {
+                Event::End(TagEnd::Image) => self.end_image(),
+                Event::Text(text) | Event::Code(text) => self.image_alt_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => self.image_alt_buffer.push(' '),
+                _ => {}
+            }
+            return;
+        }
+
         match event {
             Event::Start(tag) => self.start_tag(tag),
             Event::End(tag) => self.end_tag(tag),
@@ -272,7 +398,9 @@ where
             Tag::Subscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Superscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
-            Tag::Image { dest_url, .. } => self.start_image(dest_url),
+            Tag::Image {
+                dest_url, title, ..
+            } => self.start_image(dest_url, title),
             Tag::MetadataBlock(_) => self.start_metadata_block(),
             Tag::DefinitionList => warn!("Definition list not yet supported"),
             Tag::DefinitionListTitle => warn!("Definition list title not yet supported"),
@@ -612,18 +740,40 @@ where
 
     /// Store the image URL and style its alt text.
     #[instrument(level = "trace", skip(self))]
-    fn start_image(&mut self, dest_url: CowStr<'a>) {
+    fn start_image(&mut self, dest_url: CowStr<'a>, title: CowStr<'a>) {
         self.image_url = Some(dest_url);
+        self.image_title = (!title.is_empty()).then_some(title);
         self.image_had_alt = false;
-        let style = self.styles.image_alt();
-        self.push_inline_style(style);
-        self.push_span(Span::styled(format!("{IMAGE_INDICATOR} "), style));
+        if self.emit_image_blocks {
+            self.collecting_image_alt = true;
+            self.image_alt_buffer.clear();
+        } else {
+            let style = self.styles.image_alt();
+            self.push_inline_style(style);
+            self.push_span(Span::styled(format!("{IMAGE_INDICATOR} "), style));
+        }
     }
 
     /// Render an image as styled alt text, falling back to its URL when the alt text is empty.
     #[instrument(level = "trace", skip(self))]
     fn end_image(&mut self) {
+        if self.emit_image_blocks {
+            self.collecting_image_alt = false;
+            if let Some(url) = self.image_url.take() {
+                self.flush_text_block(true);
+                self.content_blocks.push(MarkdownBlock::Image {
+                    url: url.into_string(),
+                    alt: std::mem::take(&mut self.image_alt_buffer),
+                    title: self.image_title.take().map(CowStr::into_string),
+                });
+                self.trim_leading_text = true;
+            }
+            self.image_had_alt = false;
+            return;
+        }
+
         self.pop_inline_style();
+        self.image_title = None;
         if let Some(url) = self.image_url.take() {
             if !self.image_had_alt {
                 self.push_span(Span::styled(url, self.styles.image_alt()));
@@ -1177,7 +1327,6 @@ mod tests {
                 ]))
             );
         }
-
         #[rstest]
         fn multiple_images_in_paragraph(_with_tracing: DefaultGuard) {
             assert_eq!(
@@ -1220,6 +1369,177 @@ mod tests {
                     Span::raw("photo"),
                     Span::raw(" after"),
                 ]))
+            );
+        }
+
+        #[rstest]
+        fn parse_returns_content_blocks(_with_tracing: DefaultGuard) {
+            let content = parse("Hello world");
+            assert!(!content.blocks.is_empty());
+            match &content.blocks[0] {
+                MarkdownBlock::Text(text) => {
+                    let flat: String = text
+                        .lines
+                        .iter()
+                        .flat_map(|line| line.spans.iter().map(|span| span.content.as_ref()))
+                        .collect();
+                    assert!(flat.contains("Hello world"));
+                }
+                MarkdownBlock::Image { .. } => panic!("expected a text block"),
+            }
+        }
+
+        #[rstest]
+        fn parse_separates_images_as_blocks(_with_tracing: DefaultGuard) {
+            let content = parse("Before\n\n![photo](pic.png)\n\nAfter");
+            let image_count = content
+                .blocks
+                .iter()
+                .filter(|block| matches!(block, MarkdownBlock::Image { .. }))
+                .count();
+            assert_eq!(image_count, 1);
+
+            let image = content
+                .blocks
+                .iter()
+                .find_map(|block| match block {
+                    MarkdownBlock::Image { url, alt, .. } => Some((url, alt)),
+                    MarkdownBlock::Text(_) => None,
+                })
+                .expect("image block");
+            assert_eq!(image.0, "pic.png");
+            assert_eq!(image.1, "photo");
+        }
+
+        #[rstest]
+        fn parse_without_images_returns_one_text_block(_with_tracing: DefaultGuard) {
+            let content = parse("Just text");
+            assert_eq!(content.blocks.len(), 1);
+            assert!(matches!(&content.blocks[0], MarkdownBlock::Text(_)));
+        }
+
+        #[rstest]
+        fn parse_preserves_inline_image_order_and_title(_with_tracing: DefaultGuard) {
+            let content = parse("Before ![photo](pic.png \"A photo\") after");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Text(Text::from("Before ")),
+                        MarkdownBlock::Image {
+                            url: "pic.png".to_string(),
+                            alt: "photo".to_string(),
+                            title: Some("A photo".to_string()),
+                        },
+                        MarkdownBlock::Text(Text::from(" after")),
+                    ],
+                }
+            );
+        }
+
+        #[rstest]
+        fn parse_collects_formatted_image_description_without_leaking_text(
+            _with_tracing: DefaultGuard,
+        ) {
+            let content = parse("Before ![an *important* `diagram`](pic.png) after");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Text(Text::from("Before ")),
+                        MarkdownBlock::Image {
+                            url: "pic.png".to_string(),
+                            alt: "an important diagram".to_string(),
+                            title: None,
+                        },
+                        MarkdownBlock::Text(Text::from(" after")),
+                    ],
+                }
+            );
+        }
+
+        #[rstest]
+        fn parse_normalizes_breaks_in_image_description(_with_tracing: DefaultGuard) {
+            let content = parse("Before ![first line\nsecond line](pic.png) after");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Text(Text::from("Before ")),
+                        MarkdownBlock::Image {
+                            url: "pic.png".to_string(),
+                            alt: "first line second line".to_string(),
+                            title: None,
+                        },
+                        MarkdownBlock::Text(Text::from(" after")),
+                    ],
+                }
+            );
+        }
+
+        #[rstest]
+        fn parse_does_not_emit_empty_text_around_leading_image(_with_tracing: DefaultGuard) {
+            let content = parse("![photo](pic.png) after");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Image {
+                            url: "pic.png".to_string(),
+                            alt: "photo".to_string(),
+                            title: None,
+                        },
+                        MarkdownBlock::Text(Text::from(" after")),
+                    ],
+                }
+            );
+        }
+
+        #[rstest]
+        fn parse_separates_block_image_without_blank_text(_with_tracing: DefaultGuard) {
+            let content = parse("Before\n\n![photo](pic.png)\n\nAfter");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Text(Text::from("Before")),
+                        MarkdownBlock::Image {
+                            url: "pic.png".to_string(),
+                            alt: "photo".to_string(),
+                            title: None,
+                        },
+                        MarkdownBlock::Text(Text::from("After")),
+                    ],
+                }
+            );
+        }
+
+        #[rstest]
+        fn parse_preserves_order_for_multiple_images(_with_tracing: DefaultGuard) {
+            let content = parse("![one](one.png) and ![two](two.png)");
+
+            assert_eq!(
+                content,
+                MarkdownContent {
+                    blocks: vec![
+                        MarkdownBlock::Image {
+                            url: "one.png".to_string(),
+                            alt: "one".to_string(),
+                            title: None,
+                        },
+                        MarkdownBlock::Text(Text::from(" and ")),
+                        MarkdownBlock::Image {
+                            url: "two.png".to_string(),
+                            alt: "two".to_string(),
+                            title: None,
+                        },
+                    ],
+                }
             );
         }
     }
