@@ -26,6 +26,20 @@ let text = tui_markdown::from_str(input);
 text.render(area, &mut buf);
 ```
 
+### Syntax highlighting themes
+
+With the default `highlight-code` feature enabled, fenced code blocks use a built-in syntax
+highlighting theme. Use `available_themes` to discover theme names and pass one to the rendering
+options:
+
+```rust
+use tui_markdown::{available_themes, from_str_with_options, Options};
+
+assert!(available_themes().contains(&"InspiredGitHub"));
+let options = Options::default().code_theme("InspiredGitHub");
+let text = from_str_with_options("```rust\nfn main() {}\n```", &options);
+```
+
 ## Status
 
 This is working code, but not every markdown feature is supported. PRs welcome!

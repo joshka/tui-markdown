@@ -122,6 +122,15 @@ where
 /// Returns the names of all built-in syntax-highlighting themes.
 ///
 /// These names can be passed to [`Options::code_theme`].
+///
+/// # Example
+///
+/// ```
+/// use tui_markdown::{available_themes, Options};
+///
+/// assert!(available_themes().contains(&"InspiredGitHub"));
+/// let options = Options::default().code_theme("InspiredGitHub");
+/// ```
 #[cfg(feature = "highlight-code")]
 pub fn available_themes() -> Vec<&'static str> {
     THEME_SET.themes.keys().map(String::as_str).collect()
@@ -2622,12 +2631,18 @@ mod tests {
     }
 
     mod code_theme {
+        use pretty_assertions::assert_eq;
+
         use super::*;
 
         #[rstest]
-        fn invalid_theme_does_not_panic(_with_tracing: DefaultGuard) {
+        fn invalid_theme_falls_back_to_default(_with_tracing: DefaultGuard) {
+            let input = "```rust\nfn main() {}\n```";
+            let default_text = from_str(input);
             let options = Options::default().code_theme("nonexistent-theme");
-            let _text = from_str_with_options("```rust\nfn main() {}\n```", &options);
+            let fallback_text = from_str_with_options(input, &options);
+
+            assert_eq!(fallback_text, default_text);
         }
 
         #[rstest]
@@ -2636,7 +2651,7 @@ mod tests {
             let default_out = from_str("```rust\nfn main() {}\n```");
             let options = Options::default().code_theme("InspiredGitHub");
             let custom_out = from_str_with_options("```rust\nfn main() {}\n```", &options);
-            assert_ne!(format!("{default_out:?}"), format!("{custom_out:?}"));
+            assert_ne!(default_out, custom_out);
         }
 
         #[rstest]

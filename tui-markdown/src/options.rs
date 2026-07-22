@@ -127,6 +127,7 @@ impl<S: StyleSheet> Options<S> {
     /// to [`Self::DEFAULT_CODE_THEME`] when a code block is rendered.
     ///
     /// This setting has no effect when the `highlight-code` feature is disabled.
+    #[must_use]
     pub fn code_theme(mut self, theme_name: impl Into<String>) -> Self {
         self.code_theme = theme_name.into();
         self
