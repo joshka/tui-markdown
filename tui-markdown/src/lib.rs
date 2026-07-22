@@ -623,7 +623,8 @@ where
     }
 
     fn inline_math(&mut self, math: CowStr<'a>) {
-        let style = self.styles.math_inline();
+        let inline_style = self.inline_styles.last().copied().unwrap_or_default();
+        let style = inline_style.patch(self.styles.math_inline());
         self.push_span(Span::styled(format!("${math}$"), style));
     }
 
@@ -632,8 +633,13 @@ where
             self.push_line(Line::default());
         }
         let style = self.styles.math_display();
-        self.push_line(Line::default());
-        self.push_span(Span::styled(format!("$${math}$$"), style));
+        let display_math = format!("$${math}$$");
+        for (index, line) in display_math.lines().enumerate() {
+            if index > 0 {
+                self.push_line(Line::default());
+            }
+            self.push_span(Span::styled(line.to_owned(), style));
+        }
         self.needs_newline = true;
     }
 }
@@ -1170,40 +1176,90 @@ mod tests {
         use super::*;
 
         #[rstest]
-        fn inline_math_renders(_with_tracing: DefaultGuard) {
-            let text = from_str("The formula $E=mc^2$ is famous.");
-            let line = &text.lines[0];
-            // Should contain the math text styled with magenta italic.
-            let math_span = line
-                .spans
-                .iter()
-                .find(|span| span.content.contains("E=mc^2"))
-                .expect("math span should exist");
-            assert_eq!(math_span.style, Style::new().italic().fg(Color::Magenta));
+        fn inline_math_has_exact_output_and_style(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("The formula $E=mc^2$ is famous."),
+                Text::from(Line::from_iter([
+                    Span::raw("The formula "),
+                    Span::styled("$E=mc^2$", Style::new().italic().fg(Color::Magenta)),
+                    Span::raw(" is famous."),
+                ]))
+            );
         }
 
         #[rstest]
-        fn display_math_renders(_with_tracing: DefaultGuard) {
-            let text = from_str("$$\nx^2 + y^2 = z^2\n$$");
-            // Display math should produce output with magenta styling.
-            let has_math = text
-                .lines
-                .iter()
-                .any(|line| line.spans.iter().any(|span| span.content.contains("x^2")));
-            assert!(has_math, "display math should render the formula");
+        fn inline_math_combines_with_enclosing_style(_with_tracing: DefaultGuard) {
+            let style = Style::new().bold().italic().fg(Color::Magenta);
+            assert_eq!(
+                from_str("**$x$**"),
+                Text::from(Line::from(Span::styled("$x$", style)))
+            );
         }
 
         #[rstest]
-        fn inline_math_wrapped_in_dollars(_with_tracing: DefaultGuard) {
-            let text = from_str("$\\alpha$");
-            let line = &text.lines[0];
-            let math_span = line
-                .spans
-                .iter()
-                .find(|span| span.content.contains("\\alpha"))
-                .expect("math span");
-            assert!(math_span.content.starts_with('$'));
-            assert!(math_span.content.ends_with('$'));
+        fn multiline_display_math_styles_every_line(_with_tracing: DefaultGuard) {
+            let style = Style::new().fg(Color::Magenta);
+            assert_eq!(
+                from_str("Before\n\n$$\nx = y\ny = z\n$$\n\nAfter"),
+                Text::from_iter([
+                    Line::from("Before"),
+                    Line::default(),
+                    Line::from(Span::styled("$$", style)),
+                    Line::from(Span::styled("x = y", style)),
+                    Line::from(Span::styled("y = z", style)),
+                    Line::from(Span::styled("$$", style)),
+                    Line::default(),
+                    Line::from("After"),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiline_display_math_uses_custom_style(_with_tracing: DefaultGuard) {
+            #[derive(Clone, Copy)]
+            struct CustomMathStyle;
+
+            impl StyleSheet for CustomMathStyle {
+                fn heading(&self, level: u8) -> Style {
+                    DefaultStyleSheet.heading(level)
+                }
+
+                fn code(&self) -> Style {
+                    DefaultStyleSheet.code()
+                }
+
+                fn link(&self) -> Style {
+                    DefaultStyleSheet.link()
+                }
+
+                fn blockquote(&self) -> Style {
+                    DefaultStyleSheet.blockquote()
+                }
+
+                fn heading_meta(&self) -> Style {
+                    DefaultStyleSheet.heading_meta()
+                }
+
+                fn metadata_block(&self) -> Style {
+                    DefaultStyleSheet.metadata_block()
+                }
+
+                fn math_display(&self) -> Style {
+                    Style::new().red().bold()
+                }
+            }
+
+            let style = Style::new().red().bold();
+            let options = Options::new(CustomMathStyle);
+            assert_eq!(
+                from_str_with_options("$$\nx = y\ny = z\n$$", &options),
+                Text::from_iter([
+                    Line::from(Span::styled("$$", style)),
+                    Line::from(Span::styled("x = y", style)),
+                    Line::from(Span::styled("y = z", style)),
+                    Line::from(Span::styled("$$", style)),
+                ])
+            );
         }
     }
 }
