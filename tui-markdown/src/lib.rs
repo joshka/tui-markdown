@@ -91,6 +91,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_SUPERSCRIPT);
     parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
     parse_opts.insert(ParseOptions::ENABLE_MATH);
+    parse_opts.insert(ParseOptions::ENABLE_FOOTNOTES);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -181,6 +182,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Whether we are inside a metadata block.
     in_metadata_block: bool,
 
+    /// Whether we are inside a footnote definition.
+    in_footnote_definition: bool,
+
     needs_newline: bool,
 }
 
@@ -209,6 +213,7 @@ where
             styles,
             heading_meta: None,
             in_metadata_block: false,
+            in_footnote_definition: false,
         }
     }
 
@@ -228,7 +233,7 @@ where
             Event::Code(code) => self.code(code),
             Event::Html(html) => self.html_block(html),
             Event::InlineHtml(html) => self.inline_html(html),
-            Event::FootnoteReference(_) => warn!("Footnote reference not yet supported"),
+            Event::FootnoteReference(label) => self.footnote_reference(label),
             Event::SoftBreak => self.soft_break(),
             Event::HardBreak => self.hard_break(),
             Event::Rule => self.rule(),
@@ -252,7 +257,7 @@ where
             Tag::HtmlBlock => self.start_html_block(),
             Tag::List(start_index) => self.start_list(start_index),
             Tag::Item => self.start_item(),
-            Tag::FootnoteDefinition(_) => warn!("Footnote definition not yet supported"),
+            Tag::FootnoteDefinition(label) => self.start_footnote_definition(label),
             Tag::Table(_) => warn!("Table not yet supported"),
             Tag::TableHead => warn!("Table head not yet supported"),
             Tag::TableRow => warn!("Table row not yet supported"),
@@ -280,7 +285,7 @@ where
             TagEnd::HtmlBlock => self.end_html_block(),
             TagEnd::List(_is_ordered) => self.end_list(),
             TagEnd::Item => {}
-            TagEnd::FootnoteDefinition => {}
+            TagEnd::FootnoteDefinition => self.end_footnote_definition(),
             TagEnd::Table => {}
             TagEnd::TableHead => {}
             TagEnd::TableRow => {}
@@ -300,6 +305,9 @@ where
     }
 
     fn start_paragraph(&mut self) {
+        if self.in_footnote_definition {
+            return;
+        }
         // Insert an empty line between paragraphs if there is at least one line of text already.
         if self.needs_newline {
             self.push_line(Line::default());
@@ -642,6 +650,31 @@ where
         }
         self.needs_newline = true;
     }
+
+    fn footnote_reference(&mut self, label: CowStr<'a>) {
+        self.push_span(Span::styled(
+            format!("[{label}]"),
+            self.styles.footnote_ref(),
+        ));
+    }
+
+    fn start_footnote_definition(&mut self, label: CowStr<'a>) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        let style = self.styles.footnote_def();
+        self.push_line(Line::default());
+        self.push_span(Span::styled(format!("[{label}]: "), style));
+        self.line_styles.push(style);
+        self.in_footnote_definition = true;
+        self.needs_newline = false;
+    }
+
+    fn end_footnote_definition(&mut self) {
+        self.line_styles.pop();
+        self.in_footnote_definition = false;
+        self.needs_newline = true;
+    }
 }
 
 #[cfg(test)]
@@ -702,6 +735,31 @@ mod tests {
             "}),
             Text::from_iter(["Paragraph 1", "", "Paragraph 2",])
         );
+    }
+
+    mod footnotes {
+        use super::*;
+
+        #[rstest]
+        fn footnote_reference_renders(_with_tracing: DefaultGuard) {
+            let text = from_str("Text[^1]\n\n[^1]: The footnote content.");
+            let has_ref = text
+                .lines
+                .iter()
+                .any(|line| line.spans.iter().any(|span| span.content.contains("[1]")));
+            assert!(has_ref, "footnote reference should render as [1]");
+        }
+
+        #[rstest]
+        fn footnote_definition_renders(_with_tracing: DefaultGuard) {
+            let text = from_str("Text[^note]\n\n[^note]: A longer note.");
+            let has_definition = text.lines.iter().any(|line| {
+                line.spans
+                    .iter()
+                    .any(|span| span.content.contains("[note]:"))
+            });
+            assert!(has_definition, "footnote definition should render");
+        }
     }
 
     #[rstest]
