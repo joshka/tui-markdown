@@ -195,6 +195,10 @@ impl StyleSheet for CustomTableStyleSheet {
         Style::default()
     }
 
+    fn image_alt(&self) -> Style {
+        Style::default()
+    }
+
     fn table_header(&self) -> Style {
         Style::new().on_blue()
     }

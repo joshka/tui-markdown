@@ -154,6 +154,9 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn table_border(&self) -> Style {
         Style::new().dark_gray()
     }
+
+    /// Style for the alt-text fallback when rendering images.
+    fn image_alt(&self) -> Style;
 }
 
 /// The default style set
@@ -218,5 +221,9 @@ impl StyleSheet for DefaultStyleSheet {
 
     fn metadata_block(&self) -> Style {
         Style::new().light_yellow()
+    }
+
+    fn image_alt(&self) -> Style {
+        Style::new().dim().italic()
     }
 }

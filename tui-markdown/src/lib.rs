@@ -63,6 +63,8 @@ mod options;
 mod style_sheet;
 mod tables;
 
+const IMAGE_INDICATOR: &str = "[img]";
+
 /// Render Markdown `input` into a [`Text`] using the default [`Options`].
 ///
 /// This is a convenience function that uses the default options, which are defined in
@@ -216,6 +218,12 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// A link which will be appended to the current line when the link tag is closed.
     link: Option<CowStr<'a>>,
 
+    /// Image destination URL stored between image start and end events.
+    image_url: Option<CowStr<'a>>,
+
+    /// Whether any alt text was rendered for the current image.
+    image_had_alt: bool,
+
     /// The [`StyleSheet`] to use to style the output.
     styles: S,
 
@@ -260,6 +268,8 @@ where
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
             link: None,
+            image_url: None,
+            image_had_alt: false,
             styles,
             heading_meta: None,
             in_metadata_block: false,
@@ -320,7 +330,7 @@ where
             Tag::Subscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Superscript => self.push_inline_style(Style::new().dim().italic()),
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
-            Tag::Image { .. } => warn!("Image not yet supported"),
+            Tag::Image { dest_url, .. } => self.start_image(dest_url),
             Tag::MetadataBlock(_) => self.start_metadata_block(),
             Tag::DefinitionList => self.start_definition_list(),
             Tag::DefinitionListTitle => self.start_definition_title(),
@@ -348,7 +358,7 @@ where
             TagEnd::Subscript => self.pop_inline_style(),
             TagEnd::Superscript => self.pop_inline_style(),
             TagEnd::Link => self.pop_link(),
-            TagEnd::Image => {}
+            TagEnd::Image => self.end_image(),
             TagEnd::MetadataBlock(_) => self.end_metadata_block(),
             TagEnd::DefinitionList => self.end_definition_list(),
             TagEnd::DefinitionListTitle => self.end_definition_title(),
@@ -458,6 +468,10 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
+        if self.image_url.is_some() {
+            self.image_had_alt = true;
+        }
+
         if self.table_builder.is_some() {
             let style = self.inline_styles.last().copied().unwrap_or_default();
             self.push_span(Span::styled(text, style));
@@ -720,6 +734,37 @@ where
             self.push_span(")".into());
         }
     }
+
+    /// Store the image URL and style its alt text.
+    #[instrument(level = "trace", skip(self))]
+    fn start_image(&mut self, dest_url: CowStr<'a>) {
+        self.image_url = Some(dest_url);
+        self.image_had_alt = false;
+        self.push_inline_style(self.styles.image_alt());
+    }
+
+    /// Render an image as styled alt text, falling back to its URL when the alt text is empty.
+    #[instrument(level = "trace", skip(self))]
+    fn end_image(&mut self) {
+        self.pop_inline_style();
+        if let Some(url) = self.image_url.take() {
+            let style = self.styles.image_alt();
+            let prefix = format!("{IMAGE_INDICATOR} ");
+            if self.image_had_alt {
+                if let Some(line) = self.text.lines.last_mut() {
+                    if let Some(span) = line.spans.iter_mut().find(|span| span.style == style) {
+                        span.content.to_mut().insert_str(0, &prefix);
+                    } else {
+                        line.spans.push(Span::styled(prefix, style));
+                    }
+                }
+            } else {
+                self.push_span(Span::styled(format!("{prefix}{url}"), style));
+            }
+        }
+        self.image_had_alt = false;
+    }
+
     fn start_html_block(&mut self) {
         if self.needs_newline {
             self.push_line(Line::default());
@@ -1133,6 +1178,10 @@ mod tests {
                     DefaultStyleSheet.metadata_block()
                 }
 
+                fn image_alt(&self) -> Style {
+                    DefaultStyleSheet.image_alt()
+                }
+
                 fn footnote_ref(&self) -> Style {
                     Style::new().red().underlined()
                 }
@@ -1194,6 +1243,10 @@ mod tests {
 
             fn metadata_block(&self) -> Style {
                 DefaultStyleSheet.metadata_block()
+            }
+
+            fn image_alt(&self) -> Style {
+                DefaultStyleSheet.image_alt()
             }
 
             fn definition_term(&self) -> Style {
@@ -1346,6 +1399,10 @@ mod tests {
                 DefaultStyleSheet.metadata_block()
             }
 
+            fn image_alt(&self) -> Style {
+                DefaultStyleSheet.image_alt()
+            }
+
             fn alert(&self, kind: AlertKind) -> Style {
                 match kind {
                     AlertKind::Note => Style::new().on_red(),
@@ -1380,6 +1437,10 @@ mod tests {
 
             fn metadata_block(&self) -> Style {
                 DefaultStyleSheet.metadata_block()
+            }
+
+            fn image_alt(&self) -> Style {
+                DefaultStyleSheet.image_alt()
             }
 
             fn alert_icon(&self, kind: AlertKind) -> &str {
@@ -2117,6 +2178,10 @@ mod tests {
                     DefaultStyleSheet.metadata_block()
                 }
 
+                fn image_alt(&self) -> Style {
+                    DefaultStyleSheet.image_alt()
+                }
+
                 fn math_display(&self) -> Style {
                     Style::new().red().bold()
                 }
@@ -2132,6 +2197,53 @@ mod tests {
                     Line::from(Span::styled("y = z", style)),
                     Line::from(Span::styled("$$", style)),
                 ])
+            );
+        }
+    }
+
+    mod image {
+        use pretty_assertions::assert_eq;
+
+        use super::*;
+
+        const IMAGE_STYLE: Style = Style::new().dim().italic();
+
+        #[rstest]
+        fn image_with_alt(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![Alt text](https://example.com/image.png)"),
+                Text::from(Line::from(Span::styled("[img] Alt text", IMAGE_STYLE)))
+            );
+        }
+
+        #[rstest]
+        fn image_without_alt(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![](https://example.com/image.png)"),
+                Text::from(Line::from(Span::styled(
+                    "[img] https://example.com/image.png",
+                    IMAGE_STYLE,
+                )))
+            );
+        }
+
+        #[rstest]
+        fn image_with_title(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("![Alt](https://example.com/img.png \"My Title\")"),
+                Text::from(Line::from(Span::styled("[img] Alt", IMAGE_STYLE)))
+            );
+        }
+
+        #[rstest]
+        fn image_in_paragraph(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Before ![photo](url.png) after"),
+                Text::from(Line::from_iter([
+                    Span::from("Before "),
+                    Span::styled("[img] photo", IMAGE_STYLE),
+                    Span::from(" after"),
+                ]))
             );
         }
     }
