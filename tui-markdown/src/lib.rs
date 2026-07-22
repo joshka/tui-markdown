@@ -53,7 +53,7 @@ use syntect::{
 use tracing::{debug, instrument, warn};
 
 pub use crate::options::Options;
-pub use crate::style_sheet::{DefaultStyleSheet, StyleSheet};
+pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
 mod options;
 mod style_sheet;
@@ -371,17 +371,16 @@ where
         }
 
         if let Some(alert_kind) = kind {
-            let (icon, kind_str) = match alert_kind {
-                BlockQuoteKind::Note => ("\u{2139}\u{FE0F}", "note"),
-                BlockQuoteKind::Tip => ("\u{1F4A1}", "tip"),
-                BlockQuoteKind::Important => ("\u{2757}", "important"),
-                BlockQuoteKind::Warning => ("\u{26A0}\u{FE0F}", "warning"),
-                BlockQuoteKind::Caution => ("\u{1F534}", "caution"),
+            let (kind, icon, label) = match alert_kind {
+                BlockQuoteKind::Note => (AlertKind::Note, "\u{2139}\u{FE0F}", "Note"),
+                BlockQuoteKind::Tip => (AlertKind::Tip, "\u{1F4A1}", "Tip"),
+                BlockQuoteKind::Important => (AlertKind::Important, "\u{2757}", "Important"),
+                BlockQuoteKind::Warning => (AlertKind::Warning, "\u{26A0}\u{FE0F}", "Warning"),
+                BlockQuoteKind::Caution => (AlertKind::Caution, "\u{1F534}", "Caution"),
             };
-            let style = self.styles.alert(kind_str);
+            let style = self.styles.alert(kind);
             self.line_prefixes.push(Span::from(">"));
             self.line_styles.push(style);
-            let label = kind_str[..1].to_uppercase() + &kind_str[1..];
             self.push_line(Line::default());
             self.push_span(Span::styled(format!("{icon} {label}"), style.bold()));
             self.needs_newline = false;
@@ -1147,7 +1146,45 @@ mod tests {
     }
 
     mod gfm_alerts {
+        use pretty_assertions::assert_eq;
+
         use super::*;
+
+        #[derive(Clone)]
+        struct CustomAlertStyleSheet;
+
+        impl StyleSheet for CustomAlertStyleSheet {
+            fn heading(&self, level: u8) -> Style {
+                DefaultStyleSheet.heading(level)
+            }
+
+            fn code(&self) -> Style {
+                DefaultStyleSheet.code()
+            }
+
+            fn link(&self) -> Style {
+                DefaultStyleSheet.link()
+            }
+
+            fn blockquote(&self) -> Style {
+                DefaultStyleSheet.blockquote()
+            }
+
+            fn heading_meta(&self) -> Style {
+                DefaultStyleSheet.heading_meta()
+            }
+
+            fn metadata_block(&self) -> Style {
+                DefaultStyleSheet.metadata_block()
+            }
+
+            fn alert(&self, kind: AlertKind) -> Style {
+                match kind {
+                    AlertKind::Note => Style::new().on_red(),
+                    _ => Style::default(),
+                }
+            }
+        }
 
         fn contains(text: &Text<'_>, expected: &str) -> bool {
             text.lines.iter().any(|line| {
@@ -1196,6 +1233,48 @@ mod tests {
             assert!(
                 contains(&text, "Caution"),
                 "caution alert should render Caution label"
+            );
+        }
+
+        #[rstest]
+        fn custom_alert_style_applies_to_header_and_body(_with_tracing: DefaultGuard) {
+            let style = Style::new().on_red();
+            let options = Options::new(CustomAlertStyleSheet);
+
+            assert_eq!(
+                from_str_with_options("> [!NOTE]\n> Body", &options),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw(">"),
+                        Span::raw(" "),
+                        Span::styled("\u{2139}\u{FE0F} Note", style.bold()),
+                    ])
+                    .style(style),
+                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
+                        .style(style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn ordinary_blockquote_keeps_standard_prefix(_with_tracing: DefaultGuard) {
+            let style = DefaultStyleSheet.blockquote();
+            assert_eq!(
+                from_str("> Ordinary"),
+                Text::from(Line::from_iter([">", " ", "Ordinary"]).style(style))
+            );
+        }
+
+        #[rstest]
+        fn nested_blockquote_keeps_each_standard_prefix(_with_tracing: DefaultGuard) {
+            let style = DefaultStyleSheet.blockquote();
+            assert_eq!(
+                from_str("> Parent\n>> Child"),
+                Text::from_iter([
+                    Line::from_iter([">", " ", "Parent"]).style(style),
+                    Line::from_iter([">", " "]).style(style),
+                    Line::from_iter([">", ">", " ", "Child"]).style(style),
+                ])
             );
         }
     }

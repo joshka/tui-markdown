@@ -12,6 +12,21 @@
 
 use ratatui_core::style::Style;
 
+/// The kind of a GitHub Flavored Markdown alert.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum AlertKind {
+    /// Supplementary information.
+    Note,
+    /// Helpful advice.
+    Tip,
+    /// Information essential to success.
+    Important,
+    /// Urgent information that needs attention.
+    Warning,
+    /// A risk or negative outcome.
+    Caution,
+}
+
 /// A collection of `ratatui_core::style::Style`s consumed by the renderer.
 ///
 /// The trait purposefully stays tiny: whenever the renderer needs a color choice we add a new
@@ -74,17 +89,15 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Style for a GFM alert/callout blockquote.
     ///
-    /// `kind` is one of `"note"`, `"tip"`, `"important"`, `"warning"`, or `"caution"`.
-    fn alert(&self, kind: &str) -> Style {
+    fn alert(&self, kind: AlertKind) -> Style {
         use ratatui_core::style::Color;
 
         match kind {
-            "note" => Style::new().fg(Color::Blue),
-            "tip" => Style::new().fg(Color::Green),
-            "important" => Style::new().fg(Color::Magenta),
-            "warning" => Style::new().fg(Color::Yellow),
-            "caution" => Style::new().fg(Color::Red),
-            _ => Style::default(),
+            AlertKind::Note => Style::new().fg(Color::Blue),
+            AlertKind::Tip => Style::new().fg(Color::Green),
+            AlertKind::Important => Style::new().fg(Color::Magenta),
+            AlertKind::Warning => Style::new().fg(Color::Yellow),
+            AlertKind::Caution => Style::new().fg(Color::Red),
         }
     }
 }
