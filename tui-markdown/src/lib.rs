@@ -617,7 +617,8 @@ where
     }
 
     fn inline_html(&mut self, html: CowStr<'a>) {
-        let style = self.styles.html();
+        let inline_style = self.inline_styles.last().copied().unwrap_or_default();
+        let style = inline_style.patch(self.styles.html());
         self.push_span(Span::styled(html, style));
     }
 }
@@ -1115,15 +1116,34 @@ mod tests {
         }
 
         #[rstest]
-        fn html_block_renders(_with_tracing: DefaultGuard) {
+        fn inline_html_combines_with_emphasis(_with_tracing: DefaultGuard) {
+            let italic = Style::new().italic();
+            let html = italic.dim();
             assert_eq!(
-                from_str("<div>\nCustom HTML\n</div>\n"),
+                from_str("*Hello <em>world</em>*"),
+                Text::from(Line::from_iter([
+                    Span::styled("Hello ", italic),
+                    Span::styled("<em>", html),
+                    Span::styled("world", italic),
+                    Span::styled("</em>", html),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn html_block_preserves_paragraph_spacing(_with_tracing: DefaultGuard) {
+            assert_eq!(
+                from_str("Before\n\n<div>\nCustom HTML\n</div>\n\nAfter"),
                 Text::from_iter([
+                    Line::from("Before"),
+                    Line::default(),
                     Line::from(Span::styled("<div>", Style::new().dim())),
                     Line::from(Span::styled("Custom HTML", Style::new().dim()))
                         .style(Style::new().dim()),
                     Line::from(Span::styled("</div>", Style::new().dim()))
                         .style(Style::new().dim()),
+                    Line::default(),
+                    Line::from("After"),
                 ])
             );
         }

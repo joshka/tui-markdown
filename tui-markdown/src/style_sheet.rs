@@ -57,6 +57,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - link: blue, underlined
 /// - blockquote: green
 /// - metadata block: light yellow
+/// - raw HTML: dim
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

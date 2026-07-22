@@ -41,7 +41,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Ordered lists
 - [x] Unordered lists
 - [x] Code blocks
-- [ ] Html
+- [x] HTML
 - [ ] Footnotes
 - [x] Linebreak handling
 - [x] Rule
@@ -58,6 +58,9 @@ new line.
 
 Links are rendered as `label (URL)`. The link style applies to both the visible label and URL while
 preserving nested inline formatting such as bold text.
+
+Raw inline HTML tags and HTML blocks are displayed literally rather than interpreted as terminal
+markup. They are dimmed by default and can be customized with [`StyleSheet::html()`].
 
 Metadata blocks are rendered using the metadata block style so front matter is visible, including
 the delimiter lines (for example `---` in YAML-style blocks).
@@ -116,6 +119,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [tui-markdown]: https://crates.io/crates/tui-markdown
 [markdown-reader]: https://crates.io/crates/markdown-reader
 [Ratatui]: https://crates.io/crates/ratatui
+[`StyleSheet::html()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.html
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge
