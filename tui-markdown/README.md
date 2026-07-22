@@ -43,7 +43,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Code blocks
 - [x] HTML
 - [x] Math
-- [ ] Footnotes
+- [x] Footnotes
 - [x] Linebreak handling
 - [x] Rule
 - [ ] Tables
@@ -67,6 +67,10 @@ Inline and display math keep their `$...$` and `$$...$$` delimiters visible. Inl
 magenta and italic by default, while display math is magenta and preserves multiline formulas as
 separate terminal lines. Customize these styles with [`StyleSheet::math_inline()`] and
 [`StyleSheet::math_display()`].
+
+Footnote references such as `[^source]` are displayed as `[source]`, and definitions are displayed
+as `[source]: ...`. References are dim and italic by default, while definitions are dim. Customize
+these styles with [`StyleSheet::footnote_ref()`] and [`StyleSheet::footnote_def()`].
 
 Metadata blocks are rendered using the metadata block style so front matter is visible, including
 the delimiter lines (for example `---` in YAML-style blocks).
@@ -128,6 +132,8 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::html()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.html
 [`StyleSheet::math_display()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.math_display
 [`StyleSheet::math_inline()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.math_inline
+[`StyleSheet::footnote_def()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.footnote_def
+[`StyleSheet::footnote_ref()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.footnote_ref
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge

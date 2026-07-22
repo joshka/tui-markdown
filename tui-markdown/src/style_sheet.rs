@@ -51,6 +51,16 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn math_display(&self) -> Style {
         Style::new().magenta()
     }
+
+    /// Style for footnote references (`[^label]`).
+    fn footnote_ref(&self) -> Style {
+        Style::new().dim().italic()
+    }
+
+    /// Style for footnote definitions.
+    fn footnote_def(&self) -> Style {
+        Style::new().dim()
+    }
 }
 
 /// The default style set
@@ -69,6 +79,8 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - raw HTML: dim
 /// - inline math: magenta, italic
 /// - display math: magenta
+/// - footnote references: dim, italic
+/// - footnote definitions: dim
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

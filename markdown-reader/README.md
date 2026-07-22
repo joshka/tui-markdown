@@ -55,7 +55,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Unordered lists
 - [x] Code blocks
 - [x] HTML
-- [ ] Footnotes
+- [x] Footnotes
 - [ ] Tables
 - [x] Linebreak handling
 - [x] Rule
