@@ -79,6 +79,8 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - raw HTML: dim
 /// - inline math: magenta, italic
 /// - display math: magenta
+/// - footnote references: dim, italic
+/// - footnote definitions: dim
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

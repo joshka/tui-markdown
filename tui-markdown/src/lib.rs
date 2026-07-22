@@ -305,7 +305,16 @@ where
     }
 
     fn start_paragraph(&mut self) {
-        if self.in_footnote_definition {
+        // A footnote definition starts with a paragraph event after
+        // `start_footnote_definition` has already written `[label]: ` to the current line. Skip
+        // normal paragraph handling only for that first paragraph so its content stays beside the
+        // label. For a later paragraph, `needs_newline` is true; allowing the normal path below to
+        // run preserves the blank line in definitions such as:
+        //
+        //     [^label]: First paragraph.
+        //
+        //         Second paragraph.
+        if self.in_footnote_definition && !self.needs_newline {
             return;
         }
         // Insert an empty line between paragraphs if there is at least one line of text already.
@@ -652,10 +661,13 @@ where
     }
 
     fn footnote_reference(&mut self, label: CowStr<'a>) {
-        self.push_span(Span::styled(
-            format!("[{label}]"),
-            self.styles.footnote_ref(),
-        ));
+        // A reference can appear inside other inline formatting, as in `**Text[^label]**`.
+        // Styling it with only `footnote_ref()` would make `[label]` dim and italic but drop the
+        // surrounding bold style. Start with the active inline style and patch the footnote style
+        // over it so the reference adds its own appearance without losing enclosing formatting.
+        let inline_style = self.inline_styles.last().copied().unwrap_or_default();
+        let style = inline_style.patch(self.styles.footnote_ref());
+        self.push_span(Span::styled(format!("[{label}]"), style));
     }
 
     fn start_footnote_definition(&mut self, label: CowStr<'a>) {
@@ -743,27 +755,6 @@ mod tests {
         use super::*;
 
         #[rstest]
-        fn footnote_reference_renders(_with_tracing: DefaultGuard) {
-            let text = from_str("Text[^1]\n\n[^1]: The footnote content.");
-            let has_ref = text
-                .lines
-                .iter()
-                .any(|line| line.spans.iter().any(|span| span.content.contains("[1]")));
-            assert!(has_ref, "footnote reference should render as [1]");
-        }
-
-        #[rstest]
-        fn footnote_definition_renders(_with_tracing: DefaultGuard) {
-            let text = from_str("Text[^note]\n\n[^note]: A longer note.");
-            let has_definition = text.lines.iter().any(|line| {
-                line.spans
-                    .iter()
-                    .any(|span| span.content.contains("[note]:"))
-            });
-            assert!(has_definition, "footnote definition should render");
-        }
-
-        #[rstest]
         fn multiline_definition_has_exact_layout(_with_tracing: DefaultGuard) {
             let reference_style = Style::new().dim().italic();
             let definition_style = Style::new().dim();
@@ -807,6 +798,133 @@ mod tests {
                     Line::default(),
                     Line::from_iter([Span::styled("[b]: ", definition_style), Span::raw("Beta."),])
                         .style(definition_style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn reference_combines_with_enclosing_style(_with_tracing: DefaultGuard) {
+            let reference_style = Style::new().bold().dim().italic();
+            assert_eq!(
+                from_str("**Text[^one]**\n\n[^one]: Note."),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::styled("Text", Style::new().bold()),
+                        Span::styled("[one]", reference_style),
+                    ]),
+                    Line::default(),
+                    Line::from_iter([
+                        Span::styled("[one]: ", Style::new().dim()),
+                        Span::raw("Note."),
+                    ])
+                    .style(Style::new().dim()),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn multiple_definition_paragraphs_keep_blank_line(_with_tracing: DefaultGuard) {
+            let definition_style = Style::new().dim();
+            assert_eq!(
+                from_str("Text[^one]\n\n[^one]: First paragraph.\n\n    Second paragraph."),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw("Text"),
+                        Span::styled("[one]", definition_style.italic()),
+                    ]),
+                    Line::default(),
+                    Line::from_iter([
+                        Span::styled("[one]: ", definition_style),
+                        Span::raw("First paragraph."),
+                    ])
+                    .style(definition_style),
+                    Line::default().style(definition_style),
+                    Line::from("Second paragraph.").style(definition_style),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn definition_style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+            let definition_style = Style::new().dim();
+            assert_eq!(
+                from_str(
+                    "Text[^one]\n\n[^one]: First paragraph.\n\n    Second paragraph.\n\nAfter."
+                ),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::raw("Text"),
+                        Span::styled("[one]", definition_style.italic()),
+                    ]),
+                    Line::default(),
+                    Line::from_iter([
+                        Span::styled("[one]: ", definition_style),
+                        Span::raw("First paragraph."),
+                    ])
+                    .style(definition_style),
+                    Line::default().style(definition_style),
+                    Line::from("Second paragraph.").style(definition_style),
+                    Line::default(),
+                    Line::from("After."),
+                ])
+            );
+        }
+
+        #[rstest]
+        fn custom_styles_compose_with_enclosing_formatting(_with_tracing: DefaultGuard) {
+            #[derive(Clone, Copy)]
+            struct CustomFootnoteStyle;
+
+            impl StyleSheet for CustomFootnoteStyle {
+                fn heading(&self, level: u8) -> Style {
+                    DefaultStyleSheet.heading(level)
+                }
+
+                fn code(&self) -> Style {
+                    DefaultStyleSheet.code()
+                }
+
+                fn link(&self) -> Style {
+                    DefaultStyleSheet.link()
+                }
+
+                fn blockquote(&self) -> Style {
+                    DefaultStyleSheet.blockquote()
+                }
+
+                fn heading_meta(&self) -> Style {
+                    DefaultStyleSheet.heading_meta()
+                }
+
+                fn metadata_block(&self) -> Style {
+                    DefaultStyleSheet.metadata_block()
+                }
+
+                fn footnote_ref(&self) -> Style {
+                    Style::new().red().underlined()
+                }
+
+                fn footnote_def(&self) -> Style {
+                    Style::new().blue().underlined()
+                }
+            }
+
+            let reference_style = Style::new().red().bold().underlined();
+            let definition_style = Style::new().blue().underlined();
+            let options = Options::new(CustomFootnoteStyle);
+            assert_eq!(
+                from_str_with_options("**Text[^one]**\n\n[^one]: Note.", &options),
+                Text::from_iter([
+                    Line::from_iter([
+                        Span::styled("Text", Style::new().bold()),
+                        Span::styled("[one]", reference_style),
+                    ]),
+                    Line::default(),
+                    Line::from_iter([
+                        Span::styled("[one]: ", definition_style),
+                        Span::raw("Note."),
+                    ])
+                    .style(definition_style),
                 ])
             );
         }
