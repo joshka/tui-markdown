@@ -90,6 +90,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_YAML_STYLE_METADATA_BLOCKS);
     parse_opts.insert(ParseOptions::ENABLE_SUPERSCRIPT);
     parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
+    parse_opts.insert(ParseOptions::ENABLE_MATH);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -232,8 +233,8 @@ where
             Event::HardBreak => self.hard_break(),
             Event::Rule => self.rule(),
             Event::TaskListMarker(checked) => self.task_list_marker(checked),
-            Event::InlineMath(_) => warn!("Inline math not yet supported"),
-            Event::DisplayMath(_) => warn!("Display math not yet supported"),
+            Event::InlineMath(math) => self.inline_math(math),
+            Event::DisplayMath(math) => self.display_math(math),
         }
     }
 
@@ -589,7 +590,6 @@ where
             self.push_span(")".into());
         }
     }
-
     fn start_html_block(&mut self) {
         if self.needs_newline {
             self.push_line(Line::default());
@@ -620,6 +620,21 @@ where
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.html());
         self.push_span(Span::styled(html, style));
+    }
+
+    fn inline_math(&mut self, math: CowStr<'a>) {
+        let style = self.styles.math_inline();
+        self.push_span(Span::styled(format!("${math}$"), style));
+    }
+
+    fn display_math(&mut self, math: CowStr<'a>) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        let style = self.styles.math_display();
+        self.push_line(Line::default());
+        self.push_span(Span::styled(format!("$${math}$$"), style));
+        self.needs_newline = true;
     }
 }
 
@@ -1082,7 +1097,6 @@ mod tests {
             ]))
         );
     }
-
     #[rstest]
     fn link_combines_with_bold_style(_with_tracing: DefaultGuard) {
         let link_style = Style::new().blue().underlined();
@@ -1146,6 +1160,50 @@ mod tests {
                     Line::from("After"),
                 ])
             );
+        }
+    }
+
+    mod math {
+        use pretty_assertions::assert_eq;
+        use ratatui_core::style::Color;
+
+        use super::*;
+
+        #[rstest]
+        fn inline_math_renders(_with_tracing: DefaultGuard) {
+            let text = from_str("The formula $E=mc^2$ is famous.");
+            let line = &text.lines[0];
+            // Should contain the math text styled with magenta italic.
+            let math_span = line
+                .spans
+                .iter()
+                .find(|span| span.content.contains("E=mc^2"))
+                .expect("math span should exist");
+            assert_eq!(math_span.style, Style::new().italic().fg(Color::Magenta));
+        }
+
+        #[rstest]
+        fn display_math_renders(_with_tracing: DefaultGuard) {
+            let text = from_str("$$\nx^2 + y^2 = z^2\n$$");
+            // Display math should produce output with magenta styling.
+            let has_math = text
+                .lines
+                .iter()
+                .any(|line| line.spans.iter().any(|span| span.content.contains("x^2")));
+            assert!(has_math, "display math should render the formula");
+        }
+
+        #[rstest]
+        fn inline_math_wrapped_in_dollars(_with_tracing: DefaultGuard) {
+            let text = from_str("$\\alpha$");
+            let line = &text.lines[0];
+            let math_span = line
+                .spans
+                .iter()
+                .find(|span| span.content.contains("\\alpha"))
+                .expect("math span");
+            assert!(math_span.content.starts_with('$'));
+            assert!(math_span.content.ends_with('$'));
         }
     }
 }
