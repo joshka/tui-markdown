@@ -92,6 +92,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_SUBSCRIPT);
     parse_opts.insert(ParseOptions::ENABLE_MATH);
     parse_opts.insert(ParseOptions::ENABLE_FOOTNOTES);
+    parse_opts.insert(ParseOptions::ENABLE_DEFINITION_LIST);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -270,9 +271,9 @@ where
             Tag::Link { dest_url, .. } => self.push_link(dest_url),
             Tag::Image { .. } => warn!("Image not yet supported"),
             Tag::MetadataBlock(_) => self.start_metadata_block(),
-            Tag::DefinitionList => warn!("Definition list not yet supported"),
-            Tag::DefinitionListTitle => warn!("Definition list title not yet supported"),
-            Tag::DefinitionListDefinition => warn!("Definition list definition not yet supported"),
+            Tag::DefinitionList => self.start_definition_list(),
+            Tag::DefinitionListTitle => self.start_definition_title(),
+            Tag::DefinitionListDefinition => self.start_definition_desc(),
         }
     }
 
@@ -298,9 +299,9 @@ where
             TagEnd::Link => self.pop_link(),
             TagEnd::Image => {}
             TagEnd::MetadataBlock(_) => self.end_metadata_block(),
-            TagEnd::DefinitionList => {}
-            TagEnd::DefinitionListTitle => {}
-            TagEnd::DefinitionListDefinition => {}
+            TagEnd::DefinitionList => self.end_definition_list(),
+            TagEnd::DefinitionListTitle => self.end_definition_title(),
+            TagEnd::DefinitionListDefinition => self.end_definition_desc(),
         }
     }
 
@@ -687,6 +688,40 @@ where
         self.in_footnote_definition = false;
         self.needs_newline = true;
     }
+
+    fn start_definition_list(&mut self) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.needs_newline = false;
+    }
+
+    fn end_definition_list(&mut self) {
+        self.needs_newline = true;
+    }
+
+    fn start_definition_title(&mut self) {
+        self.push_line(Line::default());
+        self.push_inline_style(self.styles.definition_title());
+        self.needs_newline = false;
+    }
+
+    fn end_definition_title(&mut self) {
+        self.pop_inline_style();
+        self.needs_newline = false;
+    }
+
+    fn start_definition_desc(&mut self) {
+        self.push_line(Line::default());
+        self.push_span(Span::styled(": ", self.styles.definition_desc()));
+        self.push_inline_style(self.styles.definition_desc());
+        self.needs_newline = false;
+    }
+
+    fn end_definition_desc(&mut self) {
+        self.pop_inline_style();
+        self.needs_newline = false;
+    }
 }
 
 #[cfg(test)]
@@ -927,6 +962,55 @@ mod tests {
                     .style(definition_style),
                 ])
             );
+        }
+    }
+
+    mod definition_list {
+        use super::*;
+
+        #[rstest]
+        fn basic_definition_list(_with_tracing: DefaultGuard) {
+            let text = from_str(indoc! {"
+                Term 1
+                : Definition 1
+            "});
+            let has_term = text.lines.iter().any(|line| {
+                line.spans
+                    .iter()
+                    .any(|span| span.content.contains("Term 1"))
+            });
+            assert!(has_term, "definition list should render the term");
+            let has_definition = text.lines.iter().any(|line| {
+                line.spans
+                    .iter()
+                    .any(|span| span.content.contains("Definition 1"))
+            });
+            assert!(
+                has_definition,
+                "definition list should render the definition"
+            );
+        }
+
+        #[rstest]
+        fn definition_list_indentation(_with_tracing: DefaultGuard) {
+            let text = from_str(indoc! {"
+                Term
+                : Description here
+            "});
+            let definition_line = text
+                .lines
+                .iter()
+                .find(|line| {
+                    line.spans
+                        .iter()
+                        .any(|span| span.content.contains("Description"))
+                })
+                .expect("should have definition line");
+            let has_colon_prefix = definition_line
+                .spans
+                .iter()
+                .any(|span| span.content.contains(": "));
+            assert!(has_colon_prefix, "definition should have colon prefix");
         }
     }
 

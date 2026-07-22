@@ -61,6 +61,16 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn footnote_def(&self) -> Style {
         Style::new().dim()
     }
+
+    /// Style for definition list terms.
+    fn definition_title(&self) -> Style {
+        Style::new().bold()
+    }
+
+    /// Style for definition list descriptions.
+    fn definition_desc(&self) -> Style {
+        Style::default()
+    }
 }
 
 /// The default style set
