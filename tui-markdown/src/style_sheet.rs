@@ -39,7 +39,9 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn metadata_block(&self) -> Style;
 
     /// Style for the alt-text fallback when rendering images.
-    fn image_alt(&self) -> Style;
+    fn image_alt(&self) -> Style {
+        Style::new().dim().italic()
+    }
 }
 
 /// The default style set
