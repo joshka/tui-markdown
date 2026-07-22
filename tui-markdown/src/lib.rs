@@ -30,6 +30,7 @@
 //! # }
 //! ~~~
 
+#[cfg(feature = "highlight-code")]
 use std::sync::LazyLock;
 use std::vec;
 
