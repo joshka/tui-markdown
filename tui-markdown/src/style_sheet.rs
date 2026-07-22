@@ -71,6 +71,22 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn definition_description(&self) -> Style {
         Style::default()
     }
+
+    /// Style for a GFM alert/callout blockquote.
+    ///
+    /// `kind` is one of `"note"`, `"tip"`, `"important"`, `"warning"`, or `"caution"`.
+    fn alert(&self, kind: &str) -> Style {
+        use ratatui_core::style::Color;
+
+        match kind {
+            "note" => Style::new().fg(Color::Blue),
+            "tip" => Style::new().fg(Color::Green),
+            "important" => Style::new().fg(Color::Magenta),
+            "warning" => Style::new().fg(Color::Yellow),
+            "caution" => Style::new().fg(Color::Red),
+            _ => Style::default(),
+        }
+    }
 }
 
 /// The default style set

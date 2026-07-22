@@ -93,6 +93,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_MATH);
     parse_opts.insert(ParseOptions::ENABLE_FOOTNOTES);
     parse_opts.insert(ParseOptions::ENABLE_DEFINITION_LIST);
+    parse_opts.insert(ParseOptions::ENABLE_GFM);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -363,13 +364,31 @@ where
         self.needs_newline = true
     }
 
-    fn start_blockquote(&mut self, _kind: Option<BlockQuoteKind>) {
+    fn start_blockquote(&mut self, kind: Option<BlockQuoteKind>) {
         if self.needs_newline {
             self.push_line(Line::default());
             self.needs_newline = false;
         }
-        self.line_prefixes.push(Span::from(">"));
-        self.line_styles.push(self.styles.blockquote());
+
+        if let Some(alert_kind) = kind {
+            let (icon, kind_str) = match alert_kind {
+                BlockQuoteKind::Note => ("\u{2139}\u{FE0F}", "note"),
+                BlockQuoteKind::Tip => ("\u{1F4A1}", "tip"),
+                BlockQuoteKind::Important => ("\u{2757}", "important"),
+                BlockQuoteKind::Warning => ("\u{26A0}\u{FE0F}", "warning"),
+                BlockQuoteKind::Caution => ("\u{1F534}", "caution"),
+            };
+            let style = self.styles.alert(kind_str);
+            self.line_prefixes.push(Span::from(">"));
+            self.line_styles.push(style);
+            let label = kind_str[..1].to_uppercase() + &kind_str[1..];
+            self.push_line(Line::default());
+            self.push_span(Span::styled(format!("{icon} {label}"), style.bold()));
+            self.needs_newline = false;
+        } else {
+            self.line_prefixes.push(Span::from(">"));
+            self.line_styles.push(self.styles.blockquote());
+        }
     }
 
     fn end_blockquote(&mut self) {
@@ -1123,6 +1142,60 @@ mod tests {
                     Line::default(),
                     Line::from("After."),
                 ])
+            );
+        }
+    }
+
+    mod gfm_alerts {
+        use super::*;
+
+        fn contains(text: &Text<'_>, expected: &str) -> bool {
+            text.lines.iter().any(|line| {
+                line.spans
+                    .iter()
+                    .any(|span| span.content.contains(expected))
+            })
+        }
+
+        #[rstest]
+        fn note_alert(_with_tracing: DefaultGuard) {
+            let text = from_str("> [!NOTE]\n> This is a note.");
+            assert!(
+                contains(&text, "Note"),
+                "note alert should render Note label"
+            );
+        }
+
+        #[rstest]
+        fn tip_alert(_with_tracing: DefaultGuard) {
+            let text = from_str("> [!TIP]\n> A helpful tip.");
+            assert!(contains(&text, "Tip"), "tip alert should render Tip label");
+        }
+
+        #[rstest]
+        fn important_alert(_with_tracing: DefaultGuard) {
+            let text = from_str("> [!IMPORTANT]\n> Key information.");
+            assert!(
+                contains(&text, "Important"),
+                "important alert should render Important label"
+            );
+        }
+
+        #[rstest]
+        fn warning_alert(_with_tracing: DefaultGuard) {
+            let text = from_str("> [!WARNING]\n> Be careful!");
+            assert!(
+                contains(&text, "Warning"),
+                "warning alert should render Warning label"
+            );
+        }
+
+        #[rstest]
+        fn caution_alert(_with_tracing: DefaultGuard) {
+            let text = from_str("> [!CAUTION]\n> Risk of harm.");
+            assert!(
+                contains(&text, "Caution"),
+                "caution alert should render Caution label"
             );
         }
     }
