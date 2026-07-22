@@ -148,9 +148,9 @@ jobs:
       - name: Run cargo-deny
         run: |
           if [[ "${{ matrix.checks }}" == "advisories" ]]; then
-            cargo deny check advisories -W unmaintained --metadata-path cargo-metadata.json
+            cargo deny --metadata-path cargo-metadata.json check advisories -W unmaintained
           else
-            cargo deny check ${{ matrix.checks }} --metadata-path cargo-metadata.json
+            cargo deny --metadata-path cargo-metadata.json check ${{ matrix.checks }}
           fi
 
   test:
