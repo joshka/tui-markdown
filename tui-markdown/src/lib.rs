@@ -60,7 +60,7 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
-pub use crate::options::Options;
+pub use crate::options::{ImageFallback, Options};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
 mod options;
@@ -109,7 +109,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_TABLES);
     let parser = Parser::new_ext(input, parse_opts);
 
-    let mut writer = TextWriter::new(parser, options.styles.clone());
+    let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
     writer.run();
     writer.text
 }
@@ -219,21 +219,45 @@ impl<'a> PendingImage<'a> {
         self.description.push(span);
     }
 
-    fn into_fallback(self) -> Vec<Span<'a>> {
-        let mut content = self.description;
-        if content.is_empty() && !self.destination.is_empty() {
-            content.push(Span::styled(self.destination, self.style));
-        }
+    fn into_fallback(self, fallback: ImageFallback) -> Vec<Span<'a>> {
+        let Self {
+            destination,
+            style,
+            description,
+        } = self;
+        let mut content = match fallback {
+            ImageFallback::AltText if description.is_empty() => {
+                Self::destination_span(destination, style)
+            }
+            ImageFallback::AltText => description,
+            ImageFallback::Url => Self::destination_span(destination, style),
+            ImageFallback::AltTextAndUrl if description.is_empty() => {
+                Self::destination_span(destination, style)
+            }
+            ImageFallback::AltTextAndUrl if destination.is_empty() => description,
+            ImageFallback::AltTextAndUrl => {
+                let mut description = description;
+                let destination = format!(" ({destination})");
+                description.push(Span::styled(destination, style));
+                description
+            }
+        };
 
         let indicator = if content.is_empty() {
             IMAGE_INDICATOR.to_owned()
         } else {
             format!("{IMAGE_INDICATOR} ")
         };
-        let mut fallback = Vec::with_capacity(content.len() + 1);
-        fallback.push(Span::styled(indicator, self.style));
-        fallback.extend(content);
-        fallback
+        content.insert(0, Span::styled(indicator, style));
+        content
+    }
+
+    fn destination_span(destination: CowStr<'a>, style: Style) -> Vec<Span<'a>> {
+        if destination.is_empty() {
+            Vec::new()
+        } else {
+            vec![Span::styled(destination, style)]
+        }
     }
 }
 
@@ -271,6 +295,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Images whose descriptions are currently being collected.
     images: Vec<PendingImage<'a>>,
 
+    /// Content to render in place of images.
+    image_fallback: ImageFallback,
+
     /// The [`StyleSheet`] to use to style the output.
     styles: S,
 
@@ -302,7 +329,7 @@ where
     I: Iterator<Item = Event<'a>>,
     S: StyleSheet,
 {
-    fn new(iter: I, styles: S) -> Self {
+    fn new(iter: I, styles: S, image_fallback: ImageFallback) -> Self {
         Self {
             iter,
             text: Text::default(),
@@ -316,6 +343,7 @@ where
             code_highlighter: None,
             link: None,
             images: vec![],
+            image_fallback,
             styles,
             heading_meta: None,
             in_metadata_block: false,
@@ -820,7 +848,7 @@ where
     fn end_image(&mut self) {
         self.pop_inline_style();
         if let Some(image) = self.images.pop() {
-            for span in image.into_fallback() {
+            for span in image.into_fallback(self.image_fallback) {
                 self.push_span(span);
             }
         }
@@ -2489,6 +2517,64 @@ mod tests {
                     "│ [img] photo │",
                     "└─────────────┘",
                 ]
+            );
+        }
+
+        #[rstest]
+        fn url_fallback_uses_destination(_with_tracing: DefaultGuard) {
+            let options = Options::default().image_fallback(ImageFallback::Url);
+            assert_eq!(
+                from_str_with_options("![diagram](diagram.png)", &options),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("diagram.png", IMAGE_STYLE),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn url_fallback_discards_complete_formatted_description(_with_tracing: DefaultGuard) {
+            let options = Options::default().image_fallback(ImageFallback::Url);
+            assert_eq!(
+                from_str_with_options("![**bold** $x$ <br> `code`](diagram.png)", &options)
+                    .to_string(),
+                "[img] diagram.png"
+            );
+        }
+
+        #[rstest]
+        fn alt_text_and_url_fallback_preserves_formatted_description(_with_tracing: DefaultGuard) {
+            let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+            assert_eq!(
+                from_str_with_options("![**diagram**](diagram.png)", &options),
+                Text::from(Line::from_iter([
+                    Span::styled("[img] ", IMAGE_STYLE),
+                    Span::styled("diagram", IMAGE_STYLE.bold()),
+                    Span::styled(" (diagram.png)", IMAGE_STYLE),
+                ]))
+            );
+        }
+
+        #[rstest]
+        fn alt_text_and_url_fallback_uses_destination_for_empty_description(
+            _with_tracing: DefaultGuard,
+        ) {
+            let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+            assert_eq!(
+                from_str_with_options("![](diagram.png)", &options).to_string(),
+                "[img] diagram.png"
+            );
+        }
+
+        #[rstest]
+        fn configured_fallback_omits_space_when_destination_is_empty(
+            #[values(ImageFallback::Url, ImageFallback::AltTextAndUrl)] fallback: ImageFallback,
+            _with_tracing: DefaultGuard,
+        ) {
+            let options = Options::default().image_fallback(fallback);
+            assert_eq!(
+                from_str_with_options("![]()", &options),
+                Text::from(Line::from(Span::styled("[img]", IMAGE_STYLE)))
             );
         }
 

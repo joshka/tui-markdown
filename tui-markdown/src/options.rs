@@ -1,9 +1,23 @@
 //! Rendering configuration for tui-markdown.
 //!
-//! For now the only knob is the theme [`StyleSheet`]. This struct is `#[non_exhaustive]`, which
-//! allows us to add more options in the future without breaking existing code.
+//! Options control the renderer's style sheet and image fallback content. This struct is
+//! `#[non_exhaustive]`, which allows us to add more options in the future without breaking
+//! existing code.
 
 use crate::{DefaultStyleSheet, StyleSheet};
+
+/// Text used in place of images when rendering Markdown in a terminal.
+#[non_exhaustive]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ImageFallback {
+    /// Show the image's alt text, or its URL when the alt text is empty.
+    #[default]
+    AltText,
+    /// Always show the image's URL.
+    Url,
+    /// Show both the image's alt text and URL, or only its URL when the alt text is empty.
+    AltTextAndUrl,
+}
 
 /// Collection of optional parameters that influence markdown rendering.
 ///
@@ -60,12 +74,24 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     /// The [`StyleSheet`] implementation that will be consulted every time the renderer needs a
     /// color choice.
     pub(crate) styles: S,
+    /// The content to render in place of images.
+    pub(crate) image_fallback: ImageFallback,
 }
 
 impl<S: StyleSheet> Options<S> {
     /// Creates a new `Options` instance with the provided style sheet.
     pub fn new(styles: S) -> Self {
-        Self { styles }
+        Self {
+            styles,
+            image_fallback: ImageFallback::default(),
+        }
+    }
+
+    /// Selects the content to render in place of images.
+    #[must_use]
+    pub fn image_fallback(mut self, image_fallback: ImageFallback) -> Self {
+        self.image_fallback = image_fallback;
+        self
     }
 }
 
@@ -126,6 +152,7 @@ mod tests {
 
         let options = Options {
             styles: CustomStyleSheet,
+            image_fallback: ImageFallback::default(),
         };
 
         assert_eq!(options.styles.heading(1), Style::new().red().bold());
@@ -136,5 +163,19 @@ mod tests {
         assert_eq!(options.styles.heading_meta(), Style::new().dim());
         assert_eq!(options.styles.metadata_block(), Style::new().light_yellow());
         assert_eq!(options.styles.image_alt(), Style::new().dim().italic());
+    }
+
+    #[test]
+    fn image_fallback_defaults_to_alt_text() {
+        let options = Options::default();
+
+        assert_eq!(options.image_fallback, ImageFallback::AltText);
+    }
+
+    #[test]
+    fn image_fallback_setter_updates_mode() {
+        let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+
+        assert_eq!(options.image_fallback, ImageFallback::AltTextAndUrl);
     }
 }
