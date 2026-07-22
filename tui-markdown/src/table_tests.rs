@@ -26,6 +26,67 @@ mod table {
     }
 
     #[rstest]
+    fn table_with_cjk_content(_with_tracing: DefaultGuard) {
+        let text = from_str(indoc! {"
+            | Latin | CJK |
+            |-------|-----|
+            | a     | 日本 |
+        "});
+        let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+        assert_eq!(
+            rendered,
+            [
+                "┌───────┬──────┐",
+                "│ Latin │ CJK  │",
+                "├───────┼──────┤",
+                "│ a     │ 日本 │",
+                "└───────┴──────┘",
+            ]
+        );
+        assert!(text.lines.iter().all(|line| line.width() == 16));
+    }
+
+    #[derive(Clone)]
+    struct PreTableStyleSheet;
+
+    impl StyleSheet for PreTableStyleSheet {
+        fn heading(&self, _level: u8) -> Style {
+            Style::default()
+        }
+
+        fn code(&self) -> Style {
+            Style::default()
+        }
+
+        fn link(&self) -> Style {
+            Style::default()
+        }
+
+        fn blockquote(&self) -> Style {
+            Style::default()
+        }
+
+        fn heading_meta(&self) -> Style {
+            Style::default()
+        }
+
+        fn metadata_block(&self) -> Style {
+            Style::default()
+        }
+    }
+
+    #[rstest]
+    fn table_styles_are_backward_compatible(_with_tracing: DefaultGuard) {
+        let options = Options::new(PreTableStyleSheet);
+        let text = from_str_with_options("| A |\n|---|\n| a |", &options);
+        assert_eq!(text.lines[0].spans[0].style, Style::new().dark_gray());
+        assert!(text.lines[1]
+            .spans
+            .iter()
+            .any(|span| span.style == Style::new().bold().cyan()));
+    }
+
+    #[rstest]
     fn table_with_header_styling(_with_tracing: DefaultGuard) {
         let text = from_str("| Name |\n|------|\n| foo  |");
         let has_bold = text.lines[1]

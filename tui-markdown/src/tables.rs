@@ -14,7 +14,6 @@ pub(crate) struct TableBuilder<'a> {
     alignments: Vec<Alignment>,
     rows: Vec<Vec<Vec<Span<'a>>>>,
     current_cell: Vec<Span<'a>>,
-    header_finished: bool,
 }
 
 impl<'a> TableBuilder<'a> {
@@ -23,20 +22,11 @@ impl<'a> TableBuilder<'a> {
             alignments,
             rows: Vec::new(),
             current_cell: Vec::new(),
-            header_finished: false,
         }
     }
 
     pub(crate) fn start_row(&mut self) {
         self.rows.push(Vec::new());
-    }
-
-    pub(crate) fn finish_row(&mut self) {
-        // Cells are added to the current row as they finish.
-    }
-
-    pub(crate) fn finish_header(&mut self) {
-        self.header_finished = true;
     }
 
     pub(crate) fn start_cell(&mut self) {
@@ -223,8 +213,6 @@ mod tests {
         builder.start_cell();
         builder.push_span(Span::raw("hi"));
         builder.finish_cell();
-        builder.finish_row();
-        builder.finish_header();
         assert_eq!(builder.render(&DefaultStyleSheet).len(), 4);
     }
 
@@ -252,5 +240,11 @@ mod tests {
     fn emoji_spans_width() {
         let spans = vec![Span::raw("✅"), Span::raw(" ok")];
         assert_eq!(TableBuilder::spans_width(&spans), 5);
+    }
+
+    #[test]
+    fn cjk_spans_width() {
+        let spans = vec![Span::raw("日本"), Span::raw(" ok")];
+        assert_eq!(TableBuilder::spans_width(&spans), 7);
     }
 }

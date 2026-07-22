@@ -308,8 +308,7 @@ where
             TagEnd::Item => {}
             TagEnd::FootnoteDefinition => self.end_footnote_definition(),
             TagEnd::Table => self.end_table(),
-            TagEnd::TableHead => self.end_table_head(),
-            TagEnd::TableRow => self.end_table_row(),
+            TagEnd::TableHead | TagEnd::TableRow => {}
             TagEnd::TableCell => self.end_table_cell(),
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
@@ -817,19 +816,6 @@ where
     fn end_table_cell(&mut self) {
         if let Some(builder) = &mut self.table_builder {
             builder.finish_cell();
-        }
-    }
-
-    fn end_table_row(&mut self) {
-        if let Some(builder) = &mut self.table_builder {
-            builder.finish_row();
-        }
-    }
-
-    fn end_table_head(&mut self) {
-        if let Some(builder) = &mut self.table_builder {
-            builder.finish_row();
-            builder.finish_header();
         }
     }
 

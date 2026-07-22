@@ -133,10 +133,14 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     }
 
     /// Style for the table header row.
-    fn table_header(&self) -> Style;
+    fn table_header(&self) -> Style {
+        Style::new().bold().cyan()
+    }
 
     /// Style for table border characters.
-    fn table_border(&self) -> Style;
+    fn table_border(&self) -> Style {
+        Style::new().dark_gray()
+    }
 }
 
 /// The default style set
@@ -198,13 +202,5 @@ impl StyleSheet for DefaultStyleSheet {
 
     fn metadata_block(&self) -> Style {
         Style::new().light_yellow()
-    }
-
-    fn table_header(&self) -> Style {
-        Style::new().bold().cyan()
-    }
-
-    fn table_border(&self) -> Style {
-        Style::new().dark_gray()
     }
 }
