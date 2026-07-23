@@ -128,8 +128,10 @@ impl<S: StyleSheet> Options<S> {
     /// By default, no explicit theme is stored and the renderer borrows its shared
     /// [`Base16OceanDark`](crate::BuiltinCodeTheme::Base16OceanDark) theme.
     /// Pass a [`BuiltinCodeTheme`](crate::BuiltinCodeTheme) directly, or pass an owned
-    /// [`CodeTheme`] constructed by another theme source. The selected theme applies when a fenced
-    /// code block names a recognized language.
+    /// [`CodeTheme`]. Construct custom themes from TextMate source with
+    /// [`CodeTheme::from_textmate`](crate::CodeTheme::from_textmate), or load a TextMate file with
+    /// [`CodeTheme::from_file`](crate::CodeTheme::from_file). The selected theme applies when a
+    /// fenced code block names a recognized language.
     ///
     /// # Example
     ///
