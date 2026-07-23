@@ -54,15 +54,20 @@ use ratatui_core::text::{Line, Span, Text};
 #[cfg(feature = "highlight-code")]
 use syntect::{
     easy::HighlightLines,
-    highlighting::ThemeSet,
+    highlighting::Theme,
     parsing::SyntaxSet,
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 use tracing::{debug, instrument, warn};
 
-pub use crate::options::{ImageFallback, Options};
+#[cfg(feature = "highlight-code")]
+#[doc(inline)]
+pub use crate::code_theme::available_themes;
+pub use crate::options::{ImageFallback, Options, DEFAULT_CODE_THEME};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
+#[cfg(feature = "highlight-code")]
+mod code_theme;
 mod options;
 mod style_sheet;
 mod tables;
@@ -109,31 +114,13 @@ where
     parse_opts.insert(ParseOptions::ENABLE_TABLES);
     let parser = Parser::new_ext(input, parse_opts);
 
-    let mut writer = TextWriter::new(
-        parser,
-        options.styles.clone(),
-        options.image_fallback,
-        options.code_theme.clone(),
-    );
+    let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
+    #[cfg(feature = "highlight-code")]
+    if let Some(theme_name) = options.selected_code_theme() {
+        writer.set_code_theme(theme_name);
+    }
     writer.run();
     writer.text
-}
-
-/// Returns the names of all built-in syntax-highlighting themes.
-///
-/// These names can be passed to [`Options::code_theme`].
-///
-/// # Example
-///
-/// ```
-/// use tui_markdown::{available_themes, Options};
-///
-/// assert!(available_themes().contains(&"InspiredGitHub"));
-/// let options = Options::default().code_theme("InspiredGitHub");
-/// ```
-#[cfg(feature = "highlight-code")]
-pub fn available_themes() -> Vec<&'static str> {
-    THEME_SET.themes.keys().map(String::as_str).collect()
 }
 
 // Heading attributes collected from pulldown-cmark to render after the heading text.
@@ -338,24 +325,22 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Active table builder that accumulates cells during table parsing.
     table_builder: Option<tables::TableBuilder<'a>>,
 
-    /// Name of the syntect theme for code highlighting.
-    #[cfg_attr(not(feature = "highlight-code"), allow(dead_code))]
-    code_theme_name: String,
+    /// Resolved syntect theme used for code highlighting.
+    #[cfg(feature = "highlight-code")]
+    code_theme: &'static Theme,
 
     needs_newline: bool,
 }
 
 #[cfg(feature = "highlight-code")]
 static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
-#[cfg(feature = "highlight-code")]
-static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 impl<'a, I, S> TextWriter<'a, I, S>
 where
     I: Iterator<Item = Event<'a>>,
     S: StyleSheet,
 {
-    fn new(iter: I, styles: S, image_fallback: ImageFallback, code_theme_name: String) -> Self {
+    fn new(iter: I, styles: S, image_fallback: ImageFallback) -> Self {
         Self {
             iter,
             text: Text::default(),
@@ -376,8 +361,15 @@ where
             in_footnote_definition: false,
             in_definition_description: false,
             table_builder: None,
-            code_theme_name,
+            #[cfg(feature = "highlight-code")]
+            code_theme: code_theme::default_theme(),
         }
+    }
+
+    /// Resolves a configured theme before the event loop starts.
+    #[cfg(feature = "highlight-code")]
+    fn set_code_theme(&mut self, theme_name: &str) {
+        self.code_theme = code_theme::resolve(theme_name);
     }
 
     fn run(&mut self) {
@@ -770,18 +762,7 @@ where
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
             debug!("Starting code block with syntax: {:?}", lang);
-            let theme = THEME_SET
-                .themes
-                .get(&self.code_theme_name)
-                .unwrap_or_else(|| {
-                    warn!(
-                        "Theme {:?} not found, falling back to {:?}",
-                        self.code_theme_name,
-                        Options::<DefaultStyleSheet>::DEFAULT_CODE_THEME,
-                    );
-                    &THEME_SET.themes[Options::<DefaultStyleSheet>::DEFAULT_CODE_THEME]
-                });
-            let highlighter = HighlightLines::new(syntax, theme);
+            let highlighter = HighlightLines::new(syntax, self.code_theme);
             self.code_highlighter = Some(highlighter);
         } else {
             warn!("Could not find syntax for code block: {:?}", lang);
@@ -2637,7 +2618,11 @@ mod tests {
 
         #[rstest]
         fn invalid_theme_falls_back_to_default(_with_tracing: DefaultGuard) {
-            let input = "```rust\nfn main() {}\n```";
+            let input = indoc! {"
+                ```rust
+                fn main() {}
+                ```
+            "};
             let default_text = from_str(input);
             let options = Options::default().code_theme("nonexistent-theme");
             let fallback_text = from_str_with_options(input, &options);
@@ -2648,18 +2633,31 @@ mod tests {
         #[rstest]
         #[cfg(feature = "highlight-code")]
         fn different_theme_produces_different_output(_with_tracing: DefaultGuard) {
-            let default_out = from_str("```rust\nfn main() {}\n```");
+            let input = indoc! {"
+                ```rust
+                fn main() {}
+                ```
+            "};
+            let default_out = from_str(input);
             let options = Options::default().code_theme("InspiredGitHub");
-            let custom_out = from_str_with_options("```rust\nfn main() {}\n```", &options);
+            let custom_out = from_str_with_options(input, &options);
+
             assert_ne!(default_out, custom_out);
         }
 
         #[rstest]
         #[cfg(feature = "highlight-code")]
-        fn available_themes_not_empty(_with_tracing: DefaultGuard) {
-            let themes = crate::available_themes();
-            assert!(!themes.is_empty());
-            assert!(themes.contains(&"base16-ocean.dark"));
+        fn explicit_default_theme_matches_implicit_default(_with_tracing: DefaultGuard) {
+            let input = indoc! {"
+                ```rust
+                fn main() {}
+                ```
+            "};
+            let implicit = from_str(input);
+            let options = Options::default().code_theme(DEFAULT_CODE_THEME);
+            let explicit = from_str_with_options(input, &options);
+
+            assert_eq!(explicit, implicit);
         }
     }
 }

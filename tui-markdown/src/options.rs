@@ -6,6 +6,11 @@
 
 use crate::{DefaultStyleSheet, StyleSheet};
 
+/// Name of the built-in syntax-highlighting theme used by default.
+///
+/// This constant identifies a syntect theme when the `highlight-code` feature is enabled.
+pub const DEFAULT_CODE_THEME: &str = "base16-ocean.dark";
+
 /// Text used to represent Markdown images in rendered terminal output.
 ///
 /// This option does not load or render image resources. It controls whether the text fallback
@@ -93,22 +98,20 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     pub(crate) styles: S,
     /// The content to render in place of images.
     pub(crate) image_fallback: ImageFallback,
-    /// Name of the syntect theme used for syntax-highlighted code blocks.
+    /// Name of the selected syntect theme for syntax-highlighted code blocks.
     ///
-    /// When the `highlight-code` feature is disabled this field has no effect.
-    pub(crate) code_theme: String,
+    /// `None` uses [`DEFAULT_CODE_THEME`]. When the `highlight-code` feature is disabled this
+    /// field has no effect.
+    code_theme: Option<String>,
 }
 
 impl<S: StyleSheet> Options<S> {
-    /// The default syntax-highlighting theme name.
-    pub const DEFAULT_CODE_THEME: &str = "base16-ocean.dark";
-
     /// Creates a new `Options` instance with the provided style sheet.
     pub fn new(styles: S) -> Self {
         Self {
             styles,
             image_fallback: ImageFallback::default(),
-            code_theme: Self::DEFAULT_CODE_THEME.to_owned(),
+            code_theme: None,
         }
     }
 
@@ -124,13 +127,21 @@ impl<S: StyleSheet> Options<S> {
     /// Sets the syntax-highlighting theme by name.
     ///
     /// The name must match a theme returned by [`crate::available_themes`]. Invalid names fall back
-    /// to [`Self::DEFAULT_CODE_THEME`] when a code block is rendered.
+    /// to [`DEFAULT_CODE_THEME`] when a code block is rendered.
     ///
     /// This setting has no effect when the `highlight-code` feature is disabled.
     #[must_use]
     pub fn code_theme(mut self, theme_name: impl Into<String>) -> Self {
-        self.code_theme = theme_name.into();
+        self.code_theme = Some(theme_name.into());
         self
+    }
+
+    /// Returns the explicitly selected syntax-highlighting theme name.
+    ///
+    /// `None` means code blocks use [`DEFAULT_CODE_THEME`].
+    #[must_use]
+    pub fn selected_code_theme(&self) -> Option<&str> {
+        self.code_theme.as_deref()
     }
 }
 
@@ -192,7 +203,7 @@ mod tests {
         let options = Options {
             styles: CustomStyleSheet,
             image_fallback: ImageFallback::default(),
-            code_theme: Options::<CustomStyleSheet>::DEFAULT_CODE_THEME.to_owned(),
+            code_theme: None,
         };
 
         assert_eq!(options.styles.heading(1), Style::new().red().bold());
@@ -220,19 +231,16 @@ mod tests {
     }
 
     #[test]
-    fn default_code_theme() {
+    fn code_theme_is_opt_in() {
         let options: Options = Options::default();
 
-        assert_eq!(
-            options.code_theme,
-            Options::<DefaultStyleSheet>::DEFAULT_CODE_THEME
-        );
+        assert_eq!(options.selected_code_theme(), None);
     }
 
     #[test]
-    fn custom_code_theme() {
+    fn code_theme_selects_a_name() {
         let options = Options::default().code_theme("Solarized (dark)");
 
-        assert_eq!(options.code_theme, "Solarized (dark)");
+        assert_eq!(options.selected_code_theme(), Some("Solarized (dark)"));
     }
 }
