@@ -132,12 +132,25 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         kind.label()
     }
 
-    /// Style patched onto inline styles in the table header row.
+    /// Style patched onto content in the table header row.
+    ///
+    /// Properties set by this style override the same properties in an inline style. Cell padding
+    /// and borders are separate spans and do not receive this style.
     fn table_header(&self) -> Style {
         Style::new().bold().cyan()
     }
 
+    /// Style patched onto content in ordinary table cells.
+    ///
+    /// Properties set by this style override the same properties in an inline style. Cell padding
+    /// and borders are separate spans and do not receive this style.
+    fn table_cell(&self) -> Style {
+        Style::default()
+    }
+
     /// Style for the Unicode box-drawing characters around table cells.
+    ///
+    /// This changes the presentation of the borders, not the box-drawing characters themselves.
     fn table_border(&self) -> Style {
         Style::new().dark_gray()
     }
@@ -169,6 +182,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - warning alerts: yellow
 /// - caution alerts: red
 /// - table headers: bold cyan
+/// - table cells: the surrounding style
 /// - table borders: dark gray
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;

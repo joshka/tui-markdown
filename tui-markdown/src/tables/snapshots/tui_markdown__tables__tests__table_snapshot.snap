@@ -1,5 +1,5 @@
 ---
-source: tui-markdown/src/table_tests.rs
+source: tui-markdown/src/tables/tests.rs
 expression: text
 ---
 ┌──────┬───────┐

@@ -60,9 +60,26 @@ Linebreaks are rendered with Markdown defaults: soft breaks become spaces, hard 
 new line.
 
 GFM tables render with Unicode box-drawing borders and honor left, center, and right column
-alignment. Column widths use terminal display width, so wide CJK and emoji characters remain
-aligned. Customize header content with [`StyleSheet::table_header()`] and border characters with
-[`StyleSheet::table_border()`].
+alignment:
+
+```markdown
+| Name | Status |
+|:-----|-------:|
+| API  | Ready  |
+```
+
+```text
+┌──────┬────────┐
+│ Name │ Status │
+├──────┼────────┤
+│ API  │  Ready │
+└──────┴────────┘
+```
+
+Column widths use terminal display width, so wide CJK and emoji characters remain aligned. Use
+[`StyleSheet::table_header()`] for header content, [`StyleSheet::table_cell()`] for body content,
+and [`StyleSheet::table_border()`] for the box-drawing borders. These styles preserve inline
+formatting unless they set the same style property.
 
 Links are rendered as `label (URL)`. The link style applies to both the visible label and URL while
 preserving nested inline formatting such as bold text.
@@ -156,6 +173,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::alert_icon()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert_icon
 [`StyleSheet::alert_label()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert_label
 [`StyleSheet::table_border()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_border
+[`StyleSheet::table_cell()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_cell
 [`StyleSheet::table_header()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_header
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge

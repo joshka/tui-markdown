@@ -3,6 +3,10 @@
 //! This module provides a simple markdown renderer widget for Ratatui. It uses the `pulldown-cmark`
 //! crate to parse markdown and convert it to a `Text` widget. The `Text` widget can then be
 //! rendered to the terminal using the 'Ratatui' library.
+//!
+//! GitHub-flavored Markdown tables render with Unicode box-drawing borders, terminal-width-aware
+//! columns, and the alignment declared by the Markdown delimiter row. Use [`StyleSheet`] to
+//! customize header content, body content, and borders.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example
@@ -281,7 +285,8 @@ where
             Tag::Item => self.start_item(),
             Tag::FootnoteDefinition(label) => self.start_footnote_definition(label),
             Tag::Table(alignments) => self.start_table(alignments),
-            Tag::TableHead | Tag::TableRow => self.start_table_row(),
+            Tag::TableHead => {}
+            Tag::TableRow => {}
             Tag::TableCell => self.start_table_cell(),
             Tag::Emphasis => self.push_inline_style(Style::new().italic()),
             Tag::Strong => self.push_inline_style(Style::new().bold()),
@@ -308,7 +313,8 @@ where
             TagEnd::Item => {}
             TagEnd::FootnoteDefinition => self.end_footnote_definition(),
             TagEnd::Table => self.end_table(),
-            TagEnd::TableHead | TagEnd::TableRow => {}
+            TagEnd::TableHead => self.end_table_header(),
+            TagEnd::TableRow => self.end_table_row(),
             TagEnd::TableCell => self.end_table_cell(),
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
@@ -426,9 +432,9 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
-        if let Some(builder) = &mut self.table_builder {
+        if self.table_builder.is_some() {
             let style = self.inline_styles.last().copied().unwrap_or_default();
-            builder.push_span(Span::styled(text, style));
+            self.push_span(Span::styled(text, style));
             return;
         }
 
@@ -467,7 +473,7 @@ where
 
     fn code(&mut self, code: CowStr<'a>) {
         let span = Span::styled(code, self.styles.code());
-        self.push_inline_span(span);
+        self.push_span(span);
     }
 
     fn hard_break(&mut self) {
@@ -554,7 +560,7 @@ where
         if self.in_metadata_block {
             self.hard_break();
         } else {
-            self.push_inline_span(Span::raw(" "));
+            self.push_span(Span::raw(" "));
         }
     }
 
@@ -642,19 +648,20 @@ where
 
     #[instrument(level = "trace", skip(self))]
     fn push_span(&mut self, span: Span<'a>) {
+        // GFM tables are leaf blocks: their cells parse inline content, and block-level elements
+        // cannot occur inside them. Pulldown-cmark preserves that boundary by emitting only inline
+        // events inside `TableCell`. Keep the active cell as the single span sink anyway so a new
+        // inline event handler cannot accidentally write table content into the surrounding text.
+        // See <https://github.github.com/gfm/#tables-extension->.
+        if let Some(builder) = &mut self.table_builder {
+            builder.push_span(span);
+            return;
+        }
+
         if let Some(line) = self.text.lines.last_mut() {
             line.push_span(span);
         } else {
             self.push_line(Line::from(vec![span]));
-        }
-    }
-
-    /// Append inline content to the active table cell or the current output line.
-    fn push_inline_span(&mut self, span: Span<'a>) {
-        if let Some(builder) = &mut self.table_builder {
-            builder.push_span(span);
-        } else {
-            self.push_span(span);
         }
     }
 
@@ -670,9 +677,9 @@ where
     fn pop_link(&mut self) {
         self.pop_inline_style();
         if let Some(link) = self.link.take() {
-            self.push_inline_span(" (".into());
-            self.push_inline_span(Span::styled(link, self.styles.link()));
-            self.push_inline_span(")".into());
+            self.push_span(" (".into());
+            self.push_span(Span::styled(link, self.styles.link()));
+            self.push_span(")".into());
         }
     }
     fn start_html_block(&mut self) {
@@ -704,13 +711,13 @@ where
     fn inline_html(&mut self, html: CowStr<'a>) {
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.html());
-        self.push_inline_span(Span::styled(html, style));
+        self.push_span(Span::styled(html, style));
     }
 
     fn inline_math(&mut self, math: CowStr<'a>) {
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.math_inline());
-        self.push_inline_span(Span::styled(format!("${math}$"), style));
+        self.push_span(Span::styled(format!("${math}$"), style));
     }
 
     fn display_math(&mut self, math: CowStr<'a>) {
@@ -735,7 +742,7 @@ where
         // over it so the reference adds its own appearance without losing enclosing formatting.
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.footnote_ref());
-        self.push_inline_span(Span::styled(format!("[{label}]"), style));
+        self.push_span(Span::styled(format!("[{label}]"), style));
     }
 
     fn start_footnote_definition(&mut self, label: CowStr<'a>) {
@@ -805,9 +812,15 @@ where
         self.needs_newline = false;
     }
 
-    fn start_table_row(&mut self) {
+    fn end_table_header(&mut self) {
         if let Some(builder) = &mut self.table_builder {
-            builder.start_row();
+            builder.finish_header();
+        }
+    }
+
+    fn end_table_row(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.finish_row();
         }
     }
 
@@ -2046,6 +2059,4 @@ mod tests {
             );
         }
     }
-
-    include!("table_tests.rs");
 }
