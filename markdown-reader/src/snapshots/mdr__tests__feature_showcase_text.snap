@@ -1,4 +1,8 @@
 ---
+source: markdown-reader/src/main.rs
+expression: text
+---
+---
 document: tui-markdown feature showcase
 tags:
   - markdown
@@ -8,19 +12,17 @@ tags:
 
 # tui-markdown feature showcase
 
-This document exercises the Markdown constructs supported by `tui-markdown` and provides a useful
-manual test for `mdr`. Read it with:
+This document exercises the Markdown constructs supported by tui-markdown and provides a useful manual test for mdr. Read it with:
 
 ```shell
 cargo run -p markdown-reader -- markdown-reader/TEST.md
 ```
 
-Each section shows its Markdown source first, followed by the live example rendered by `mdr`.
+Each section shows its Markdown source first, followed by the live example rendered by mdr.
 
 ## Metadata blocks
 
-Metadata must be the first construct in a document, so the opening lines of this file are the live
-example. They use this syntax:
+Metadata must be the first construct in a document, so the opening lines of this file are the live example. They use this syntax:
 
 ```text
 ---
@@ -60,10 +62,9 @@ Formatting can be nested: **strong text with *emphasis* and `code`**.
 Superscript: 2^10^. Subscript: H~2~O.
 ```
 
-Plain text can contain *emphasis*, **strong emphasis**, ***both at once***, ~~strikethrough~~, and
-`inline code`.
+Plain text can contain emphasis, strong emphasis, both at once, strikethrough, and inline code.
 
-Formatting can be nested: **strong text with *emphasis* and `code`**.
+Formatting can be nested: strong text with emphasis and code.
 
 Superscript: 2^10^. Subscript: H~2~O.
 
@@ -77,10 +78,9 @@ A hard break keeps the backslash\
 and starts a new terminal line.
 ```
 
-A soft
-line break becomes a space.
+A soft line break becomes a space.
 
-A hard break keeps the backslash\
+A hard break keeps the backslash
 and starts a new terminal line.
 
 ## Links and images
@@ -94,11 +94,9 @@ Visit the [Ratatui website](https://ratatui.rs) or its
 [ratatui-repository]: https://github.com/ratatui/ratatui
 ```
 
-Visit the [Ratatui website](https://ratatui.rs) or its
-[GitHub repository][ratatui-repository]. Link labels may contain **formatting**.
+Visit the Ratatui website (https://ratatui.rs) or its GitHub repository (https://github.com/ratatui/ratatui). Link labels may contain formatting.
 
-Images use a terminal-friendly text fallback instead of loading image data:
-![Ferris holding a terminal](https://rustacean.net/assets/rustacean-flat-happy.png)
+Images use a terminal-friendly text fallback instead of loading image data: [img] Ferris holding a terminal
 
 ## Blockquotes
 
@@ -114,15 +112,15 @@ Images use a terminal-friendly text fallback instead of loading image data:
 
 ### Multiple paragraphs
 
-> A blockquote can contain **formatted text** and `inline code`.
->
+> A blockquote can contain formatted text and inline code.
+> 
 > A second paragraph stays inside the same quote.
 
 ### Nested quote
 
 > An outer quote can contain another quote.
->
->> The nested quote has an additional `>` prefix.
+> 
+>> The nested quote has an additional > prefix.
 
 Text after a blockquote returns to the ordinary paragraph style.
 
@@ -147,27 +145,27 @@ Text after a blockquote returns to the ordinary paragraph style.
 
 ### Note alert
 
-> [!NOTE]
+> ℹ️ Note
 > Notes add useful context.
 
 ### Tip alert
 
-> [!TIP]
+> 💡 Tip
 > Tips suggest a more convenient approach.
 
 ### Important alert
 
-> [!IMPORTANT]
+> ❗ Important
 > Important information is necessary to complete the task.
 
 ### Warning alert
 
-> [!WARNING]
+> ⚠️ Warning
 > Warnings describe a risk that deserves attention.
 
 ### Caution alert
 
-> [!CAUTION]
+> 🔴 Caution
 > Cautions call out a likely negative consequence.
 
 ## Lists
@@ -192,11 +190,11 @@ Text after a blockquote returns to the ordinary paragraph style.
 An unordered list can contain nested items:
 
 - Renderer
-  - Styles spans
-  - Preserves block layout
+    - Styles spans
+    - Preserves block layout
 - Reader
-  - Opens Markdown files
-  - Scrolls terminal output
+    - Opens Markdown files
+    - Scrolls terminal output
 
 Ordered lists preserve their numbering:
 
@@ -214,7 +212,7 @@ Task lists show completed and pending work:
 
 The outer four-backtick fence below displays the three-backtick code-fence syntax.
 
-````text
+```text
 ```rust
 use tui_markdown::from_str;
 
@@ -225,9 +223,9 @@ println!("{text}");
 ```made-up-language
 widget -> buffer -> terminal
 ```
-````
+```
 
-Recognized fenced languages use syntax highlighting when the `highlight-code` feature is enabled:
+Recognized fenced languages use syntax highlighting when the highlight-code feature is enabled:
 
 ```rust
 use tui_markdown::from_str;
@@ -254,16 +252,17 @@ widget -> buffer -> terminal
 | Emoji       | 🦀                            |  Ready |
 ```
 
-Tables honor left, center, and right alignment. Wide CJK text and emoji use terminal display width,
-and inline Markdown stays inside its cell.
+Tables honor left, center, and right alignment. Wide CJK text and emoji use terminal display width, and inline Markdown stays inside its cell.
 
-| Construct   | Example                               | Status |
-| :---------- | :-----------------------------------: | -----: |
-| Strong      | **bold**                              |  Ready |
-| Inline code | `Text<'a>`                            |  Ready |
-| Link        | [Ratatui](https://ratatui.rs)         |  Ready |
-| Wide text   | 東京                                  |  Ready |
-| Emoji       | 🦀                                    |  Ready |
+┌─────────────┬──────────────────────────────┬────────┐
+│ Construct   │           Example            │ Status │
+├─────────────┼──────────────────────────────┼────────┤
+│ Strong      │             bold             │  Ready │
+│ Inline code │           Text<'a>           │  Ready │
+│ Link        │ Ratatui (https://ratatui.rs) │  Ready │
+│ Wide text   │             東京             │  Ready │
+│ Emoji       │              🦀              │  Ready │
+└─────────────┴──────────────────────────────┴────────┘
 
 ## Math
 
@@ -296,8 +295,7 @@ Each source line remains visible.
 </details>
 ```
 
-Inline HTML remains visible rather than being interpreted.<br>
-The tag itself appears in the rendered text.
+Inline HTML remains visible rather than being interpreted.<br> The tag itself appears in the rendered text.
 
 <details>
 <summary>Block HTML also remains visible</summary>
@@ -317,10 +315,9 @@ Ratatui
 
 Terminal user interface
 : A text-based interface drawn in a terminal.
-
 Ratatui
 : A Rust library for building terminal user interfaces.
-: The rendering library used by `tui-markdown`.
+: The rendering library used by tui-markdown.
 
 ## Footnotes
 
@@ -334,13 +331,13 @@ Footnote references stay inline.[^renderer] More than one may appear.[^reader]
 [^reader]: `mdr` displays the rendered text in the terminal.
 ```
 
-Footnote references stay inline.[^renderer] More than one may appear.[^reader]
+Footnote references stay inline.[renderer] More than one may appear.[reader]
 
-[^renderer]: `tui-markdown` converts Markdown into styled Ratatui text.
+[renderer]: tui-markdown converts Markdown into styled Ratatui text.
 
-    A definition may contain a second paragraph.
+A definition may contain a second paragraph.
 
-[^reader]: `mdr` displays the rendered text in the terminal.
+[reader]: mdr displays the rendered text in the terminal.
 
 ## Thematic break
 
@@ -357,5 +354,3 @@ Text before the rule.
 ---
 
 Text after the rule should not inherit styles or indentation from any earlier construct.
-
-[ratatui-repository]: https://github.com/ratatui/ratatui
