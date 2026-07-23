@@ -241,7 +241,10 @@ mod tests {
     fn code_theme_has_a_default() {
         let options: Options = Options::default();
 
-        assert_eq!(options.selected_code_theme(), &CodeTheme::default());
+        assert!(std::ptr::eq(
+            crate::code_theme::backend_theme(options.selected_code_theme()),
+            crate::code_theme::default_backend_theme()
+        ));
     }
 
     #[test]
@@ -250,6 +253,9 @@ mod tests {
         let theme = CodeTheme::builtin(crate::BuiltinCodeTheme::SolarizedDark);
         let options = Options::default().code_theme(theme.clone());
 
-        assert_eq!(options.selected_code_theme(), &theme);
+        assert!(std::ptr::eq(
+            crate::code_theme::backend_theme(options.selected_code_theme()),
+            crate::code_theme::backend_theme(&theme)
+        ));
     }
 }

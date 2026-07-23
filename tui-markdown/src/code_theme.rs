@@ -17,7 +17,7 @@ use syntect::highlighting::{Theme, ThemeSet};
 ///
 /// This type hides the syntax-highlighting backend so applications do not need to depend on its
 /// types or version.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct CodeTheme {
     backend: Cow<'static, Theme>,
 }
@@ -104,7 +104,10 @@ mod tests {
         let default = CodeTheme::default();
         let ocean_dark = CodeTheme::builtin(BuiltinCodeTheme::Base16OceanDark);
 
-        assert_eq!(default, ocean_dark);
+        assert!(std::ptr::eq(
+            backend_theme(&default),
+            backend_theme(&ocean_dark)
+        ));
     }
 
     #[test]
