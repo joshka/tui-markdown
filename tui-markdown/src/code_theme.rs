@@ -5,8 +5,8 @@
 //! recognized language.
 //!
 //! A configured [`CodeTheme`] owns its theme data. [`Options`](crate::Options) stores no theme by
-//! default; the renderer instead borrows the shared [`BuiltinCodeTheme::Base16OceanDark`] theme
-//! when it first encounters a recognized fenced language.
+//! default; the renderer instead borrows a shared [`CodeTheme`] for
+//! [`BuiltinCodeTheme::Base16OceanDark`] when it first encounters a recognized fenced language.
 
 use std::sync::LazyLock;
 
@@ -19,28 +19,11 @@ use syntect::highlighting::{Theme, ThemeSet};
 ///
 /// The renderer consults the theme only for fenced code blocks whose language is recognized.
 ///
-/// This type hides the syntax-highlighting backend so applications do not need to depend on its
-/// types or version.
-///
-/// [`CodeTheme::default`] constructs an owned [`BuiltinCodeTheme::Base16OceanDark`] theme. Default
-/// [`Options`](crate::Options), however, leave the theme unset so the renderer can borrow its shared
-/// copy of that theme.
+/// This type hides the syntax-highlighting implementation so applications do not need to depend on
+/// its types or version.
 #[derive(Clone, Debug)]
 pub struct CodeTheme {
     theme: Theme,
-}
-
-impl From<BuiltinCodeTheme> for CodeTheme {
-    fn from(theme: BuiltinCodeTheme) -> Self {
-        let theme = builtin_theme(theme).clone();
-        Self { theme }
-    }
-}
-
-impl Default for CodeTheme {
-    fn default() -> Self {
-        BuiltinCodeTheme::default().into()
-    }
 }
 
 /// A syntax-highlighting theme bundled with tui-markdown.
@@ -81,29 +64,34 @@ impl BuiltinCodeTheme {
     }
 }
 
-/// Returns the configured theme or the shared default.
-///
-/// The renderer calls this only after recognizing a fenced language. Keeping the choice here means
-/// ordinary Markdown and unrecognized code fences do not initialize the bundled theme set, while
-/// default options can borrow the shared theme instead of cloning it.
-pub fn theme_or_default(theme: Option<&CodeTheme>) -> &Theme {
-    match theme {
-        Some(theme) => &theme.theme,
-        None => default_theme(),
+impl From<BuiltinCodeTheme> for CodeTheme {
+    fn from(theme: BuiltinCodeTheme) -> Self {
+        let theme = builtin_theme(theme).clone();
+        Self { theme }
     }
 }
 
-fn builtin_theme(theme: BuiltinCodeTheme) -> &'static Theme {
+/// Returns the syntax-highlighting data for a code theme.
+pub fn theme(code_theme: &CodeTheme) -> &Theme {
+    &code_theme.theme
+}
+
+/// Returns the lazily initialized default code theme.
+///
+/// The renderer calls this only after recognizing a fenced language, so ordinary Markdown and
+/// unrecognized code fences do not initialize the bundled theme set.
+pub fn default() -> &'static CodeTheme {
+    &DEFAULT_THEME
+}
+
+fn builtin_theme(code_theme: BuiltinCodeTheme) -> &'static Theme {
     THEMES
         .themes
-        .get(theme.syntect_name())
+        .get(code_theme.syntect_name())
         .expect("every BuiltinCodeTheme variant must map to a bundled theme")
 }
 
-fn default_theme() -> &'static Theme {
-    builtin_theme(BuiltinCodeTheme::default())
-}
-
+static DEFAULT_THEME: LazyLock<CodeTheme> = LazyLock::new(|| BuiltinCodeTheme::default().into());
 static THEMES: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 #[cfg(test)]
@@ -122,21 +110,21 @@ mod tests {
             BuiltinCodeTheme::SolarizedLight,
         ];
 
-        for theme in themes {
-            let theme = CodeTheme::from(theme);
-            let _ = theme_or_default(Some(&theme));
+        for built_in in themes {
+            let code_theme = CodeTheme::from(built_in);
+            let _ = theme(&code_theme);
         }
     }
 
     #[test]
     fn configured_theme_is_borrowed_directly() {
-        let theme = CodeTheme::from(BuiltinCodeTheme::SolarizedDark);
+        let code_theme = CodeTheme::from(BuiltinCodeTheme::SolarizedDark);
 
-        assert!(std::ptr::eq(theme_or_default(Some(&theme)), &theme.theme));
+        assert!(std::ptr::eq(theme(&code_theme), &code_theme.theme));
     }
 
     #[test]
-    fn absent_theme_uses_shared_default() {
-        assert!(std::ptr::eq(theme_or_default(None), default_theme()));
+    fn default_theme_is_shared() {
+        assert!(std::ptr::eq(default(), default()));
     }
 }

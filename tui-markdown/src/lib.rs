@@ -771,7 +771,11 @@ where
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
             debug!("Starting code block with syntax: {:?}", lang);
-            let theme = code_theme::theme_or_default(self.code_theme);
+            let code_theme = match self.code_theme {
+                Some(code_theme) => code_theme,
+                None => code_theme::default(),
+            };
+            let theme = code_theme::theme(code_theme);
             let highlighter = HighlightLines::new(syntax, theme);
             self.code_highlighter = Some(highlighter);
         } else {
@@ -2649,7 +2653,7 @@ mod tests {
                 ```
             "};
             let implicit = from_str(input);
-            let options = Options::default().code_theme(CodeTheme::default());
+            let options = Options::default().code_theme(BuiltinCodeTheme::default());
             let explicit = from_str_with_options(input, &options);
 
             assert_eq!(explicit, implicit);
