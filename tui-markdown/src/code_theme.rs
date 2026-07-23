@@ -1,38 +1,34 @@
-//! Syntax-highlighting themes for fenced code blocks.
+//! Built-in syntax-highlighting themes for fenced code blocks.
 //!
-//! [`CodeTheme`] represents a theme that is ready for the renderer to use. How the theme was
-//! obtained is deliberately not part of the rendering options: built-in themes and themes loaded
-//! from other sources have the same type once constructed.
+//! Construct a [`CodeTheme`] with [`CodeTheme::builtin`], then select it with
+//! [`Options::code_theme`](crate::Options::code_theme). The renderer consults the theme when a
+//! fenced code block names a recognized language.
 
 use std::sync::LazyLock;
 
 use syntect::highlighting::{Theme, ThemeSet};
 
-/// A syntax-highlighting theme that is ready to render fenced code blocks.
+/// A syntax-highlighting theme for fenced code blocks.
 ///
 /// Construct a bundled theme with [`CodeTheme::builtin`], then pass it to
 /// [`Options::code_theme`](crate::Options::code_theme). The default is
 /// [`BuiltinCodeTheme::Base16OceanDark`].
 ///
+/// The renderer consults the theme only for fenced code blocks whose language is recognized.
+///
 /// This type hides the syntax-highlighting backend so applications do not need to depend on its
 /// types or version.
 #[derive(Clone, Debug)]
 pub struct CodeTheme {
-    source: ThemeSource,
-}
-
-#[derive(Clone, Debug)]
-enum ThemeSource {
-    Builtin(BuiltinCodeTheme),
+    theme: Theme,
 }
 
 impl CodeTheme {
-    /// Constructs a theme from one bundled with tui-markdown.
+    /// Selects a syntax-highlighting theme bundled with tui-markdown.
     #[must_use]
     pub fn builtin(theme: BuiltinCodeTheme) -> Self {
-        Self {
-            source: ThemeSource::Builtin(theme),
-        }
+        let theme = builtin_theme(theme).clone();
+        Self { theme }
     }
 }
 
@@ -44,8 +40,8 @@ impl Default for CodeTheme {
 
 /// A syntax-highlighting theme bundled with tui-markdown.
 ///
-/// Use this type to select a bundled theme, then construct a renderer-ready [`CodeTheme`] with
-/// [`CodeTheme::builtin`].
+/// Pass a variant to [`CodeTheme::builtin`] and select the resulting theme with
+/// [`Options::code_theme`](crate::Options::code_theme).
 #[non_exhaustive]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BuiltinCodeTheme {
@@ -80,19 +76,15 @@ impl BuiltinCodeTheme {
     }
 }
 
-/// Resolves a public theme to the syntect theme used for highlighting.
-pub fn resolve(theme: &CodeTheme) -> &Theme {
-    match &theme.source {
-        ThemeSource::Builtin(theme) => builtin_theme(*theme),
+/// Resolves the configured theme or the shared default.
+///
+/// Calling this only after recognizing a fenced language avoids initializing the bundled theme set
+/// for ordinary Markdown and code fences that cannot be highlighted.
+pub fn theme_or_default(theme: Option<&CodeTheme>) -> &Theme {
+    match theme {
+        Some(theme) => &theme.theme,
+        None => default_theme(),
     }
-}
-
-/// Returns the unresolved default theme used until options are applied.
-pub fn default_code_theme() -> &'static CodeTheme {
-    static DEFAULT: CodeTheme = CodeTheme {
-        source: ThemeSource::Builtin(BuiltinCodeTheme::Base16OceanDark),
-    };
-    &DEFAULT
 }
 
 fn builtin_theme(theme: BuiltinCodeTheme) -> &'static Theme {
@@ -102,21 +94,15 @@ fn builtin_theme(theme: BuiltinCodeTheme) -> &'static Theme {
         .expect("every BuiltinCodeTheme variant must map to a bundled theme")
 }
 
+fn default_theme() -> &'static Theme {
+    builtin_theme(BuiltinCodeTheme::default())
+}
+
 static THEMES: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn ocean_dark_is_the_default() {
-        let default = CodeTheme::default();
-
-        assert!(matches!(
-            default.source,
-            ThemeSource::Builtin(BuiltinCodeTheme::Base16OceanDark)
-        ));
-    }
 
     #[test]
     fn every_builtin_theme_resolves() {
@@ -132,7 +118,7 @@ mod tests {
 
         for theme in themes {
             let theme = CodeTheme::builtin(theme);
-            let _ = resolve(&theme);
+            let _ = theme_or_default(Some(&theme));
         }
     }
 }

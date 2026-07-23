@@ -11,6 +11,10 @@
 //! Images render as `[img]` followed by their description, or by their destination when the
 //! description is empty. This is a text fallback; the crate does not load or render image
 //! resources.
+//!
+//! The default `highlight-code` feature highlights fenced code blocks whose language is recognized.
+//! Configure the built-in theme through [`Options`]; fences without a recognized language remain
+//! unhighlighted.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example
@@ -322,9 +326,11 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     /// Active table builder that accumulates cells during table parsing.
     table_builder: Option<tables::TableBuilder<'a>>,
 
-    /// Theme to resolve when a fenced code block starts highlighting.
+    /// Explicit theme to use when a fenced code block starts highlighting.
+    ///
+    /// When absent, code highlighting resolves the shared built-in default.
     #[cfg(feature = "highlight-code")]
-    code_theme: &'theme CodeTheme,
+    code_theme: Option<&'theme CodeTheme>,
 
     /// Keeps the writer's shape consistent when syntax highlighting is disabled.
     #[cfg(not(feature = "highlight-code"))]
@@ -363,7 +369,7 @@ where
             in_definition_description: false,
             table_builder: None,
             #[cfg(feature = "highlight-code")]
-            code_theme: code_theme::default_code_theme(),
+            code_theme: None,
             #[cfg(not(feature = "highlight-code"))]
             code_theme_lifetime: std::marker::PhantomData,
         }
@@ -371,7 +377,7 @@ where
 
     /// Selects a configured theme before the event loop starts.
     #[cfg(feature = "highlight-code")]
-    fn set_code_theme(&mut self, theme: &'theme CodeTheme) {
+    fn set_code_theme(&mut self, theme: Option<&'theme CodeTheme>) {
         self.code_theme = theme;
     }
 
@@ -765,7 +771,7 @@ where
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
             debug!("Starting code block with syntax: {:?}", lang);
-            let theme = code_theme::resolve(self.code_theme);
+            let theme = code_theme::theme_or_default(self.code_theme);
             let highlighter = HighlightLines::new(syntax, theme);
             self.code_highlighter = Some(highlighter);
         } else {
@@ -2648,6 +2654,21 @@ mod tests {
             let explicit = from_str_with_options(input, &options);
 
             assert_eq!(explicit, implicit);
+        }
+
+        #[rstest]
+        fn selected_theme_does_not_change_unrecognized_code(_with_tracing: DefaultGuard) {
+            let input = indoc! {"
+                ```not-a-language
+                some code
+                ```
+            "};
+            let default_out = from_str(input);
+            let theme = CodeTheme::builtin(BuiltinCodeTheme::InspiredGitHub);
+            let options = Options::default().code_theme(theme);
+            let selected_out = from_str_with_options(input, &options);
+
+            assert_eq!(selected_out, default_out);
         }
     }
 }
