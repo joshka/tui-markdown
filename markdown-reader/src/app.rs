@@ -36,7 +36,7 @@ impl<'a> App<'a> {
     }
 
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
-        let mut state = ScrollState::new(self.text.height());
+        let mut state = ScrollState::new();
         self.draw(&mut terminal, &mut state)?;
         while let Ok(event) = self.events.next() {
             match event {
@@ -91,21 +91,27 @@ impl<'a> App<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct ScrollState {
     pub position: usize,
-    pub view_size: usize,
-    pub max: usize,
+    pub viewport_rows: usize,
+    pub row_count: usize,
 }
 
 impl ScrollState {
-    fn new(max: usize) -> ScrollState {
+    fn new() -> ScrollState {
         ScrollState {
             position: 0,
-            view_size: 1,
-            max,
+            viewport_rows: 0,
+            row_count: 0,
         }
     }
 
+    fn update_layout(&mut self, row_count: usize, viewport_rows: usize) {
+        self.row_count = row_count;
+        self.viewport_rows = viewport_rows;
+        self.position = self.position.min(self.last_position());
+    }
+
     fn scroll_down(&mut self) {
-        self.position = self.position.saturating_add(1);
+        self.position = self.position.saturating_add(1).min(self.last_position());
     }
 
     fn scroll_up(&mut self) {
@@ -113,11 +119,14 @@ impl ScrollState {
     }
 
     fn scroll_page_down(&mut self) {
-        self.position = self.position.saturating_add(self.view_size);
+        self.position = self
+            .position
+            .saturating_add(self.viewport_rows)
+            .min(self.last_position());
     }
 
     fn scroll_page_up(&mut self) {
-        self.position = self.position.saturating_sub(self.view_size);
+        self.position = self.position.saturating_sub(self.viewport_rows);
     }
 
     fn scroll_top(&mut self) {
@@ -125,13 +134,19 @@ impl ScrollState {
     }
 
     fn scroll_bottom(&mut self) {
-        self.position = self.max.saturating_sub(self.view_size);
+        self.position = self.last_position();
+    }
+
+    fn last_position(&self) -> usize {
+        self.row_count.saturating_sub(self.viewport_rows)
     }
 }
 
 impl From<&mut ScrollState> for ScrollbarState {
     fn from(state: &mut ScrollState) -> ScrollbarState {
-        ScrollbarState::new(state.max.saturating_sub(state.view_size)).position(state.position)
+        ScrollbarState::new(state.row_count)
+            .position(state.position)
+            .viewport_content_length(state.viewport_rows)
     }
 }
 
@@ -154,21 +169,16 @@ impl StatefulWidgetRef for &App<'_> {
 
         let [body, scrollbar] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(body);
-        state.view_size = body.height as usize;
-        // state.position = state
-        //     .position
-        //     .min(self.text.height().saturating_sub(state.view_size));
         let header_line = Line::from(vec![
             Span::raw("File: "),
             Span::styled(self.path.to_string_lossy(), (Color::White, Modifier::BOLD)),
         ]);
         Paragraph::new(header_line).render(header, buf);
-        let position = state
-            .position
-            .min(self.text.height().saturating_sub(state.view_size)) as u16;
-        Paragraph::new(self.text.clone())
-            .scroll((position, 0))
-            .wrap(Wrap { trim: false })
+        let document = Paragraph::new(self.text.clone()).wrap(Wrap { trim: false });
+        let row_count = document.line_count(body.width);
+        state.update_layout(row_count, body.height as usize);
+        document
+            .scroll((state.position as u16, 0))
             .render(body, buf);
         let mut scrollbar_state = state.into();
         Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
@@ -179,5 +189,35 @@ impl StatefulWidgetRef for &App<'_> {
 
         let mut list_state = state.into();
         self.log_events.render_ref(log, buf, &mut list_state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wrapped_rows_define_scroll_bounds() {
+        let text = Text::from("12345 67890");
+        let document = Paragraph::new(text.clone()).wrap(Wrap { trim: false });
+        let mut state = ScrollState::new();
+
+        state.update_layout(document.line_count(5), 1);
+        state.scroll_bottom();
+
+        assert_eq!(text.height(), 1);
+        assert_eq!(state.row_count, 2);
+        assert_eq!(state.position, 1);
+    }
+
+    #[test]
+    fn resizing_clamps_position_to_visible_rows() {
+        let mut state = ScrollState::new();
+        state.update_layout(20, 5);
+        state.scroll_bottom();
+
+        state.update_layout(10, 5);
+
+        assert_eq!(state.position, 5);
     }
 }
