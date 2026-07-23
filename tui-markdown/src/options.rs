@@ -1,9 +1,40 @@
 //! Rendering configuration for tui-markdown.
 //!
-//! For now the only knob is the theme [`StyleSheet`]. This struct is `#[non_exhaustive]`, which
-//! allows us to add more options in the future without breaking existing code.
+//! Options control the renderer's style sheet and image fallback content. [`Options`] is
+//! non-exhaustive, allowing new rendering choices to be added without breaking existing code.
 
 use crate::{DefaultStyleSheet, StyleSheet};
+
+/// Text used to represent Markdown images in rendered terminal output.
+///
+/// This option does not load or render image resources. It controls whether the text fallback
+/// contains the image description, destination, or both. [`AltText`](Self::AltText) is the
+/// default.
+///
+/// # Example
+///
+/// ```
+/// use tui_markdown::{from_str_with_options, ImageFallback, Options};
+///
+/// let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+/// let text = from_str_with_options("![Architecture diagram](diagram.png)", &options);
+///
+/// assert_eq!(
+///     text.to_string(),
+///     "[img] Architecture diagram (diagram.png)"
+/// );
+/// ```
+#[non_exhaustive]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ImageFallback {
+    /// Show `[img]` followed by the description, or the destination when the description is empty.
+    #[default]
+    AltText,
+    /// Show `[img]` followed by the destination, ignoring the description.
+    Url,
+    /// Show `[img] {description} ({destination})`, omitting either value when it is empty.
+    AltTextAndUrl,
+}
 
 /// Collection of optional parameters that influence markdown rendering.
 ///
@@ -14,7 +45,7 @@ use crate::{DefaultStyleSheet, StyleSheet};
 /// # Example
 ///
 /// ```
-/// use tui_markdown::{DefaultStyleSheet, Options};
+/// use tui_markdown::Options;
 /// let options = Options::default();
 ///
 /// // or with a custom style sheet
@@ -26,7 +57,7 @@ use crate::{DefaultStyleSheet, StyleSheet};
 /// struct MyStyleSheet;
 ///
 /// impl StyleSheet for MyStyleSheet {
-///     fn heading(&self, level: u8) -> Style {
+///     fn heading(&self, _level: u8) -> Style {
 ///         Style::new().bold()
 ///     }
 ///
@@ -49,7 +80,6 @@ use crate::{DefaultStyleSheet, StyleSheet};
 ///     fn metadata_block(&self) -> Style {
 ///         Style::new().light_yellow()
 ///     }
-///
 /// }
 ///
 /// let options = Options::new(MyStyleSheet);
@@ -60,12 +90,26 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     /// The [`StyleSheet`] implementation that will be consulted every time the renderer needs a
     /// color choice.
     pub(crate) styles: S,
+    /// The content to render in place of images.
+    pub(crate) image_fallback: ImageFallback,
 }
 
 impl<S: StyleSheet> Options<S> {
     /// Creates a new `Options` instance with the provided style sheet.
     pub fn new(styles: S) -> Self {
-        Self { styles }
+        Self {
+            styles,
+            image_fallback: ImageFallback::default(),
+        }
+    }
+
+    /// Selects the text used to represent Markdown images.
+    ///
+    /// See [`ImageFallback`] for the exact output of each mode.
+    #[must_use]
+    pub fn image_fallback(mut self, image_fallback: ImageFallback) -> Self {
+        self.image_fallback = image_fallback;
+        self
     }
 }
 
@@ -126,6 +170,7 @@ mod tests {
 
         let options = Options {
             styles: CustomStyleSheet,
+            image_fallback: ImageFallback::default(),
         };
 
         assert_eq!(options.styles.heading(1), Style::new().red().bold());
@@ -136,5 +181,19 @@ mod tests {
         assert_eq!(options.styles.heading_meta(), Style::new().dim());
         assert_eq!(options.styles.metadata_block(), Style::new().light_yellow());
         assert_eq!(options.styles.image_alt(), Style::new().dim().italic());
+    }
+
+    #[test]
+    fn image_fallback_defaults_to_alt_text() {
+        let options = Options::default();
+
+        assert_eq!(options.image_fallback, ImageFallback::AltText);
+    }
+
+    #[test]
+    fn image_fallback_setter_updates_mode() {
+        let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+
+        assert_eq!(options.image_fallback, ImageFallback::AltTextAndUrl);
     }
 }
