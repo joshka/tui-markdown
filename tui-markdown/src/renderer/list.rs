@@ -145,6 +145,35 @@ mod tests {
     }
 
     #[rstest]
+    fn characterize_loose_styled_list_content_below_marker(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            - *Emphasized first item.*
+
+            - **Strong second item.**
+
+            1. **Strong first item.**
+
+            2. *Emphasized second item.*
+        "};
+
+        // Characterization: loose-list paragraphs incorrectly start below their item markers.
+        assert_eq!(
+            from_str(markdown),
+            Text::from_iter([
+                Line::from("- "),
+                Line::from(Span::raw("Emphasized first item.").italic()),
+                Line::from("- "),
+                Line::from(Span::raw("Strong second item.").bold()),
+                Line::default(),
+                Line::from(Span::raw("1. ").light_blue()),
+                Line::from(Span::raw("Strong first item.").bold()),
+                Line::from(Span::raw("2. ").light_blue()),
+                Line::from(Span::raw("Emphasized second item.").italic()),
+            ])
+        );
+    }
+
+    #[rstest]
     fn ordered_list_respects_start_index(_with_tracing: DefaultGuard) {
         let markdown = indoc! {"
             10. Tenth
