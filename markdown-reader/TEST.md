@@ -1,94 +1,361 @@
 ---
+document: tui-markdown feature showcase
 tags:
-  - demo
-  - renderer
+  - markdown
+  - ratatui
+  - terminal
 ---
 
-# Markdown Reader
+# tui-markdown feature showcase
 
-This is a test file to check that how markdown renders.
+This document exercises the Markdown constructs supported by `tui-markdown` and provides a useful
+manual test for `mdr`. Read it with:
 
-## Heading 2
+```shell
+cargo run -p markdown-reader -- markdown-reader/TEST.md
+```
 
-### Heading 3
+Each section shows its Markdown source first, followed by the live example rendered by `mdr`.
 
-#### Heading 4
+## Metadata blocks
 
-##### Heading 5
+Metadata must be the first construct in a document, so the opening lines of this file are the live
+example. They use this syntax:
 
-###### Heading 6
+```markdown
+---
+document: tui-markdown feature showcase
+tags:
+  - markdown
+  - ratatui
+  - terminal
+---
+```
 
-## Emphasis
+## Headings and attributes
 
-This text will be *italic*  
+```markdown
+### Heading with attributes {#heading .showcase audience=maintainers}
+#### Level four
+##### Level five
+###### Level six
+```
 
-This text will be **bold**  
+### Heading with attributes {#heading .showcase audience=maintainers}
 
-*You **can** combine them*
+#### Level four
 
-This is a ~~complicated~~ *very simple* example.
+##### Level five
 
-## Super/Subscript
+###### Level six
 
-H^2^O and H ~2~ O
+## Paragraphs and inline formatting
+
+```markdown
+Plain text can contain *emphasis*, **strong emphasis**, ***both at once***,
+~~strikethrough~~, and `inline code`.
+
+Formatting can be nested: **strong text with *emphasis* and `code`**.
+
+Superscript: 2^10^. Subscript: H~2~O.
+```
+
+Plain text can contain *emphasis*, **strong emphasis**, ***both at once***, ~~strikethrough~~, and
+`inline code`.
+
+Formatting can be nested: **strong text with *emphasis* and `code`**.
+
+Superscript: 2^10^. Subscript: H~2~O.
+
+## Line breaks
+
+```markdown
+A soft
+line break becomes a space.
+
+A hard break keeps the backslash\
+and starts a new terminal line.
+```
+
+A soft
+line break becomes a space.
+
+A hard break keeps the backslash\
+and starts a new terminal line.
+
+## Links and images
+
+```markdown
+Visit the [Ratatui website](https://ratatui.rs) or its
+[GitHub repository][ratatui-repository].
+
+![Ferris holding a terminal](https://rustacean.net/assets/rustacean-flat-happy.png)
+
+[ratatui-repository]: https://github.com/ratatui/ratatui
+```
+
+Visit the [Ratatui website](https://ratatui.rs) or its
+[GitHub repository][ratatui-repository]. Link labels may contain **formatting**.
+
+Images use a terminal-friendly text fallback instead of loading image data:
+![Ferris holding a terminal](https://rustacean.net/assets/rustacean-flat-happy.png)
+
+## Blockquotes
+
+```markdown
+> A blockquote can contain **formatted text** and `inline code`.
+>
+> A second paragraph stays inside the same quote.
+
+> An outer quote can contain another quote.
+>
+>> The nested quote has an additional `>` prefix.
+```
+
+### Multiple paragraphs
+
+> A blockquote can contain **formatted text** and `inline code`.
+>
+> A second paragraph stays inside the same quote.
+
+### Nested quote
+
+> An outer quote can contain another quote.
+>
+>> The nested quote has an additional `>` prefix.
+
+Text after a blockquote returns to the ordinary paragraph style.
+
+## GitHub-style alerts
+
+```markdown
+> [!NOTE]
+> Notes add useful context.
+
+> [!TIP]
+> Tips suggest a more convenient approach.
+
+> [!IMPORTANT]
+> Important information is necessary to complete the task.
+
+> [!WARNING]
+> Warnings describe a risk that deserves attention.
+
+> [!CAUTION]
+> Cautions call out a likely negative consequence.
+```
+
+### Note alert
+
+> [!NOTE]
+> Notes add useful context.
+
+### Tip alert
+
+> [!TIP]
+> Tips suggest a more convenient approach.
+
+### Important alert
+
+> [!IMPORTANT]
+> Important information is necessary to complete the task.
+
+### Warning alert
+
+> [!WARNING]
+> Warnings describe a risk that deserves attention.
+
+### Caution alert
+
+> [!CAUTION]
+> Cautions call out a likely negative consequence.
 
 ## Lists
 
-### Unordered
+```markdown
+- Renderer
+  - Styles spans
+  - Preserves block layout
+- Reader
+  - Opens Markdown files
+  - Scrolls terminal output
 
-- Item 1
-- Item 2
-  - Item 2a
-  - Item 2b
+1. Parse Markdown events
+2. Render Ratatui lines
+3. Draw the result
 
-### Ordered
+- [x] Parse the document
+- [x] Render supported constructs
+- [ ] Add the next feature
+```
 
-1. Item 1
-2. Item 2
-3. Item 3
-    1. Item 3a
-    2. Item 3b
+An unordered list can contain nested items:
 
-## Block Quotes
+- Renderer
+  - Styles spans
+  - Preserves block layout
+- Reader
+  - Opens Markdown files
+  - Scrolls terminal output
 
-> A blockquote
+Ordered lists preserve their numbering:
 
-After the quote
+1. Parse Markdown events
+2. Render Ratatui lines
+3. Draw the result
 
-> Multiline
-> quote
+Task lists show completed and pending work:
 
-After the quote
+- [x] Parse the document
+- [x] Render supported constructs
+- [ ] Add the next feature
 
-> Multi paragraph
->
-> quote
+## Code
 
-After the quote
+The outer four-backtick fence below displays the three-backtick code-fence syntax.
 
-> Multi indent
->
->> quote
+````markdown
+```rust
+use tui_markdown::from_str;
 
-## Rule
+let text = from_str("**Hello**, terminal!");
+println!("{text}");
+```
+
+```made-up-language
+widget -> buffer -> terminal
+```
+````
+
+Recognized fenced languages use syntax highlighting when the `highlight-code` feature is enabled:
+
+```rust
+use tui_markdown::from_str;
+
+let text = from_str("**Hello**, terminal!");
+println!("{text}");
+```
+
+An unrecognized language still renders as a code block using the configured fallback style:
+
+```made-up-language
+widget -> buffer -> terminal
+```
+
+## Tables
+
+```markdown
+| Construct   | Example                       | Status |
+| :---------- | :---------------------------: | -----: |
+| Strong      | **bold**                      |  Ready |
+| Inline code | `Text<'a>`                    |  Ready |
+| Link        | [Ratatui](https://ratatui.rs) |  Ready |
+| Wide text   | 東京                          |  Ready |
+| Emoji       | 🦀                            |  Ready |
+```
+
+Tables honor left, center, and right alignment. Wide CJK text and emoji use terminal display width,
+and inline Markdown stays inside its cell.
+
+| Construct   | Example                               | Status |
+| :---------- | :-----------------------------------: | -----: |
+| Strong      | **bold**                              |  Ready |
+| Inline code | `Text<'a>`                            |  Ready |
+| Link        | [Ratatui](https://ratatui.rs)         |  Ready |
+| Wide text   | 東京                                  |  Ready |
+| Emoji       | 🦀                                    |  Ready |
+
+## Math
+
+```markdown
+Inline math remains in its sentence: $E = mc^2$.
+
+$$
+f(x) = x^2 + 2x + 1
+     = (x + 1)^2
+$$
+```
+
+Inline math remains in its sentence: $E = mc^2$.
+
+Display math preserves its delimiters and physical lines:
+
+$$
+f(x) = x^2 + 2x + 1
+     = (x + 1)^2
+$$
+
+## HTML
+
+```markdown
+Inline HTML remains visible.<br>
+
+<details>
+<summary>Block HTML also remains visible</summary>
+Each source line remains visible.
+</details>
+```
+
+Inline HTML remains visible rather than being interpreted.<br>
+The tag itself appears in the rendered text.
+
+<details>
+<summary>Block HTML also remains visible</summary>
+Each source line is rendered on its own terminal line.
+</details>
+
+## Definition lists
+
+```markdown
+Terminal user interface
+: A text-based interface drawn in a terminal.
+
+Ratatui
+: A Rust library for building terminal user interfaces.
+: The rendering library used by `tui-markdown`.
+```
+
+Terminal user interface
+: A text-based interface drawn in a terminal.
+
+Ratatui
+: A Rust library for building terminal user interfaces.
+: The rendering library used by `tui-markdown`.
+
+## Footnotes
+
+```markdown
+Footnote references stay inline.[^renderer] More than one may appear.[^reader]
+
+[^renderer]: `tui-markdown` converts Markdown into styled Ratatui text.
+
+    A definition may contain a second paragraph.
+
+[^reader]: `mdr` displays the rendered text in the terminal.
+```
+
+Footnote references stay inline.[^renderer] More than one may appear.[^reader]
+
+[^renderer]: `tui-markdown` converts Markdown into styled Ratatui text.
+
+    A definition may contain a second paragraph.
+
+[^reader]: `mdr` displays the rendered text in the terminal.
+
+## Thematic break
+
+```markdown
+Text before the rule.
 
 ---
 
-```plain
-plain
-code
+Text after the rule.
 ```
 
-```rust
-fn rust_code() {
-  println!("hello world");
-}
-```
+Text before the rule.
 
-- aaaa
-- aaaa
+---
 
-**ddd**, ~xxx~
+Text after the rule should not inherit styles or indentation from any earlier construct.
 
-- [ ] ddd
-- [x] ddd
+[ratatui-repository]: https://github.com/ratatui/ratatui

@@ -39,6 +39,13 @@ Options:
   -V, --version  Print version
 ```
 
+The repository includes a [feature showcase](TEST.md) for manually checking every supported
+Markdown construct:
+
+```shell
+cargo run -p markdown-reader -- markdown-reader/TEST.md
+```
+
 ## Status
 
 This is working code, but not every markdown feature is supported. PRs welcome!
