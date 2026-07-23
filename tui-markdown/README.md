@@ -42,6 +42,35 @@ fn main() {}
 let text = from_str_with_options(markdown, &options);
 ```
 
+[`CodeTheme::from_file`] reads and parses a TextMate `.tmTheme` file immediately. The returned theme
+owns the parsed data, so rendering does not access the file again:
+
+```rust
+use tui_markdown::{CodeTheme, CodeThemeLoadError, Options};
+
+fn options() -> Result<Options, CodeThemeLoadError> {
+    let theme = CodeTheme::from_file("themes/solarized.tmTheme")?;
+    Ok(Options::default().code_theme(theme))
+}
+```
+
+Use [`CodeTheme::from_textmate`] with [`include_str!`] to compile a theme into the application
+instead of reading it at runtime:
+
+```rust
+use tui_markdown::{CodeTheme, CodeThemeLoadError, Options};
+
+fn options() -> Result<Options, CodeThemeLoadError> {
+    let source = include_str!("../themes/my-theme.tmTheme");
+    let theme = CodeTheme::from_textmate(source)?;
+    Ok(Options::default().code_theme(theme))
+}
+```
+
+[`CodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html
+[`CodeTheme::from_file`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html#method.from_file
+[`CodeTheme::from_textmate`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html#method.from_textmate
+[`include_str!`]: https://doc.rust-lang.org/std/macro.include_str.html
 [`BuiltinCodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/enum.BuiltinCodeTheme.html
 
 ## Status

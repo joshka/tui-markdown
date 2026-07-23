@@ -65,7 +65,7 @@ use tracing::{debug, instrument, warn};
 
 #[doc(inline)]
 #[cfg(feature = "highlight-code")]
-pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme};
+pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme, CodeThemeLoadError};
 pub use crate::options::{ImageFallback, Options};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
