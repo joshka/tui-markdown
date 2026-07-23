@@ -374,7 +374,14 @@ fn header_only_table_has_a_complete_frame() {
     "});
     let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
 
-    assert_eq!(rendered, ["┌───┐", "│ A │", "├───┤", "└───┘"]);
+    #[rustfmt::skip]
+    let expected = [
+        "┌───┐",
+        "│ A │",
+        "├───┤",
+        "└───┘",
+    ];
+    assert_eq!(rendered, expected);
 }
 
 #[test]
@@ -540,9 +547,105 @@ fn table_in_blockquote_keeps_quote_prefix() {
         > | a |
     "});
     let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+    #[rustfmt::skip]
+    let expected = [
+        "> ┌───┐",
+        "> │ A │",
+        "> ├───┤",
+        "> │ a │",
+        "> └───┘",
+    ];
+    assert_eq!(rendered, expected);
+}
+
+#[test]
+fn table_list_item_keeps_marker_and_continuation_indent() {
+    let text = from_str(indoc! {"
+        - | A |
+          |---|
+          | a |
+    "});
+    let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+    #[rustfmt::skip]
+    let expected = [
+        "- ┌───┐",
+        "  │ A │",
+        "  ├───┤",
+        "  │ a │",
+        "  └───┘",
+    ];
+    assert_eq!(rendered, expected);
+}
+
+#[test]
+fn later_table_in_list_uses_continuation_indent() {
+    let text = from_str(indoc! {"
+        - | A |
+          |---|
+          | a |
+
+          | B |
+          |---|
+          | b |
+    "});
+    let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
     assert_eq!(
         rendered,
-        ["> ┌───┐", "> │ A │", "> ├───┤", "> │ a │", "> └───┘",]
+        [
+            "- ┌───┐",
+            "  │ A │",
+            "  ├───┤",
+            "  │ a │",
+            "  └───┘",
+            "",
+            "  ┌───┐",
+            "  │ B │",
+            "  ├───┤",
+            "  │ b │",
+            "  └───┘",
+        ]
+    );
+}
+
+#[test]
+fn ordered_table_list_item_uses_full_marker_width() {
+    let text = from_str(indoc! {"
+        10. | A |
+            |---|
+            | a |
+    "});
+    let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+    assert_eq!(
+        rendered,
+        [
+            "10. ┌───┐",
+            "    │ A │",
+            "    ├───┤",
+            "    │ a │",
+            "    └───┘",
+        ]
+    );
+}
+
+#[test]
+fn nested_table_list_item_uses_nested_marker_width() {
+    let text = from_str(indoc! {"
+        - Parent
+          - | A |
+            |---|
+            | a |
+    "});
+    let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+    assert_eq!(
+        rendered,
+        [
+            "- Parent",
+            "    - ┌───┐",
+            "      │ A │",
+            "      ├───┤",
+            "      │ a │",
+            "      └───┘",
+        ]
     );
 }
 

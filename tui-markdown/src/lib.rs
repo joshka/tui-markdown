@@ -163,6 +163,28 @@ fn alert_kind(kind: BlockQuoteKind) -> AlertKind {
     }
 }
 
+/// Records how an active list item occupies the rendered output.
+///
+/// List markers are written as soon as pulldown-cmark emits an item start, but tables are buffered
+/// until the matching table end. Remembering the marker's location lets the completed table attach
+/// to that already-written marker instead of appearing as a separate, unindented block. These
+/// values form a stack because an outer item remains active while a nested item is parsed.
+#[derive(Clone, Copy, Debug)]
+struct ListItemLayout {
+    /// Output line containing the list marker.
+    marker_line: usize,
+    /// Number of spans on `marker_line` immediately after writing the marker.
+    ///
+    /// Comparing this with the eventual span count distinguishes a table that is the item's first
+    /// content from a table following text on the same line.
+    marker_span_count: usize,
+    /// Display width reserved by the complete marker, including nesting indentation.
+    ///
+    /// This uses terminal display width rather than bytes so continuation lines align after
+    /// unordered markers and multi-digit ordered markers alike.
+    continuation_width: usize,
+}
+
 struct TextWriter<'a, I, S: StyleSheet> {
     /// Iterator supplying events.
     iter: I,
@@ -187,6 +209,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
 
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
+
+    /// Layout of each active list item, from the outermost item to the innermost.
+    list_items: Vec<ListItemLayout>,
 
     /// A link which will be appended to the current line when the link tag is closed.
     link: Option<CowStr<'a>>,
@@ -230,6 +255,7 @@ where
             line_styles: vec![],
             line_prefixes: vec![],
             list_indices: vec![],
+            list_items: vec![],
             needs_newline: false,
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
@@ -310,7 +336,7 @@ where
             TagEnd::CodeBlock => self.end_codeblock(),
             TagEnd::HtmlBlock => self.end_html_block(),
             TagEnd::List(_is_ordered) => self.end_list(),
-            TagEnd::Item => {}
+            TagEnd::Item => self.end_item(),
             TagEnd::FootnoteDefinition => self.end_footnote_definition(),
             TagEnd::Table => self.end_table(),
             TagEnd::TableHead => self.end_table_header(),
@@ -520,6 +546,7 @@ where
     }
 
     fn start_item(&mut self) {
+        let marker_line = self.text.lines.len();
         self.push_line(Line::default());
         let width = self.list_indices.len() * 4 - 3;
         if let Some(last_index) = self.list_indices.last_mut() {
@@ -530,9 +557,20 @@ where
                     format!("{:width$}. ", *index - 1).light_blue()
                 }
             };
+            let continuation_width = span.width();
             self.push_span(span);
+            let marker_span_count = self.text.lines[marker_line].spans.len();
+            self.list_items.push(ListItemLayout {
+                marker_line,
+                marker_span_count,
+                continuation_width,
+            });
         }
         self.needs_newline = false;
+    }
+
+    fn end_item(&mut self) {
+        self.list_items.pop();
     }
 
     fn task_list_marker(&mut self, checked: bool) {
@@ -838,10 +876,48 @@ where
 
     fn end_table(&mut self) {
         if let Some(builder) = self.table_builder.take() {
-            for line in builder.render(&self.styles) {
+            let lines = builder.render(&self.styles);
+            self.push_table_lines(lines);
+            self.needs_newline = true;
+        }
+    }
+
+    /// Adds a buffered table to the output while preserving an active list item's layout.
+    ///
+    /// A table that is the first content in an item starts on the marker line. Its remaining lines
+    /// are indented by the marker's display width. A later table cannot reuse the marker line, but
+    /// all of its lines still need the continuation indentation.
+    ///
+    /// Table rendering currently puts styles on individual spans and leaves the line style and
+    /// alignment at their defaults. This makes it safe to move the first rendered line's spans
+    /// onto the existing marker line.
+    fn push_table_lines(&mut self, lines: Vec<Line<'a>>) {
+        let Some(list_item) = self.list_items.last().copied() else {
+            for line in lines {
                 self.push_line(line);
             }
-            self.needs_newline = true;
+            return;
+        };
+
+        let mut lines = lines.into_iter();
+        // The line position alone is insufficient: inline item content may already have appended
+        // spans to the marker line before the table was buffered.
+        let marker_line_is_last = self.text.lines.len() == list_item.marker_line + 1;
+        let marker_has_no_content =
+            self.text.lines[list_item.marker_line].spans.len() == list_item.marker_span_count;
+        let table_starts_on_marker = marker_line_is_last && marker_has_no_content;
+        if table_starts_on_marker {
+            if let Some(first_line) = lines.next() {
+                self.text.lines[list_item.marker_line]
+                    .spans
+                    .extend(first_line.spans);
+            }
+        }
+
+        let continuation = " ".repeat(list_item.continuation_width);
+        for mut line in lines {
+            line.spans.insert(0, Span::raw(continuation.clone()));
+            self.push_line(line);
         }
     }
 }
