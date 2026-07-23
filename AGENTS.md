@@ -3,10 +3,12 @@
 ## Project Structure & Module Organization
 
 This workspace ships two crates: the core renderer in `tui-markdown/` and the demo CLI in
-`markdown-reader/`. Library code lives in `tui-markdown/src/lib.rs`, with golden snapshots under
-`tui-markdown/src/snapshots/`. The CLI entry point is `markdown-reader/src/main.rs`, and
-`markdown-reader/TEST.md` is the sample document exercised in demos. Shared tooling files such as
-`Cargo.toml`, `rustfmt.toml`, and the GitHub meta docs sit at the repository root.
+`markdown-reader/`. The library facade lives in `tui-markdown/src/lib.rs`; renderer implementation,
+its unit tests, and golden snapshots live under `tui-markdown/src/renderer/`. Public configuration
+modules remain directly under `tui-markdown/src/`. The CLI entry point is
+`markdown-reader/src/main.rs`, and `markdown-reader/TEST.md` is the sample document exercised in
+demos. Shared tooling files such as `Cargo.toml`, `rustfmt.toml`, and the GitHub meta docs sit at the
+repository root.
 
 ## Build, Test, and Development Commands
 
@@ -25,12 +27,13 @@ public surfaces documented with `///` comments. Clippy must run clean before sub
 
 ## Testing Guidelines
 
-Unit tests and fixtures live alongside implementation inside `tui-markdown/src/lib.rs` and rely on
-`rstest`, `indoc`, and `pretty_assertions`. Snapshot expectations are stored in `src/snapshots/`;
-when tests flag differences, update them with `cargo insta review` from the crate directory after
-verifying the output. Targeted runs such as `cargo test highlighted_code --package tui-markdown`
-help isolate failures. The CLI currently lacks automated tests—document any manual verification
-(e.g., `cargo run -p markdown-reader -- TEST.md`) in your PR.
+Unit tests live in `#[cfg(test)]` modules beside the behavior they protect and rely on `rstest`,
+`indoc`, and `pretty_assertions`. Renderer snapshot expectations are stored in
+`tui-markdown/src/renderer/snapshots/`; when tests flag differences, update them with
+`cargo insta review` from the crate directory after verifying the output. Targeted runs such as
+`cargo test highlighted_code --package tui-markdown` help isolate failures. The CLI currently lacks
+automated tests—document any manual verification (e.g.,
+`cargo run -p markdown-reader -- TEST.md`) in your PR.
 
 ## Commit & Pull Request Guidelines
 

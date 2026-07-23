@@ -1,5 +1,5 @@
 ---
-source: tui-markdown/src/lib.rs
+source: tui-markdown/src/renderer/code.rs
 expression: highlighted_code
 ---
 ```rust
