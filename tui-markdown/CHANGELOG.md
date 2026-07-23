@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
+
+### Added
+
+- *(options)* make stylesheet methods optional ([#168](https://github.com/joshka/tui-markdown/pull/168))
+- *(options)* configure Markdown symbols ([#167](https://github.com/joshka/tui-markdown/pull/167))
+- *(options)* load custom code themes ([#159](https://github.com/joshka/tui-markdown/pull/159))
+- *(options)* configure built-in code themes ([#158](https://github.com/joshka/tui-markdown/pull/158))
+- *(options)* configure image fallbacks ([#156](https://github.com/joshka/tui-markdown/pull/156))
+- *(renderer)* render image fallbacks ([#155](https://github.com/joshka/tui-markdown/pull/155))
+- *(renderer)* render GFM tables ([#154](https://github.com/joshka/tui-markdown/pull/154))
+- *(renderer)* render GFM alerts ([#153](https://github.com/joshka/tui-markdown/pull/153))
+- *(renderer)* render definition lists
+- *(renderer)* render footnotes
+- *(renderer)* render math
+- *(renderer)* render raw HTML
+
+### Fixed
+
+- *(renderer)* keep styled list content inline ([#166](https://github.com/joshka/tui-markdown/pull/166))
+- *(renderer)* style link labels
+
+### Other
+
+- *(renderer)* clarify rendering contracts ([#162](https://github.com/joshka/tui-markdown/pull/162))
+- *(renderer)* organize Markdown constructs ([#161](https://github.com/joshka/tui-markdown/pull/161))
+- repair main validation baseline ([#160](https://github.com/joshka/tui-markdown/pull/160))
+
 ## [0.3.8](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.7...tui-markdown-v0.3.8) - 2026-06-27
 
 ### Other

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.29](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.28...markdown-reader-v0.1.29) - 2026-07-23
+
+### Added
+
+- *(mdr)* expose renderer options ([#164](https://github.com/joshka/tui-markdown/pull/164))
+- *(renderer)* render image fallbacks ([#155](https://github.com/joshka/tui-markdown/pull/155))
+- *(renderer)* render GFM tables ([#154](https://github.com/joshka/tui-markdown/pull/154))
+- *(renderer)* render GFM alerts ([#153](https://github.com/joshka/tui-markdown/pull/153))
+- *(renderer)* render definition lists
+- *(renderer)* render footnotes
+- *(renderer)* render raw HTML
+
+### Fixed
+
+- *(mdr)* count wrapped rows accurately ([#165](https://github.com/joshka/tui-markdown/pull/165))
+- *(renderer)* style link labels
+
+### Other
+
+- *(mdr)* add Markdown feature showcase ([#163](https://github.com/joshka/tui-markdown/pull/163))
+- *(renderer)* clarify rendering contracts ([#162](https://github.com/joshka/tui-markdown/pull/162))
+
 ## [0.1.28](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.27...markdown-reader-v0.1.28) - 2026-06-27
 
 ### Other
