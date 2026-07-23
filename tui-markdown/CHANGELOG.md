@@ -4,207 +4,170 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
+
+- Render GFM tables and alerts, raw HTML, math, footnotes, and definition lists ([#153], [#154]).
+- Render configurable image text fallbacks using alt text or URLs ([#155], [#156]).
+- Choose from bundled syntax-highlighting themes or load a custom TextMate theme ([#158], [#159]).
+- Customize or hide heading markers and code-block fences, with style sheets that only override
+  the choices they need ([#167], [#168]).
+- Style visible link labels consistently with their URLs.
+- Keep styled list content beside its marker ([#166]).
+
+[#153]: https://github.com/joshka/tui-markdown/pull/153
+[#154]: https://github.com/joshka/tui-markdown/pull/154
+[#155]: https://github.com/joshka/tui-markdown/pull/155
+[#156]: https://github.com/joshka/tui-markdown/pull/156
+[#158]: https://github.com/joshka/tui-markdown/pull/158
+[#159]: https://github.com/joshka/tui-markdown/pull/159
+[#167]: https://github.com/joshka/tui-markdown/pull/167
+[#168]: https://github.com/joshka/tui-markdown/pull/168
+[#166]: https://github.com/joshka/tui-markdown/pull/166
+
 ## [0.3.8](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.7...tui-markdown-v0.3.8) - 2026-06-27
 
-### Other
+- Maintenance and dependency updates ([#116], [#120], [#132], [#133]).
 
-- harden maintenance automation ([#133](https://github.com/joshka/tui-markdown/pull/133))
-- *(deps)* bump the cargo-dependencies group across 1 directory with 7 updates ([#132](https://github.com/joshka/tui-markdown/pull/132))
-- *(deps)* bump the cargo-dependencies group across 1 directory with 3 updates ([#120](https://github.com/joshka/tui-markdown/pull/120))
-- *(deps)* bump the cargo-dependencies group with 2 updates ([#116](https://github.com/joshka/tui-markdown/pull/116))
+[#116]: https://github.com/joshka/tui-markdown/pull/116
+[#120]: https://github.com/joshka/tui-markdown/pull/120
+[#132]: https://github.com/joshka/tui-markdown/pull/132
+[#133]: https://github.com/joshka/tui-markdown/pull/133
 
 ## [0.3.7](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.6...tui-markdown-v0.3.7) - 2025-12-27
 
-### Added
+- Add custom style sheets and render metadata blocks, subscript, superscript, soft line breaks, and
+  horizontal rules ([#80], [#107], [#108], [#109], [#110], [#111]).
+- Preserve heading metadata and update compatibility to Ratatui 0.30 ([#105], [#106]).
 
-- *(renderer)* render metadata blocks ([#111](https://github.com/joshka/tui-markdown/pull/111))
-- *(renderer)* add subscript support ([#110](https://github.com/joshka/tui-markdown/pull/110))
-- *(renderer)* add superscript support ([#109](https://github.com/joshka/tui-markdown/pull/109))
-- *(renderer)* render soft line breaks ([#108](https://github.com/joshka/tui-markdown/pull/108))
-- *(renderer)* render horizontal rules ([#107](https://github.com/joshka/tui-markdown/pull/107))
-- *(renderer)* add stylesheet options API ([#80](https://github.com/joshka/tui-markdown/pull/80))
-
-### Fixed
-
-- *(renderer)* add heading metadata rendering ([#106](https://github.com/joshka/tui-markdown/pull/106))
-
-### Other
-
-- *(deps)* update ratatui 0.30 ([#105](https://github.com/joshka/tui-markdown/pull/105))
-- *(deps)* bump the cargo-dependencies group across 1 directory with 4 updates ([#104](https://github.com/joshka/tui-markdown/pull/104))
+[#80]: https://github.com/joshka/tui-markdown/pull/80
+[#107]: https://github.com/joshka/tui-markdown/pull/107
+[#108]: https://github.com/joshka/tui-markdown/pull/108
+[#109]: https://github.com/joshka/tui-markdown/pull/109
+[#110]: https://github.com/joshka/tui-markdown/pull/110
+[#111]: https://github.com/joshka/tui-markdown/pull/111
+[#105]: https://github.com/joshka/tui-markdown/pull/105
+[#106]: https://github.com/joshka/tui-markdown/pull/106
 
 ## [0.3.6](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.5...tui-markdown-v0.3.6) - 2025-11-03
 
-### Added
+- Render task lists ([#99]).
 
-- Implement task list support ([#99](https://github.com/joshka/tui-markdown/pull/99))
-
-### Other
-
-- *(deps)* bump the cargo-dependencies group across 1 directory with 5 updates ([#97](https://github.com/joshka/tui-markdown/pull/97))
-- *(deps)* bump the cargo-dependencies group across 1 directory with 4 updates ([#94](https://github.com/joshka/tui-markdown/pull/94))
-- *(deps)* bump the cargo-dependencies group across 1 directory with 2 updates ([#91](https://github.com/joshka/tui-markdown/pull/91))
+[#99]: https://github.com/joshka/tui-markdown/pull/99
 
 ## [0.3.5](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.4...tui-markdown-v0.3.5) - 2025-05-07
 
-### Other
+- Maintenance and dependency updates ([#79]).
 
-- *(deps)* bump the cargo-dependencies group across 1 directory with 5 updates ([#79](https://github.com/joshka/tui-markdown/pull/79))
+[#79]: https://github.com/joshka/tui-markdown/pull/79
 
 ## [0.3.4](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.3...tui-markdown-v0.3.4) - 2025-05-07
 
-### Other
+- Maintenance release ([#81], [#82]).
 
-- remove unnecessary allowed lints ([#82](https://github.com/joshka/tui-markdown/pull/82))
-- add rustfmt and reformat code ([#81](https://github.com/joshka/tui-markdown/pull/81))
+[#81]: https://github.com/joshka/tui-markdown/pull/81
+[#82]: https://github.com/joshka/tui-markdown/pull/82
 
 ## [0.3.3](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.2...tui-markdown-v0.3.3) - 2025-03-11
 
-### Other
+- Maintenance and dependency updates ([#71]).
 
-- *(deps)* bump the cargo-dependencies group with 2 updates ([#71](https://github.com/joshka/tui-markdown/pull/71))
+[#71]: https://github.com/joshka/tui-markdown/pull/71
 
 ## [0.3.2](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.1...tui-markdown-v0.3.2) - 2025-03-09
 
-### Other
+- Maintenance and dependency updates ([#64], [#66], [#70]).
 
-- *(deps)* bump the cargo-dependencies group across 1 directory with 5 updates ([#70](https://github.com/joshka/tui-markdown/pull/70))
-- *(deps)* bump the cargo-dependencies group with 2 updates ([#66](https://github.com/joshka/tui-markdown/pull/66))
-- *(deps)* bump the cargo-dependencies group across 1 directory with 4 updates ([#64](https://github.com/joshka/tui-markdown/pull/64))
+[#64]: https://github.com/joshka/tui-markdown/pull/64
+[#66]: https://github.com/joshka/tui-markdown/pull/66
+[#70]: https://github.com/joshka/tui-markdown/pull/70
 
 ## [0.3.1](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.0...tui-markdown-v0.3.1) - 2024-12-17
 
-### Added
+- Render links as their visible label followed by the destination URL ([#62]).
 
-- Add support for links by replacing inner value (#62)
-
-### Other
-
-- *(deps)* bump the cargo-dependencies group with 5 updates (#60)
+[#62]: https://github.com/joshka/tui-markdown/pull/62
 
 ## [0.3.0](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.12...tui-markdown-v0.3.0) - 2024-11-20
 
-### Other
+- Update compatibility to Ratatui 0.29 ([#58]).
 
-- *(deps)* bump the cargo-dependencies group across 1 directory with 3 updates ([#58](https://github.com/joshka/tui-markdown/pull/58))
+[#58]: https://github.com/joshka/tui-markdown/pull/58
 
 ## [0.2.12](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.11...tui-markdown-v0.2.12) - 2024-10-22
 
-### Other
+- Maintenance and dependency updates ([#54]).
 
-- *(deps)* bump pulldown-cmark in the cargo-dependencies group ([#54](https://github.com/joshka/tui-markdown/pull/54))
+[#54]: https://github.com/joshka/tui-markdown/pull/54
 
 ## [0.2.11](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.10...tui-markdown-v0.2.11) - 2024-10-13
 
-### Added
+- Syntax-highlight fenced code blocks ([#51]).
 
-- highlight code blocks ([#51](https://github.com/joshka/tui-markdown/pull/51))
-
-### Other
-
-- *(deps)* bump rstest in the cargo-dependencies group ([#50](https://github.com/joshka/tui-markdown/pull/50))
+[#51]: https://github.com/joshka/tui-markdown/pull/51
 
 ## [0.2.10](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.9...tui-markdown-v0.2.10) - 2024-09-20
 
-### Other
+- Render headings, blockquotes, ordered and nested lists, strong, emphasized, and struck-through
+  text, and Markdown line breaks ([#45]).
+- Ignore unsupported Markdown constructs instead of panicking ([#45]).
 
-- add tests, implement more markdown features, don't panic for unimplemented features ([#45](https://github.com/joshka/tui-markdown/pull/45))
+[#45]: https://github.com/joshka/tui-markdown/pull/45
 
 ## [0.2.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.8...tui-markdown-v0.2.9) - 2024-09-20
 
-### Other
+- Render unordered lists ([#44]).
 
-- add support for unordered list ([#44](https://github.com/joshka/tui-markdown/pull/44))
-- *(deps)* bump the cargo-dependencies group with 2 updates ([#42](https://github.com/joshka/tui-markdown/pull/42))
+[#44]: https://github.com/joshka/tui-markdown/pull/44
 
 ## [0.2.8](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.7...tui-markdown-v0.2.8) - 2024-09-02
 
-### Other
+- Maintenance and dependency updates ([#38], [#41]).
 
-- *(deps)* bump the cargo-dependencies group across 1 directory with 3 updates ([#41](https://github.com/joshka/tui-markdown/pull/41))
-- *(deps)* bump the cargo-dependencies group with 2 updates ([#38](https://github.com/joshka/tui-markdown/pull/38))
+[#38]: https://github.com/joshka/tui-markdown/pull/38
+[#41]: https://github.com/joshka/tui-markdown/pull/41
 
 ## [0.2.7](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.6...tui-markdown-v0.2.7) - 2024-08-06
 
-### Other
-
-- use crossterm version re-exported from ratatui
+- Maintenance release.
 
 ## [0.2.6](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.5...tui-markdown-v0.2.6) - 2024-06-24
 
-### Other
+- Update Ratatui compatibility ([#29]).
 
-- *(deps)* bump ratatui in the cargo-dependencies group ([#29](https://github.com/joshka/tui-markdown/pull/29))
+[#29]: https://github.com/joshka/tui-markdown/pull/29
 
 ## [0.2.5](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.4...tui-markdown-v0.2.5) - 2024-06-08
 
-### Fixed
-
-- link to crate pages
+- Correct links to the crate documentation.
 
 ## [0.2.4](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.3...tui-markdown-v0.2.4) - 2024-05-22
 
-### Other
+- Maintenance and dependency updates ([#24]).
 
-- *(deps)* bump the cargo-dependencies group with 3 updates ([#24](https://github.com/joshka/tui-markdown/pull/24))
+[#24]: https://github.com/joshka/tui-markdown/pull/24
 
 ## [0.2.3](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.2...tui-markdown-v0.2.3) - 2024-04-24
 
-### Other
+- Update Markdown parser and Ratatui compatibility ([#19], [#20], [#23]).
 
-- *(deps)* bump pulldown-cmark ([#23](https://github.com/joshka/tui-markdown/pull/23))
-- *(deps)* bump ratatui from 0.26.1 to 0.26.2 ([#20](https://github.com/joshka/tui-markdown/pull/20))
-- *(deps)* bump pulldown-cmark from 0.10.0 to 0.10.2 ([#19](https://github.com/joshka/tui-markdown/pull/19))
+[#19]: https://github.com/joshka/tui-markdown/pull/19
+[#20]: https://github.com/joshka/tui-markdown/pull/20
+[#23]: https://github.com/joshka/tui-markdown/pull/23
 
 ## [0.2.2](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.1...tui-markdown-v0.2.2) - 2024-02-29
 
-### Other
-
-- update license info in readme files
-- add a note about the experimental state
+- Clarify licensing and the project's experimental status.
 
 ## [0.2.1](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.2.0...tui-markdown-v0.2.1) - 2024-02-27
 
-### Other
-
-- fix more links / badges
-- fmt
+- Correct documentation links and package metadata.
 
 ## [0.2.0](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.1.1...tui-markdown-v0.2.0) - 2024-02-27
 
-### Added
-
-- add filename and pageUp/Down
-- support code blocks in tui-markdown
-
-### Fixed
-
-- Update urls in Cargo.toml ([#4](https://github.com/joshka/tui-markdown/pull/4))
-
-### Other
-
-- add note about newlines
+- Render fenced code blocks and preserve Markdown line breaks.
 
 ## [0.1.1](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.1.0...tui-markdown-v0.1.1) - 2024-02-27
 
-### Other
-
-- add CHANGELOGs
-
-### 🚀 Features
-
-- Initial implementation of lib and tui
-
-### 🐛 Bug Fixes
-
-- Tui-markdown crate dependency for markdown-reader
-
-### 📚 Documentation
-
-- Add demo for markdown-reader
-
-### ⚙️ Miscellaneous Tasks
-
-- Add ci and release workflows
+- Introduce the Markdown-to-Ratatui renderer.
 
 <!-- generated by git-cliff -->
