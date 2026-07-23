@@ -51,13 +51,17 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Tables
 - [x] Tasklists
 - [x] Links
-- [ ] Images
+- [x] Images
 - [x] Metadata blocks
 - [x] Superscript
 - [x] Subscript
 
 Linebreaks are rendered with Markdown defaults: soft breaks become spaces, hard breaks insert a
 new line.
+
+Images render as text fallbacks rather than terminal graphics. The default output uses `[img]`
+followed by the image description, or the destination when the description is empty. For example,
+`Before ![diagram](diagram.png) after` renders as `Before [img] diagram after`.
 
 GFM tables render with Unicode box-drawing borders and honor left, center, and right column
 alignment:

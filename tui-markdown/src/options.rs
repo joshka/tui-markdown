@@ -49,6 +49,7 @@ use crate::{DefaultStyleSheet, StyleSheet};
 ///     fn metadata_block(&self) -> Style {
 ///         Style::new().light_yellow()
 ///     }
+///
 /// }
 ///
 /// let options = Options::new(MyStyleSheet);
@@ -134,5 +135,6 @@ mod tests {
         assert_eq!(options.styles.blockquote(), Style::new().yellow());
         assert_eq!(options.styles.heading_meta(), Style::new().dim());
         assert_eq!(options.styles.metadata_block(), Style::new().light_yellow());
+        assert_eq!(options.styles.image_alt(), Style::new().dim().italic());
     }
 }
