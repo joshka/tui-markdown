@@ -43,6 +43,8 @@ pub enum ImageFallback {
 ///
 /// `S` is the style sheet consulted while Markdown events are rendered. [`Options::default`] uses
 /// [`DefaultStyleSheet`]. Use [`Options::new`] to supply another [`StyleSheet`].
+/// [`StyleSheet::heading_marker`] and [`StyleSheet::code_block_fence`] customize or hide the
+/// corresponding presentation symbols.
 ///
 /// # Example
 ///
@@ -91,7 +93,7 @@ pub enum ImageFallback {
 #[non_exhaustive]
 pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     /// The [`StyleSheet`] implementation that will be consulted every time the renderer needs a
-    /// color choice.
+    /// style or symbol choice.
     pub(crate) styles: S,
     /// The content to render in place of images.
     pub(crate) image_fallback: ImageFallback,
