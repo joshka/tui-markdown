@@ -29,15 +29,62 @@ mdr --help
 
 A simple markdown reader that uses ratatui to render markdown files.
 
-Usage: mdr [PATH]
+Usage: mdr [OPTIONS] [PATH]
 
 Arguments:
-  [PATH]  The path to the markdown file to read [default: README.md]
+  [PATH]
+          The path to the markdown file to read
+
+          [default: README.md]
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+      --image-fallback <MODE>
+          Text to display in place of Markdown images
+
+          Possible values:
+          - alt-text:         Display the image description, falling back to its URL
+          - url:              Display the image URL
+          - alt-text-and-url: Display the image description and URL
+
+          [default: alt-text]
+
+      --code-theme <THEME>
+          Built-in syntax-highlighting theme (default: base16-ocean-dark)
+
+          Possible values:
+          - base16-eighties-dark: The dark Base16 Eighties theme
+          - base16-mocha-dark:    The dark Base16 Mocha theme
+          - base16-ocean-dark:    The default dark Base16 Ocean theme
+          - base16-ocean-light:   The light Base16 Ocean theme
+          - inspired-github:      The light Inspired GitHub theme
+          - solarized-dark:       The dark Solarized theme
+          - solarized-light:      The light Solarized theme
+
+      --code-theme-file <PATH>
+          Load a custom syntax-highlighting theme from a TextMate .tmTheme file
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
 ```
+
+By default, images display their alt text and code uses the Base16 Ocean dark theme. Select a
+different representation for images or a built-in code theme:
+
+```shell
+mdr --image-fallback alt-text-and-url README.md
+mdr --code-theme solarized-dark README.md
+```
+
+Custom syntax-highlighting themes can be loaded from TextMate `.tmTheme` files:
+
+```shell
+mdr --code-theme-file themes/custom.tmTheme README.md
+```
+
+`--code-theme` and `--code-theme-file` are mutually exclusive.
 
 The repository includes a [feature showcase](TEST.md) for manually checking every supported
 Markdown construct:
