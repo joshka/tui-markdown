@@ -959,6 +959,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "crossterm",
+ "insta",
  "itertools 0.15.0",
  "ratatui",
  "time",

@@ -58,3 +58,18 @@ struct Cli {
     #[arg(default_value = "README.md")]
     path: PathBuf,
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn feature_showcase() {
+        let markdown = include_str!("../TEST.md");
+        let text = tui_markdown::from_str(markdown);
+
+        // The text snapshot makes whitespace and construct transitions easy to review. The debug
+        // snapshot also records every line and span style, which catches formatting that leaks
+        // across a construct boundary but leaves the visible characters unchanged.
+        insta::assert_snapshot!("feature_showcase_text", text);
+        insta::assert_debug_snapshot!("feature_showcase_styles", text);
+    }
+}

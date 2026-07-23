@@ -24,6 +24,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 time = { version = "0.3.44", features = ["formatting", "macros"] }
 tui-markdown.workspace = true
 
+[dev-dependencies]
+insta = "1"
+
 [[bin]]
 name = "mdr"
 path = "src/main.rs"
