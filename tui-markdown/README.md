@@ -26,6 +26,24 @@ let text = tui_markdown::from_str(input);
 text.render(area, &mut buf);
 ```
 
+### Syntax highlighting themes
+
+With the default `highlight-code` feature enabled, fenced code blocks whose language is recognized
+use the built-in `Base16OceanDark` syntax-highlighting theme. Pass a [`BuiltinCodeTheme`] to select
+a different bundled theme:
+
+```rust
+use tui_markdown::{from_str_with_options, BuiltinCodeTheme, Options};
+
+let options = Options::default().code_theme(BuiltinCodeTheme::InspiredGitHub);
+let markdown = r#"```rust
+fn main() {}
+```"#;
+let text = from_str_with_options(markdown, &options);
+```
+
+[`BuiltinCodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/enum.BuiltinCodeTheme.html
+
 ## Status
 
 This is working code, but not every markdown feature is supported. PRs welcome!

@@ -1,8 +1,11 @@
 //! Rendering configuration for tui-markdown.
 //!
-//! Options control the renderer's style sheet and image fallback content. [`Options`] is
-//! non-exhaustive, allowing new rendering choices to be added without breaking existing code.
+//! Options control the renderer's style sheet, image fallback content, and syntax-highlighting
+//! theme. [`Options`] is non-exhaustive, allowing new rendering choices to be added without
+//! breaking existing code.
 
+#[cfg(feature = "highlight-code")]
+use crate::CodeTheme;
 use crate::{DefaultStyleSheet, StyleSheet};
 
 /// Text used to represent Markdown images in rendered terminal output.
@@ -46,6 +49,7 @@ pub enum ImageFallback {
 ///
 /// ```
 /// use tui_markdown::Options;
+///
 /// let options = Options::default();
 ///
 /// // or with a custom style sheet
@@ -92,6 +96,11 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     pub(crate) styles: S,
     /// The content to render in place of images.
     pub(crate) image_fallback: ImageFallback,
+    /// Explicit syntax-highlighting theme for fenced code blocks.
+    ///
+    /// When absent, the renderer uses the shared built-in default.
+    #[cfg(feature = "highlight-code")]
+    code_theme: Option<CodeTheme>,
 }
 
 impl<S: StyleSheet> Options<S> {
@@ -100,6 +109,8 @@ impl<S: StyleSheet> Options<S> {
         Self {
             styles,
             image_fallback: ImageFallback::default(),
+            #[cfg(feature = "highlight-code")]
+            code_theme: None,
         }
     }
 
@@ -110,6 +121,38 @@ impl<S: StyleSheet> Options<S> {
     pub fn image_fallback(mut self, image_fallback: ImageFallback) -> Self {
         self.image_fallback = image_fallback;
         self
+    }
+
+    /// Selects the syntax-highlighting theme for fenced code blocks.
+    ///
+    /// By default, no explicit theme is stored and the renderer borrows its shared
+    /// [`Base16OceanDark`](crate::BuiltinCodeTheme::Base16OceanDark) theme.
+    /// Pass a [`BuiltinCodeTheme`](crate::BuiltinCodeTheme) directly, or pass an owned
+    /// [`CodeTheme`] constructed by another theme source. The selected theme applies when a fenced
+    /// code block names a recognized language.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tui_markdown::{BuiltinCodeTheme, Options};
+    ///
+    /// let options = Options::default().code_theme(BuiltinCodeTheme::SolarizedDark);
+    /// ```
+    #[cfg(feature = "highlight-code")]
+    #[must_use]
+    pub fn code_theme(mut self, code_theme: impl Into<CodeTheme>) -> Self {
+        self.code_theme = Some(code_theme.into());
+        self
+    }
+
+    /// Returns the explicitly configured syntax-highlighting theme.
+    ///
+    /// Returns `None` when the renderer will use the shared
+    /// [`Base16OceanDark`](crate::BuiltinCodeTheme::Base16OceanDark) default.
+    #[cfg(feature = "highlight-code")]
+    #[must_use]
+    pub fn selected_code_theme(&self) -> Option<&CodeTheme> {
+        self.code_theme.as_ref()
     }
 }
 
@@ -171,6 +214,8 @@ mod tests {
         let options = Options {
             styles: CustomStyleSheet,
             image_fallback: ImageFallback::default(),
+            #[cfg(feature = "highlight-code")]
+            code_theme: None,
         };
 
         assert_eq!(options.styles.heading(1), Style::new().red().bold());
@@ -195,5 +240,21 @@ mod tests {
         let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
 
         assert_eq!(options.image_fallback, ImageFallback::AltTextAndUrl);
+    }
+
+    #[test]
+    #[cfg(feature = "highlight-code")]
+    fn default_has_no_explicit_code_theme() {
+        let options: Options = Options::default();
+
+        assert!(options.selected_code_theme().is_none());
+    }
+
+    #[test]
+    #[cfg(feature = "highlight-code")]
+    fn code_theme_selects_theme() {
+        let options = Options::default().code_theme(crate::BuiltinCodeTheme::SolarizedDark);
+
+        assert!(options.selected_code_theme().is_some());
     }
 }

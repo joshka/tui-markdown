@@ -11,6 +11,10 @@
 //! Images render as `[img]` followed by their description, or by their destination when the
 //! description is empty. This is a text fallback; the crate does not load or render image
 //! resources.
+//!
+//! The default `highlight-code` feature highlights fenced code blocks whose language is recognized,
+//! using `Base16OceanDark` unless [`Options`] selects another built-in theme.
+//! Fences without a recognized language remain unhighlighted.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example
@@ -54,15 +58,19 @@ use ratatui_core::text::{Line, Span, Text};
 #[cfg(feature = "highlight-code")]
 use syntect::{
     easy::HighlightLines,
-    highlighting::ThemeSet,
     parsing::SyntaxSet,
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 use tracing::{debug, instrument, warn};
 
+#[doc(inline)]
+#[cfg(feature = "highlight-code")]
+pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme};
 pub use crate::options::{ImageFallback, Options};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
+#[cfg(feature = "highlight-code")]
+mod code_theme;
 mod options;
 mod style_sheet;
 mod tables;
@@ -110,6 +118,8 @@ where
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
+    #[cfg(feature = "highlight-code")]
+    writer.set_code_theme(options.selected_code_theme());
     writer.run();
     writer.text
 }
@@ -261,7 +271,7 @@ impl<'a> PendingImage<'a> {
     }
 }
 
-struct TextWriter<'a, I, S: StyleSheet> {
+struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     /// Iterator supplying events.
     iter: I,
 
@@ -281,7 +291,7 @@ struct TextWriter<'a, I, S: StyleSheet> {
 
     /// Used to highlight code blocks, set when  a codeblock is encountered
     #[cfg(feature = "highlight-code")]
-    code_highlighter: Option<HighlightLines<'a>>,
+    code_highlighter: Option<HighlightLines<'theme>>,
 
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
@@ -316,15 +326,23 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Active table builder that accumulates cells during table parsing.
     table_builder: Option<tables::TableBuilder<'a>>,
 
+    /// Explicit theme to use when a fenced code block starts highlighting.
+    ///
+    /// When absent, code highlighting resolves the shared built-in default.
+    #[cfg(feature = "highlight-code")]
+    code_theme: Option<&'theme CodeTheme>,
+
+    /// Keeps the writer's shape consistent when syntax highlighting is disabled.
+    #[cfg(not(feature = "highlight-code"))]
+    code_theme_lifetime: std::marker::PhantomData<&'theme ()>,
+
     needs_newline: bool,
 }
 
 #[cfg(feature = "highlight-code")]
 static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
-#[cfg(feature = "highlight-code")]
-static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
-impl<'a, I, S> TextWriter<'a, I, S>
+impl<'a, 'theme, I, S> TextWriter<'a, 'theme, I, S>
 where
     I: Iterator<Item = Event<'a>>,
     S: StyleSheet,
@@ -350,7 +368,17 @@ where
             in_footnote_definition: false,
             in_definition_description: false,
             table_builder: None,
+            #[cfg(feature = "highlight-code")]
+            code_theme: None,
+            #[cfg(not(feature = "highlight-code"))]
+            code_theme_lifetime: std::marker::PhantomData,
         }
+    }
+
+    /// Selects a configured theme before the event loop starts.
+    #[cfg(feature = "highlight-code")]
+    fn set_code_theme(&mut self, theme: Option<&'theme CodeTheme>) {
+        self.code_theme = theme;
     }
 
     fn run(&mut self) {
@@ -743,7 +771,11 @@ where
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
             debug!("Starting code block with syntax: {:?}", lang);
-            let theme = &THEME_SET.themes["base16-ocean.dark"];
+            let code_theme = match self.code_theme {
+                Some(code_theme) => code_theme,
+                None => code_theme::default(),
+            };
+            let theme = code_theme::theme(code_theme);
             let highlighter = HighlightLines::new(syntax, theme);
             self.code_highlighter = Some(highlighter);
         } else {
@@ -2590,6 +2622,55 @@ mod tests {
                     Span::raw(" after"),
                 ]))
             );
+        }
+    }
+
+    #[cfg(feature = "highlight-code")]
+    mod code_theme {
+        use pretty_assertions::assert_eq;
+
+        use super::*;
+
+        #[rstest]
+        fn different_theme_produces_different_output(_with_tracing: DefaultGuard) {
+            let input = indoc! {"
+                ```rust
+                fn main() {}
+                ```
+            "};
+            let default_out = from_str(input);
+            let options = Options::default().code_theme(BuiltinCodeTheme::InspiredGitHub);
+            let custom_out = from_str_with_options(input, &options);
+
+            assert_ne!(default_out, custom_out);
+        }
+
+        #[rstest]
+        fn explicit_default_theme_matches_implicit_default(_with_tracing: DefaultGuard) {
+            let input = indoc! {"
+                ```rust
+                fn main() {}
+                ```
+            "};
+            let implicit = from_str(input);
+            let options = Options::default().code_theme(BuiltinCodeTheme::default());
+            let explicit = from_str_with_options(input, &options);
+
+            assert_eq!(explicit, implicit);
+        }
+
+        #[rstest]
+        fn selected_theme_does_not_change_unrecognized_code(_with_tracing: DefaultGuard) {
+            let input = indoc! {"
+                ```not-a-language
+                some code
+                ```
+            "};
+            let default_out = from_str(input);
+            let options = Options::default().code_theme(BuiltinCodeTheme::InspiredGitHub);
+            let selected_out = from_str_with_options(input, &options);
+
+            assert_eq!(selected_out, default_out);
         }
     }
 }
