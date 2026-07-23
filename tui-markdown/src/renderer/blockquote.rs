@@ -92,30 +92,6 @@ mod tests {
         struct CustomAlertStyleSheet;
 
         impl StyleSheet for CustomAlertStyleSheet {
-            fn heading(&self, level: u8) -> Style {
-                DefaultStyleSheet.heading(level)
-            }
-
-            fn code(&self) -> Style {
-                DefaultStyleSheet.code()
-            }
-
-            fn link(&self) -> Style {
-                DefaultStyleSheet.link()
-            }
-
-            fn blockquote(&self) -> Style {
-                DefaultStyleSheet.blockquote()
-            }
-
-            fn heading_meta(&self) -> Style {
-                DefaultStyleSheet.heading_meta()
-            }
-
-            fn metadata_block(&self) -> Style {
-                DefaultStyleSheet.metadata_block()
-            }
-
             fn alert(&self, kind: AlertKind) -> Style {
                 match kind {
                     AlertKind::Note => Style::new().on_red(),
@@ -128,30 +104,6 @@ mod tests {
         struct CustomAlertHeadingStyleSheet;
 
         impl StyleSheet for CustomAlertHeadingStyleSheet {
-            fn heading(&self, level: u8) -> Style {
-                DefaultStyleSheet.heading(level)
-            }
-
-            fn code(&self) -> Style {
-                DefaultStyleSheet.code()
-            }
-
-            fn link(&self) -> Style {
-                DefaultStyleSheet.link()
-            }
-
-            fn blockquote(&self) -> Style {
-                DefaultStyleSheet.blockquote()
-            }
-
-            fn heading_meta(&self) -> Style {
-                DefaultStyleSheet.heading_meta()
-            }
-
-            fn metadata_block(&self) -> Style {
-                DefaultStyleSheet.metadata_block()
-            }
-
             fn alert_icon(&self, kind: AlertKind) -> &str {
                 match kind {
                     AlertKind::Note => "!!",

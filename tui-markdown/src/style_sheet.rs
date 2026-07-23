@@ -1,8 +1,8 @@
 //! Style sheet abstraction for tui-markdown.
 //!
 //! [`StyleSheet`] supplies the styles and alert text used while Markdown events are rendered.
-//! Implementations provide the core heading, code, link, blockquote, and metadata styles. Newer
-//! construct hooks have defaults so existing implementations remain source-compatible.
+//! Every choice has a default. Implementations only need to override the styles or text they want
+//! to customize.
 //!
 //! [`DefaultStyleSheet`] is used by [`crate::Options::default`]. Applications can pass another
 //! implementation to [`crate::Options::new`].
@@ -39,28 +39,47 @@ impl AlertKind {
 
 /// Visual styles and symbols consumed by the renderer.
 ///
-/// Required methods define the original renderer styles. Methods for newer Markdown constructs have
-/// defaults so adding those hooks did not require downstream implementations to change.
+/// Every method has a default, which [`DefaultStyleSheet`] uses unchanged. Implementations only
+/// need to override the choices they want to customize.
 pub trait StyleSheet: Clone + Send + Sync + 'static {
     /// Style for a Markdown heading.
     ///
     /// `level` is one-based (`1` for `# H1`, …).
-    fn heading(&self, level: u8) -> Style;
+    fn heading(&self, level: u8) -> Style {
+        match level {
+            1 => Style::new().on_cyan().bold().underlined(),
+            2 => Style::new().cyan().bold(),
+            3 => Style::new().cyan().bold().italic(),
+            4 => Style::new().light_cyan().italic(),
+            5 => Style::new().light_cyan().italic(),
+            _ => Style::new().light_cyan().italic(),
+        }
+    }
 
     /// Style for inline `code` spans and fenced code blocks when syntax highlighting is disabled.
-    fn code(&self) -> Style;
+    fn code(&self) -> Style {
+        Style::new().white().on_black()
+    }
 
     /// Style for an inline or reference link's visible label and appended destination.
-    fn link(&self) -> Style;
+    fn link(&self) -> Style {
+        Style::new().blue().underlined()
+    }
 
     /// Base style applied to blockquotes (`>` prefix and body text).
-    fn blockquote(&self) -> Style;
+    fn blockquote(&self) -> Style {
+        Style::new().green()
+    }
 
     /// Style for heading attribute metadata appended to the heading text.
-    fn heading_meta(&self) -> Style;
+    fn heading_meta(&self) -> Style {
+        Style::new().dim()
+    }
 
     /// Style for metadata blocks (front matter).
-    fn metadata_block(&self) -> Style;
+    fn metadata_block(&self) -> Style {
+        Style::new().light_yellow()
+    }
 
     /// Marker displayed before a Markdown heading.
     ///
@@ -219,36 +238,4 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 
-impl StyleSheet for DefaultStyleSheet {
-    fn heading(&self, level: u8) -> Style {
-        match level {
-            1 => Style::new().on_cyan().bold().underlined(),
-            2 => Style::new().cyan().bold(),
-            3 => Style::new().cyan().bold().italic(),
-            4 => Style::new().light_cyan().italic(),
-            5 => Style::new().light_cyan().italic(),
-            _ => Style::new().light_cyan().italic(),
-        }
-    }
-
-    fn code(&self) -> Style {
-        Style::new().white().on_black()
-    }
-
-    fn link(&self) -> Style {
-        Style::new().blue().underlined()
-    }
-
-    fn blockquote(&self) -> Style {
-        Style::new().green()
-    }
-
-    fn heading_meta(&self) -> Style {
-        // De-emphasize metadata so the heading text stays primary.
-        Style::new().dim()
-    }
-
-    fn metadata_block(&self) -> Style {
-        Style::new().light_yellow()
-    }
-}
+impl StyleSheet for DefaultStyleSheet {}

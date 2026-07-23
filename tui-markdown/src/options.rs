@@ -65,26 +65,6 @@ pub enum ImageFallback {
 ///     fn heading(&self, _level: u8) -> Style {
 ///         Style::new().bold()
 ///     }
-///
-///     fn code(&self) -> Style {
-///         Style::new().white().on_dark_gray()
-///     }
-///
-///     fn link(&self) -> Style {
-///         Style::new().blue().underlined()
-///     }
-///
-///     fn blockquote(&self) -> Style {
-///         Style::new().yellow()
-///     }
-///
-///     fn heading_meta(&self) -> Style {
-///         Style::new().dim()
-///     }
-///
-///     fn metadata_block(&self) -> Style {
-///         Style::new().light_yellow()
-///     }
 /// }
 ///
 /// let options = Options::new(MyStyleSheet);
@@ -194,26 +174,6 @@ mod tests {
                     _ => Style::new().green(),
                 }
             }
-
-            fn code(&self) -> Style {
-                Style::new().white().on_black()
-            }
-
-            fn link(&self) -> Style {
-                Style::new().blue().underlined()
-            }
-
-            fn blockquote(&self) -> Style {
-                Style::new().yellow()
-            }
-
-            fn heading_meta(&self) -> Style {
-                Style::new().dim()
-            }
-
-            fn metadata_block(&self) -> Style {
-                Style::new().light_yellow()
-            }
         }
 
         let options = Options {
@@ -227,7 +187,7 @@ mod tests {
         assert_eq!(options.styles.heading(2), Style::new().green());
         assert_eq!(options.styles.code(), Style::new().white().on_black());
         assert_eq!(options.styles.link(), Style::new().blue().underlined());
-        assert_eq!(options.styles.blockquote(), Style::new().yellow());
+        assert_eq!(options.styles.blockquote(), Style::new().green());
         assert_eq!(options.styles.heading_meta(), Style::new().dim());
         assert_eq!(options.styles.metadata_block(), Style::new().light_yellow());
         assert_eq!(options.styles.image_alt(), Style::new().dim().italic());
