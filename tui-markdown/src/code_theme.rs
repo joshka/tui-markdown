@@ -8,6 +8,7 @@
 //! default; the renderer instead borrows a shared [`CodeTheme`] for
 //! [`BuiltinCodeTheme::Base16OceanDark`] when it first encounters a recognized fenced language.
 
+use std::path::Path;
 use std::sync::LazyLock;
 
 use syntect::highlighting::{Theme, ThemeSet};
@@ -92,11 +93,24 @@ fn builtin_theme(code_theme: BuiltinCodeTheme) -> &'static Theme {
 }
 
 static DEFAULT_THEME: LazyLock<CodeTheme> = LazyLock::new(|| BuiltinCodeTheme::default().into());
+
+fn load_theme(path: &Path) -> Result<Theme, syntect::LoadingError> {
+    ThemeSet::get_theme(path)
+}
+
 static THEMES: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
+
+    fn fixture(name: &str) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/code_theme/fixtures")
+            .join(name)
+    }
 
     #[test]
     fn every_builtin_theme_can_be_selected() {
@@ -115,7 +129,6 @@ mod tests {
             let _ = theme(&code_theme);
         }
     }
-
     #[test]
     fn configured_theme_is_borrowed_directly() {
         let code_theme = CodeTheme::from(BuiltinCodeTheme::SolarizedDark);
@@ -126,5 +139,10 @@ mod tests {
     #[test]
     fn default_theme_is_shared() {
         assert!(std::ptr::eq(default(), default()));
+    }
+
+    #[test]
+    fn theme_file_can_be_loaded() {
+        load_theme(&fixture("custom.tmTheme")).unwrap();
     }
 }
