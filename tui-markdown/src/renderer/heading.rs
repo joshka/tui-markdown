@@ -1,4 +1,7 @@
 //! Markdown heading rendering.
+//!
+//! Headings retain their Markdown `#` prefix. IDs, classes, and key-value attributes render as a
+//! styled attribute-block suffix after the heading text.
 
 use pulldown_cmark::{CowStr, Event, HeadingLevel};
 use ratatui_core::text::{Line, Span};

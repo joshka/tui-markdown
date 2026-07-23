@@ -1,4 +1,7 @@
 //! Raw Markdown HTML rendering.
+//!
+//! HTML remains visible as literal text. Inline tags compose with enclosing formatting, while HTML
+//! blocks preserve their physical lines and surrounding block spacing.
 
 use pulldown_cmark::{CowStr, Event};
 use ratatui_core::text::{Line, Span};

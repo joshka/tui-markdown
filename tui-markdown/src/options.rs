@@ -39,11 +39,10 @@ pub enum ImageFallback {
     AltTextAndUrl,
 }
 
-/// Collection of optional parameters that influence markdown rendering.
+/// Rendering options for [`crate::from_str_with_options`].
 ///
-/// The generic `S` allows users to provide their own theme type that implements the
-/// [`StyleSheet`] trait. The default implementation is [`DefaultStyleSheet`], which provides a
-/// set of sensible defaults for styling markdown elements.
+/// `S` is the style sheet consulted while Markdown events are rendered. [`Options::default`] uses
+/// [`DefaultStyleSheet`]. Use [`Options::new`] to supply another [`StyleSheet`].
 ///
 /// # Example
 ///
@@ -104,7 +103,9 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
 }
 
 impl<S: StyleSheet> Options<S> {
-    /// Creates a new `Options` instance with the provided style sheet.
+    /// Creates rendering options that use `styles`.
+    ///
+    /// Image fallback and syntax-highlighting settings retain their defaults.
     pub fn new(styles: S) -> Self {
         Self {
             styles,

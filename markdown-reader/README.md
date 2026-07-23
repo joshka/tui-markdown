@@ -56,6 +56,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Unordered lists
 - [x] Code blocks
 - [x] HTML
+- [x] Math
 - [x] Footnotes
 - [x] Definition lists
 - [x] Tables

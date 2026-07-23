@@ -1,4 +1,7 @@
 //! Markdown footnote rendering.
+//!
+//! References render inline as `[label]`. Definitions start with `[label]: ` and retain paragraph
+//! boundaries without leaking their line style into following content.
 
 use pulldown_cmark::{CowStr, Event};
 use ratatui_core::text::{Line, Span};

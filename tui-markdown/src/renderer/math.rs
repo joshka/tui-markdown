@@ -1,4 +1,7 @@
 //! Markdown inline and display math rendering.
+//!
+//! Inline math retains `$` delimiters and its position in the surrounding line. Display math keeps
+//! `$$` delimiters and writes each source line as a physical Ratatui line.
 
 use pulldown_cmark::{CowStr, Event};
 use ratatui_core::text::{Line, Span};

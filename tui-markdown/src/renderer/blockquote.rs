@@ -1,4 +1,7 @@
 //! Markdown blockquote and GFM alert rendering.
+//!
+//! Plain blockquotes use the configured blockquote style and `>` prefix. A recognized GFM alert
+//! adds a styled icon and label, then renders its body with the alert style.
 
 use pulldown_cmark::{BlockQuoteKind, Event};
 use ratatui_core::style::Style;

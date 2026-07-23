@@ -20,7 +20,7 @@ repository root.
 
 ## Coding Style & Naming Conventions
 
-Code targets Rust 1.86 (edition 2021) and follows standard Rust naming (`snake_case` functions,
+Code targets Rust 1.88 (edition 2021) and follows standard Rust naming (`snake_case` functions,
 `PascalCase` types). `rustfmt.toml` enforces grouped imports, wrapped comments, and a 100-column
 guide; run `cargo fmt` before review. Prefer explicit module re-exports for library APIs and keep
 public surfaces documented with `///` comments. Clippy must run clean before submitting changes.

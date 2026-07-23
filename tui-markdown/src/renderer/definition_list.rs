@@ -1,4 +1,7 @@
 //! Markdown definition-list rendering.
+//!
+//! Terms and descriptions have separate styles. Each description starts with `: `, and paragraph
+//! handling preserves blank lines inside multi-paragraph descriptions.
 
 use pulldown_cmark::Event;
 use ratatui_core::text::{Line, Span};

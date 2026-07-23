@@ -1,13 +1,11 @@
 //! Style sheet abstraction for tui-markdown.
 //!
-//! The library used to hard–code all color and attribute choices in an internal `styles` module.
-//! That made it impossible for downstream crates to provide their own look-and-feel. The
-//! [`StyleSheet`] trait makes it possible to customize the styles and symbols the renderer uses.
+//! [`StyleSheet`] supplies the styles and alert text used while Markdown events are rendered.
+//! Implementations provide the core heading, code, link, blockquote, and metadata styles. Newer
+//! construct hooks have defaults so existing implementations remain source-compatible.
 //!
-//! Users that are happy with the stock colors do not have to do anything – the crate exports a
-//! [`DefaultStyleSheet`] which matches the old behaviour and is used by default. Projects that want
-//! to theme the output can implement the trait for their own type and pass an instance via
-//! [`crate::Options`].
+//! [`DefaultStyleSheet`] is used by [`crate::Options::default`]. Applications can pass another
+//! implementation to [`crate::Options::new`].
 
 use ratatui_core::style::Style;
 
@@ -41,8 +39,8 @@ impl AlertKind {
 
 /// Visual styles and symbols consumed by the renderer.
 ///
-/// The trait purposefully stays tiny: whenever the renderer needs a presentation choice we add a
-/// new getter here. The default implementation maintains the renderer's standard appearance.
+/// Required methods define the original renderer styles. Methods for newer Markdown constructs have
+/// defaults so adding those hooks did not require downstream implementations to change.
 pub trait StyleSheet: Clone + Send + Sync + 'static {
     /// Style for a Markdown heading.
     ///
@@ -52,7 +50,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     /// Style for inline `code` spans and fenced code blocks when syntax highlighting is disabled.
     fn code(&self) -> Style;
 
-    /// Style for the text of an inline or reference link.
+    /// Style for an inline or reference link's visible label and appended destination.
     fn link(&self) -> Style;
 
     /// Base style applied to blockquotes (`>` prefix and body text).
@@ -78,12 +76,12 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         Style::new().magenta()
     }
 
-    /// Style for footnote references (`[^label]`).
+    /// Style for footnote references, rendered as `[label]`.
     fn footnote_ref(&self) -> Style {
         Style::new().dim().italic()
     }
 
-    /// Style for footnote definitions.
+    /// Style for footnote definitions, including the `[label]: ` prefix.
     fn footnote_def(&self) -> Style {
         Style::new().dim()
     }
@@ -93,7 +91,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         Style::new().bold()
     }
 
-    /// Style for definition list descriptions.
+    /// Style for definition list descriptions, including the `: ` prefix.
     fn definition_description(&self) -> Style {
         Style::default()
     }
@@ -155,7 +153,7 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         Style::new().dark_gray()
     }
 
-    /// Style for the marker and text used to represent Markdown images.
+    /// Style for the `[img]` marker and text used to represent Markdown images.
     ///
     /// The default is dim and italic. The renderer patches this over any enclosing inline style.
     fn image_alt(&self) -> Style {

@@ -1,4 +1,7 @@
 //! Markdown inline and fenced code rendering.
+//!
+//! Inline code and unrecognized fences use the style sheet's code style. With `highlight-code`
+//! enabled, a recognized fenced language uses the selected syntax-highlighting theme.
 
 #[cfg(feature = "highlight-code")]
 use std::sync::LazyLock;

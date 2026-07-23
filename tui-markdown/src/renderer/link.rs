@@ -1,4 +1,7 @@
 //! Markdown link rendering.
+//!
+//! Links render as `label (destination)`. The link style applies to the label and destination while
+//! nested inline formatting remains on the label.
 
 use pulldown_cmark::{CowStr, Event};
 use ratatui_core::text::Span;

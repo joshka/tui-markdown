@@ -1,4 +1,7 @@
 //! Markdown inline formatting.
+//!
+//! The inline style stack patches nested formatting over its enclosing style. Closing a formatting
+//! tag restores the previous style.
 
 use pulldown_cmark::Event;
 use ratatui_core::style::Style;

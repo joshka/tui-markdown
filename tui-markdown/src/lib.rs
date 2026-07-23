@@ -1,21 +1,24 @@
-//! A simple markdown renderer widget for Ratatui.
+//! Convert Markdown into Ratatui [`Text`](ratatui_core::text::Text).
 //!
-//! This module provides a simple markdown renderer widget for Ratatui. It uses the `pulldown-cmark`
-//! crate to parse markdown and convert it to a `Text` widget. The `Text` widget can then be
-//! rendered to the terminal using the 'Ratatui' library.
+//! [`from_str`] renders with the default styles and options. [`from_str_with_options`] accepts an
+//! [`Options`] value for a custom [`StyleSheet`], image fallback mode, and, when the
+//! `highlight-code` feature is enabled, syntax-highlighting theme.
 //!
-//! GitHub-flavored Markdown tables render with Unicode box-drawing borders, terminal-width-aware
-//! columns, and the alignment declared by the Markdown delimiter row. Use [`StyleSheet`] to
-//! customize header cells, body cells, and borders.
+//! The returned text may borrow from the Markdown input. It contains terminal text and styles only;
+//! image syntax produces a configurable text fallback and does not read or render image resources.
 //!
-//! Images render as `[img]` followed by their description, or by their destination when the
-//! description is empty. This is a text fallback; the crate does not load or render image
-//! resources.
+//! # Markdown output
 //!
-//! The default `highlight-code` feature highlights fenced code blocks whose language is recognized,
-//! using `Base16OceanDark` unless [`Options`] selects another `CodeTheme`.
-//! Themes can be bundled with tui-markdown, parsed from TextMate source, or loaded from a TextMate
-//! file. Fences without a recognized language remain unhighlighted.
+//! Tables use Unicode box-drawing borders, terminal display widths, and the alignment declared by
+//! the Markdown delimiter row. Raw HTML stays visible as literal text. Math retains its delimiters,
+//! and images render as `[img]` followed by their description or destination.
+//!
+//! # Syntax highlighting
+//!
+//! The default `highlight-code` feature highlights fenced code blocks whose language is recognized.
+//! It uses `Base16OceanDark` unless [`Options`] selects another [`CodeTheme`]. Themes can come from
+//! the built-in set, TextMate source bundled with the application, or a TextMate file read before
+//! rendering. Unrecognized code fences use [`StyleSheet::code`] instead.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //!
