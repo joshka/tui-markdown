@@ -58,6 +58,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
     use rstest::rstest;
 
     use super::*;
@@ -109,8 +110,13 @@ mod tests {
 
         #[rstest]
         fn exact_output_and_default_styles(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Term
+                : Definition
+            "};
+
             assert_eq!(
-                from_str("Term\n: Definition\n"),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from(Span::styled("Term", Style::new().bold())),
                     Line::from_iter([Span::raw(": "), Span::raw("Definition")]),
@@ -120,13 +126,16 @@ mod tests {
 
         #[rstest]
         fn custom_styles_apply_to_terms_and_definitions(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Term
+                : Definition
+            "};
             let options = Options::new(CustomDefinitionStyleSheet);
-            let text = from_str_with_options("Term\n: Definition\n", &options);
             let title_style = Style::new().red().underlined();
             let description_style = Style::new().blue().italic();
 
             assert_eq!(
-                text,
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from(Span::styled("Term", title_style)),
                     Line::from_iter([
@@ -139,12 +148,16 @@ mod tests {
 
         #[rstest]
         fn inline_formatting_combines_with_definition_styles(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                *Term*
+                : **Description**
+            "};
             let options = Options::new(CustomDefinitionStyleSheet);
             let term_style = Style::new().red().underlined().italic();
             let description_style = Style::new().blue().italic();
 
             assert_eq!(
-                from_str_with_options("*Term*\n: **Description**\n", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from(Span::styled("Term", term_style)),
                     Line::from_iter([
@@ -157,8 +170,14 @@ mod tests {
 
         #[rstest]
         fn multiline_definition(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Term
+                : First line
+                  second line
+            "};
+
             assert_eq!(
-                from_str("Term\n: First line\n  second line\n"),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from(Span::styled("Term", Style::new().bold())),
                     Line::from_iter([
@@ -173,8 +192,14 @@ mod tests {
 
         #[rstest]
         fn multiple_descriptions(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Term
+                : First description
+                : Second description
+            "};
+
             assert_eq!(
-                from_str("Term\n: First description\n: Second description\n"),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from(Span::styled("Term", Style::new().bold())),
                     Line::from_iter([Span::raw(": "), Span::raw("First description")]),
@@ -185,8 +210,15 @@ mod tests {
 
         #[rstest]
         fn multiple_description_paragraphs_keep_prefix_and_blank_line(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Term
+                : First paragraph.
+
+                  Second paragraph.
+            "};
+
             assert_eq!(
-                from_str("Term\n: First paragraph.\n\n  Second paragraph."),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from(Span::styled("Term", Style::new().bold())),
                     Line::from_iter([Span::raw(": "), Span::raw("First paragraph.")]),
@@ -198,11 +230,19 @@ mod tests {
 
         #[rstest]
         fn repeated_items_do_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Term one
+                : First description.
+
+                Term two
+                : Second description.
+
+                After.
+            "};
             let term_style = Style::new().bold();
+
             assert_eq!(
-                from_str(
-                    "Term one\n: First description.\n\nTerm two\n: Second description.\n\nAfter."
-                ),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from(Span::styled("Term one", term_style)),
                     Line::from_iter([Span::raw(": "), Span::raw("First description.")]),

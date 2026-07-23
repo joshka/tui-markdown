@@ -75,7 +75,7 @@ fn alert_kind(kind: BlockQuoteKind) -> AlertKind {
 
 #[cfg(test)]
 mod tests {
-    use indoc::indoc;
+    use indoc::{formatdoc, indoc};
     use rstest::rstest;
 
     use super::*;
@@ -181,7 +181,11 @@ mod tests {
             #[case] heading: &str,
             #[case] style: Style,
         ) {
-            let markdown = format!("> [!{marker}]\n> Body");
+            let markdown = formatdoc! {"
+                > [!{marker}]
+                > Body
+            "};
+
             assert_eq!(
                 from_str(&markdown),
                 Text::from_iter([
@@ -199,11 +203,15 @@ mod tests {
 
         #[rstest]
         fn custom_alert_style_applies_to_header_and_body(_with_tracing: DefaultGuard) {
-            let style = Style::new().on_red();
+            let markdown = indoc! {"
+                > [!NOTE]
+                > Body
+            "};
             let options = Options::new(CustomAlertStyleSheet);
+            let style = Style::new().on_red();
 
             assert_eq!(
-                from_str_with_options("> [!NOTE]\n> Body", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw(">"),
@@ -219,11 +227,15 @@ mod tests {
 
         #[rstest]
         fn custom_alert_icon_replaces_default(_with_tracing: DefaultGuard) {
-            let style = DefaultStyleSheet.alert(AlertKind::Note);
+            let markdown = indoc! {"
+                > [!NOTE]
+                > Body
+            "};
             let options = Options::new(CustomAlertHeadingStyleSheet);
+            let style = DefaultStyleSheet.alert(AlertKind::Note);
 
             assert_eq!(
-                from_str_with_options("> [!NOTE]\n> Body", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw(">"),
@@ -239,11 +251,15 @@ mod tests {
 
         #[rstest]
         fn empty_alert_icon_suppresses_icon_and_separator(_with_tracing: DefaultGuard) {
-            let style = DefaultStyleSheet.alert(AlertKind::Caution);
+            let markdown = indoc! {"
+                > [!CAUTION]
+                > Body
+            "};
             let options = Options::new(CustomAlertHeadingStyleSheet);
+            let style = DefaultStyleSheet.alert(AlertKind::Caution);
 
             assert_eq!(
-                from_str_with_options("> [!CAUTION]\n> Body", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw(">"),
@@ -259,11 +275,15 @@ mod tests {
 
         #[rstest]
         fn custom_alert_label_replaces_default(_with_tracing: DefaultGuard) {
-            let style = DefaultStyleSheet.alert(AlertKind::Tip);
+            let markdown = indoc! {"
+                > [!TIP]
+                > Body
+            "};
             let options = Options::new(CustomAlertHeadingStyleSheet);
+            let style = DefaultStyleSheet.alert(AlertKind::Tip);
 
             assert_eq!(
-                from_str_with_options("> [!TIP]\n> Body", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw(">"),
@@ -279,11 +299,15 @@ mod tests {
 
         #[rstest]
         fn empty_alert_label_suppresses_label_and_separator(_with_tracing: DefaultGuard) {
-            let style = DefaultStyleSheet.alert(AlertKind::Important);
+            let markdown = indoc! {"
+                > [!IMPORTANT]
+                > Body
+            "};
             let options = Options::new(CustomAlertHeadingStyleSheet);
+            let style = DefaultStyleSheet.alert(AlertKind::Important);
 
             assert_eq!(
-                from_str_with_options("> [!IMPORTANT]\n> Body", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw(">"),
@@ -308,9 +332,14 @@ mod tests {
 
         #[rstest]
         fn nested_blockquote_keeps_each_standard_prefix(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                > Parent
+                >> Child
+            "};
             let style = DefaultStyleSheet.blockquote();
+
             assert_eq!(
-                from_str("> Parent\n>> Child"),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([">", " ", "Parent"]).style(style),
                     Line::from_iter([">", " "]).style(style),
@@ -321,10 +350,16 @@ mod tests {
 
         #[rstest]
         fn alert_preserves_nested_blockquote(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                > [!NOTE]
+                > Parent
+                >> Child
+            "};
             let alert_style = Style::new().blue();
             let blockquote_style = DefaultStyleSheet.blockquote();
+
             assert_eq!(
-                from_str("> [!NOTE]\n> Parent\n>> Child"),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw(">"),
@@ -359,12 +394,14 @@ mod tests {
         /// test is to help debug and ensure that.
         #[rstest]
         fn after_paragraph(_with_tracing: DefaultGuard) {
-            assert_eq!(
-                from_str(indoc! {"
+            let markdown = indoc! {"
                 Hello, world!
 
                 > Blockquote
-            "}),
+            "};
+
+            assert_eq!(
+                from_str(markdown),
                 Text::from_iter([
                     Line::from("Hello, world!"),
                     Line::default(),
@@ -372,6 +409,25 @@ mod tests {
                 ])
             );
         }
+
+        #[rstest]
+        fn style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                > Blockquote
+
+                After
+            "};
+
+            assert_eq!(
+                from_str(markdown),
+                Text::from_iter([
+                    Line::from_iter([">", " ", "Blockquote"]).style(STYLE),
+                    Line::default(),
+                    Line::from("After"),
+                ])
+            );
+        }
+
         #[rstest]
         fn single(_with_tracing: DefaultGuard) {
             assert_eq!(
@@ -382,11 +438,13 @@ mod tests {
 
         #[rstest]
         fn soft_break(_with_tracing: DefaultGuard) {
-            assert_eq!(
-                from_str(indoc! {"
+            let markdown = indoc! {"
                 > Blockquote 1
                 > Blockquote 2
-            "}),
+            "};
+
+            assert_eq!(
+                from_str(markdown),
                 Text::from(
                     Line::from_iter([">", " ", "Blockquote 1", " ", "Blockquote 2"]).style(STYLE)
                 )
@@ -395,12 +453,14 @@ mod tests {
 
         #[rstest]
         fn multiple(_with_tracing: DefaultGuard) {
-            assert_eq!(
-                from_str(indoc! {"
+            let markdown = indoc! {"
                 > Blockquote 1
                 >
                 > Blockquote 2
-            "}),
+            "};
+
+            assert_eq!(
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
                     Line::from_iter([">", " "]).style(STYLE),
@@ -411,12 +471,14 @@ mod tests {
 
         #[rstest]
         fn multiple_with_break(_with_tracing: DefaultGuard) {
-            assert_eq!(
-                from_str(indoc! {"
+            let markdown = indoc! {"
                 > Blockquote 1
 
                 > Blockquote 2
-            "}),
+            "};
+
+            assert_eq!(
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
                     Line::default(),
@@ -427,11 +489,13 @@ mod tests {
 
         #[rstest]
         fn nested(_with_tracing: DefaultGuard) {
-            assert_eq!(
-                from_str(indoc! {"
+            let markdown = indoc! {"
                 > Blockquote 1
                 >> Nested Blockquote
-            "}),
+            "};
+
+            assert_eq!(
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
                     Line::from_iter([">", " "]).style(STYLE),

@@ -456,6 +456,16 @@ mod tests {
     }
 
     #[rstest]
+    fn paragraph_hard_break(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {r"
+            Hello\
+            World
+        "};
+
+        assert_eq!(from_str(markdown), Text::from_iter(["Hello", "World"]));
+    }
+
+    #[rstest]
     fn paragraph_multiple(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"

@@ -98,4 +98,16 @@ mod tests {
             ]))
         );
     }
+
+    #[rstest]
+    fn formatting_does_not_leak_into_following_text(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("Before **strong** after"),
+            Text::from(Line::from_iter([
+                Span::raw("Before "),
+                Span::raw("strong").bold(),
+                Span::raw(" after"),
+            ]))
+        );
+    }
 }

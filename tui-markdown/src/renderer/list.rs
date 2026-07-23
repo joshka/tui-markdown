@@ -145,6 +145,22 @@ mod tests {
     }
 
     #[rstest]
+    fn ordered_list_respects_start_index(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            10. Tenth
+            11. Eleventh
+        "};
+
+        assert_eq!(
+            from_str(markdown),
+            Text::from_iter([
+                Line::from_iter(["10. ".light_blue(), "Tenth".into()]),
+                Line::from_iter(["11. ".light_blue(), "Eleventh".into()]),
+            ])
+        );
+    }
+
+    #[rstest]
     fn list_nested(_with_tracing: DefaultGuard) {
         assert_eq!(
             from_str(indoc! {"
@@ -182,6 +198,24 @@ mod tests {
             Text::from_iter([
                 Line::from_iter(["1. ".light_blue(), "[ ] ".into(), "Incomplete".into(),]),
                 Line::from_iter(["2. ".light_blue(), "[x] ".into(), "Complete".into(),]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn list_does_not_indent_following_paragraph(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            - Item
+
+            After
+        "};
+
+        assert_eq!(
+            from_str(markdown),
+            Text::from_iter([
+                Line::from_iter(["- ", "Item"]),
+                Line::default(),
+                Line::from("After"),
             ])
         );
     }

@@ -207,6 +207,20 @@ mod tests {
         );
     }
 
+    #[rstest]
+    fn fenced_code_style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            ```rust
+            fn main() {}
+            ```
+
+            After
+        "};
+        let text = from_str(markdown);
+
+        assert_eq!(text.lines.last(), Some(&Line::from("After")));
+    }
+
     #[cfg(feature = "highlight-code")]
     mod code_theme {
         use pretty_assertions::assert_eq;

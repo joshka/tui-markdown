@@ -148,4 +148,28 @@ mod tests {
             )
         );
     }
+
+    #[rstest]
+    fn heading_attributes_do_not_carry_to_next_heading(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            # First {#first}
+            # Second
+        "};
+        let h1 = Style::new().on_cyan().bold().underlined();
+        let meta = Style::new().dim();
+
+        assert_eq!(
+            from_str(markdown),
+            Text::from_iter([
+                Line::from_iter([
+                    Span::raw("# "),
+                    Span::raw("First"),
+                    Span::styled(" {#first}", meta),
+                ])
+                .style(h1),
+                Line::default(),
+                Line::from_iter([Span::raw("# "), Span::raw("Second")]).style(h1),
+            ])
+        );
+    }
 }

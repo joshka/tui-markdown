@@ -49,6 +49,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
     use rstest::rstest;
 
     use super::*;
@@ -90,8 +91,18 @@ mod tests {
 
         #[rstest]
         fn html_block_preserves_paragraph_spacing(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Before
+
+                <div>
+                Custom HTML
+                </div>
+
+                After
+            "};
+
             assert_eq!(
-                from_str("Before\n\n<div>\nCustom HTML\n</div>\n\nAfter"),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from("Before"),
                     Line::default(),

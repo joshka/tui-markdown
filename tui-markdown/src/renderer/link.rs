@@ -70,4 +70,24 @@ mod tests {
             ]))
         );
     }
+
+    #[rstest]
+    fn consecutive_links_restore_surrounding_style(_with_tracing: DefaultGuard) {
+        let link_style = Style::new().blue().underlined();
+        assert_eq!(
+            from_str("[One](one) and [Two](two) after"),
+            Text::from(Line::from_iter([
+                Span::styled("One", link_style),
+                Span::raw(" ("),
+                Span::styled("one", link_style),
+                Span::raw(")"),
+                Span::raw(" and "),
+                Span::styled("Two", link_style),
+                Span::raw(" ("),
+                Span::styled("two", link_style),
+                Span::raw(")"),
+                Span::raw(" after"),
+            ]))
+        );
+    }
 }
