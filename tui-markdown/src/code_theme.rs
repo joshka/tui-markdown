@@ -18,11 +18,11 @@ use syntect::highlighting::{Theme, ThemeSet};
 /// types or version.
 #[derive(Clone, Debug)]
 pub struct CodeTheme {
-    backend: CodeThemeBackend,
+    source: ThemeSource,
 }
 
 #[derive(Clone, Debug)]
-enum CodeThemeBackend {
+enum ThemeSource {
     Builtin(BuiltinCodeTheme),
 }
 
@@ -31,7 +31,7 @@ impl CodeTheme {
     #[must_use]
     pub fn builtin(theme: BuiltinCodeTheme) -> Self {
         Self {
-            backend: CodeThemeBackend::Builtin(theme),
+            source: ThemeSource::Builtin(theme),
         }
     }
 }
@@ -67,7 +67,7 @@ pub enum BuiltinCodeTheme {
 }
 
 impl BuiltinCodeTheme {
-    fn backend_name(self) -> &'static str {
+    fn syntect_name(self) -> &'static str {
         match self {
             Self::Base16EightiesDark => "base16-eighties.dark",
             Self::Base16MochaDark => "base16-mocha.dark",
@@ -80,17 +80,17 @@ impl BuiltinCodeTheme {
     }
 }
 
-/// Returns the backend theme represented by a public theme.
-pub fn backend_theme(theme: &CodeTheme) -> &Theme {
-    match &theme.backend {
-        CodeThemeBackend::Builtin(theme) => builtin_theme(*theme),
+/// Resolves a public theme to the syntect theme used for highlighting.
+pub fn resolve(theme: &CodeTheme) -> &Theme {
+    match &theme.source {
+        ThemeSource::Builtin(theme) => builtin_theme(*theme),
     }
 }
 
 /// Returns the unresolved default theme used until options are applied.
 pub fn default_code_theme() -> &'static CodeTheme {
     static DEFAULT: CodeTheme = CodeTheme {
-        backend: CodeThemeBackend::Builtin(BuiltinCodeTheme::Base16OceanDark),
+        source: ThemeSource::Builtin(BuiltinCodeTheme::Base16OceanDark),
     };
     &DEFAULT
 }
@@ -98,7 +98,7 @@ pub fn default_code_theme() -> &'static CodeTheme {
 fn builtin_theme(theme: BuiltinCodeTheme) -> &'static Theme {
     THEMES
         .themes
-        .get(theme.backend_name())
+        .get(theme.syntect_name())
         .expect("every BuiltinCodeTheme variant must map to a bundled theme")
 }
 
@@ -113,13 +113,13 @@ mod tests {
         let default = CodeTheme::default();
 
         assert!(matches!(
-            default.backend,
-            CodeThemeBackend::Builtin(BuiltinCodeTheme::Base16OceanDark)
+            default.source,
+            ThemeSource::Builtin(BuiltinCodeTheme::Base16OceanDark)
         ));
     }
 
     #[test]
-    fn every_builtin_theme_has_a_backend_theme() {
+    fn every_builtin_theme_resolves() {
         let themes = [
             BuiltinCodeTheme::Base16EightiesDark,
             BuiltinCodeTheme::Base16MochaDark,
@@ -132,7 +132,7 @@ mod tests {
 
         for theme in themes {
             let theme = CodeTheme::builtin(theme);
-            let _ = backend_theme(&theme);
+            let _ = resolve(&theme);
         }
     }
 }

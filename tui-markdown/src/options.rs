@@ -241,9 +241,9 @@ mod tests {
     fn code_theme_has_a_default() {
         let options: Options = Options::default();
 
-        let selected = crate::code_theme::backend_theme(options.selected_code_theme());
+        let selected = crate::code_theme::resolve(options.selected_code_theme());
         let default = CodeTheme::default();
-        let expected = crate::code_theme::backend_theme(&default);
+        let expected = crate::code_theme::resolve(&default);
         assert!(std::ptr::eq(selected, expected));
     }
 
@@ -254,8 +254,8 @@ mod tests {
         let options = Options::default().code_theme(theme.clone());
 
         assert!(std::ptr::eq(
-            crate::code_theme::backend_theme(options.selected_code_theme()),
-            crate::code_theme::backend_theme(&theme)
+            crate::code_theme::resolve(options.selected_code_theme()),
+            crate::code_theme::resolve(&theme)
         ));
     }
 }
