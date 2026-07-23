@@ -6,7 +6,7 @@
 //!
 //! GitHub-flavored Markdown tables render with Unicode box-drawing borders, terminal-width-aware
 //! columns, and the alignment declared by the Markdown delimiter row. Use [`StyleSheet`] to
-//! customize header content, body content, and borders.
+//! customize header cells, body cells, and borders.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example

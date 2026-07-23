@@ -132,18 +132,18 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         kind.label()
     }
 
-    /// Style patched onto content in the table header row.
+    /// Style patched onto cells in the table header row.
     ///
-    /// Properties set by this style override the same properties in an inline style. Cell padding
-    /// and borders are separate spans and do not receive this style.
+    /// Properties set by this style override the same properties in an inline style. The style
+    /// covers cell padding, while borders use [`Self::table_border`].
     fn table_header(&self) -> Style {
         Style::new().bold().cyan()
     }
 
-    /// Style patched onto content in ordinary table cells.
+    /// Style patched onto ordinary table cells.
     ///
-    /// Properties set by this style override the same properties in an inline style. Cell padding
-    /// and borders are separate spans and do not receive this style.
+    /// Properties set by this style override the same properties in an inline style. The style
+    /// covers cell padding, while borders use [`Self::table_border`].
     fn table_cell(&self) -> Style {
         Style::default()
     }

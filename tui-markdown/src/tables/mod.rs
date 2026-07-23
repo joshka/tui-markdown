@@ -232,20 +232,14 @@ impl<'a> TableCell<'a> {
         style: Style,
     ) -> Vec<Span<'a>> {
         let (pad_left, pad_right) = padding(column_width, self.width(), alignment);
-        let mut spans = vec![Span::raw(" ")];
+        let mut spans = vec![Span::styled(" ".repeat(pad_left + 1), style)];
 
-        if pad_left > 0 {
-            spans.push(Span::raw(" ".repeat(pad_left)));
-        }
         for span in &self.spans {
             let mut span = span.clone();
             span.style = span.style.patch(style);
             spans.push(span);
         }
-        if pad_right > 0 {
-            spans.push(Span::raw(" ".repeat(pad_right)));
-        }
-        spans.push(Span::raw(" "));
+        spans.push(Span::styled(" ".repeat(pad_right + 1), style));
         spans
     }
 }

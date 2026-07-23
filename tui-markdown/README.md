@@ -77,9 +77,9 @@ alignment:
 ```
 
 Column widths use terminal display width, so wide CJK and emoji characters remain aligned. Use
-[`StyleSheet::table_header()`] for header content, [`StyleSheet::table_cell()`] for body content,
-and [`StyleSheet::table_border()`] for the box-drawing borders. These styles preserve inline
-formatting unless they set the same style property.
+[`StyleSheet::table_header()`] for header cells, [`StyleSheet::table_cell()`] for body cells, and
+[`StyleSheet::table_border()`] for the box-drawing borders. Cell styles cover content and padding
+while preserving inline formatting unless they set the same style property.
 
 Links are rendered as `label (URL)`. The link style applies to both the visible label and URL while
 preserving nested inline formatting such as bold text.

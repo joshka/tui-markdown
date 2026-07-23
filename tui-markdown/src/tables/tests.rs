@@ -32,6 +32,28 @@ fn padding_for_each_alignment() {
 }
 
 #[test]
+fn cell_style_covers_padding_and_empty_cells() {
+    let style = Style::new().on_green();
+    let cell = TableCell {
+        spans: vec![Span::raw("x")],
+    };
+    assert_eq!(
+        cell.render_spans(4, Alignment::Center, style),
+        [
+            Span::styled("  ", style),
+            Span::styled("x", style),
+            Span::styled("   ", style),
+        ]
+    );
+
+    let empty_cell = TableCell::default();
+    assert_eq!(
+        empty_cell.render_spans(4, Alignment::Right, style),
+        [Span::styled("     ", style), Span::styled(" ", style)]
+    );
+}
+
+#[test]
 fn column_widths_have_a_minimum_of_one() {
     let mut builder = TableBuilder::new(vec![]);
     builder.header.cells.push(TableCell::default());
@@ -158,7 +180,7 @@ impl StyleSheet for CustomTableStyleSheet {
     }
 
     fn link(&self) -> Style {
-        Style::default()
+        Style::new().blue().underlined()
     }
 
     fn blockquote(&self) -> Style {
@@ -178,7 +200,7 @@ impl StyleSheet for CustomTableStyleSheet {
     }
 
     fn table_cell(&self) -> Style {
-        Style::new().on_green()
+        Style::new().red().on_green()
     }
 
     fn table_border(&self) -> Style {
@@ -190,7 +212,7 @@ impl StyleSheet for CustomTableStyleSheet {
 fn custom_styles_apply_to_header_cells_body_cells_and_borders() {
     let border_style = Style::new().red();
     let header_style = Style::new().on_blue();
-    let cell_style = Style::new().on_green();
+    let cell_style = Style::new().red().on_green();
     let options = Options::new(CustomTableStyleSheet);
     let text = from_str_with_options(
         indoc! {"
@@ -206,17 +228,17 @@ fn custom_styles_apply_to_header_cells_body_cells_and_borders() {
             Line::from(Span::styled("┌───┐", border_style)),
             Line::from_iter([
                 Span::styled("│", border_style),
-                Span::raw(" "),
+                Span::styled(" ", header_style),
                 Span::styled("A", header_style),
-                Span::raw(" "),
+                Span::styled(" ", header_style),
                 Span::styled("│", border_style),
             ]),
             Line::from(Span::styled("├───┤", border_style)),
             Line::from_iter([
                 Span::styled("│", border_style),
-                Span::raw(" "),
+                Span::styled(" ", cell_style),
                 Span::styled("a", cell_style),
-                Span::raw(" "),
+                Span::styled(" ", cell_style),
                 Span::styled("│", border_style),
             ]),
             Line::from(Span::styled("└───┘", border_style)),
@@ -239,7 +261,30 @@ fn custom_cell_style_composes_with_inline_formatting() {
 
     assert!(body
         .spans
-        .contains(&Span::styled("bold", Style::new().bold().on_green())));
+        .contains(&Span::styled("bold", Style::new().bold().red().on_green())));
+}
+
+#[test]
+fn table_cell_style_overrides_conflicting_inline_properties() {
+    let options = Options::new(CustomTableStyleSheet);
+    let text = from_str_with_options(
+        indoc! {"
+            | A |
+            |---|
+            | [docs](url) |
+        "},
+        &options,
+    );
+    let link = text.lines[3]
+        .spans
+        .iter()
+        .find(|span| span.content == "docs")
+        .expect("link cell content");
+
+    assert_eq!(
+        link,
+        &Span::styled("docs", Style::new().red().underlined().on_green())
+    );
 }
 
 #[test]
