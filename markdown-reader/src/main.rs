@@ -25,7 +25,6 @@ fn main() -> Result<()> {
     info!("Reading file {:?}", args.path);
     let markdown = read_file(&args.path)?;
     let text = tui_markdown::from_str_with_options(&markdown, &options);
-    let _height = text.height();
     let events = Events::new()?;
 
     // Keep startup errors out of the alternate screen and enter terminal mode only after every
