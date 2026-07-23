@@ -97,7 +97,6 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn definition_description(&self) -> Style {
         Style::default()
     }
-
     /// Style for a GFM alert heading and body.
     ///
     /// The generated icon and label are bold in addition to this base style.
@@ -132,6 +131,29 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn alert_label(&self, kind: AlertKind) -> &str {
         kind.label()
     }
+
+    /// Style patched onto cells in the table header row.
+    ///
+    /// Properties set by this style override the same properties in an inline style. The style
+    /// covers cell padding, while borders use [`Self::table_border`].
+    fn table_header(&self) -> Style {
+        Style::new().bold().cyan()
+    }
+
+    /// Style patched onto ordinary table cells.
+    ///
+    /// Properties set by this style override the same properties in an inline style. The style
+    /// covers cell padding, while borders use [`Self::table_border`].
+    fn table_cell(&self) -> Style {
+        Style::default()
+    }
+
+    /// Style for the Unicode box-drawing characters around table cells.
+    ///
+    /// This changes the presentation of the borders, not the box-drawing characters themselves.
+    fn table_border(&self) -> Style {
+        Style::new().dark_gray()
+    }
 }
 
 /// The default style set
@@ -159,6 +181,9 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - important alerts: magenta
 /// - warning alerts: yellow
 /// - caution alerts: red
+/// - table headers: bold cyan
+/// - table cells: the surrounding style
+/// - table borders: dark gray
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 

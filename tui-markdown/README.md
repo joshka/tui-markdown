@@ -48,7 +48,7 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 - [x] Definition lists
 - [x] Linebreak handling
 - [x] Rule
-- [ ] Tables
+- [x] Tables
 - [x] Tasklists
 - [x] Links
 - [ ] Images
@@ -58,6 +58,28 @@ This is working code, but not every markdown feature is supported. PRs welcome!
 
 Linebreaks are rendered with Markdown defaults: soft breaks become spaces, hard breaks insert a
 new line.
+
+GFM tables render with Unicode box-drawing borders and honor left, center, and right column
+alignment:
+
+```markdown
+| Name | Status |
+|:-----|-------:|
+| API  | Ready  |
+```
+
+```text
+┌──────┬────────┐
+│ Name │ Status │
+├──────┼────────┤
+│ API  │  Ready │
+└──────┴────────┘
+```
+
+Column widths use terminal display width, so wide CJK and emoji characters remain aligned. Use
+[`StyleSheet::table_header()`] for header cells, [`StyleSheet::table_cell()`] for body cells, and
+[`StyleSheet::table_border()`] for the box-drawing borders. Cell styles cover content and padding
+while preserving inline formatting unless they set the same style property.
 
 Links are rendered as `label (URL)`. The link style applies to both the visible label and URL while
 preserving nested inline formatting such as bold text.
@@ -150,6 +172,9 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::alert()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert
 [`StyleSheet::alert_icon()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert_icon
 [`StyleSheet::alert_label()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.alert_label
+[`StyleSheet::table_border()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_border
+[`StyleSheet::table_cell()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_cell
+[`StyleSheet::table_header()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_header
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge

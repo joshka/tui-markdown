@@ -3,6 +3,10 @@
 //! This module provides a simple markdown renderer widget for Ratatui. It uses the `pulldown-cmark`
 //! crate to parse markdown and convert it to a `Text` widget. The `Text` widget can then be
 //! rendered to the terminal using the 'Ratatui' library.
+//!
+//! GitHub-flavored Markdown tables render with Unicode box-drawing borders, terminal-width-aware
+//! columns, and the alignment declared by the Markdown delimiter row. Use [`StyleSheet`] to
+//! customize header cells, body cells, and borders.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example
@@ -57,6 +61,7 @@ pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
 mod options;
 mod style_sheet;
+mod tables;
 
 /// Render Markdown `input` into a [`Text`] using the default [`Options`].
 ///
@@ -94,6 +99,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_FOOTNOTES);
     parse_opts.insert(ParseOptions::ENABLE_DEFINITION_LIST);
     parse_opts.insert(ParseOptions::ENABLE_GFM);
+    parse_opts.insert(ParseOptions::ENABLE_TABLES);
     let parser = Parser::new_ext(input, parse_opts);
 
     let mut writer = TextWriter::new(parser, options.styles.clone());
@@ -157,6 +163,28 @@ fn alert_kind(kind: BlockQuoteKind) -> AlertKind {
     }
 }
 
+/// Records how an active list item occupies the rendered output.
+///
+/// List markers are written as soon as pulldown-cmark emits an item start, but tables are buffered
+/// until the matching table end. Remembering the marker's location lets the completed table attach
+/// to that already-written marker instead of appearing as a separate, unindented block. These
+/// values form a stack because an outer item remains active while a nested item is parsed.
+#[derive(Clone, Copy, Debug)]
+struct ListItemLayout {
+    /// Output line containing the list marker.
+    marker_line: usize,
+    /// Number of spans on `marker_line` immediately after writing the marker.
+    ///
+    /// Comparing this with the eventual span count distinguishes a table that is the item's first
+    /// content from a table following text on the same line.
+    marker_span_count: usize,
+    /// Display width reserved by the complete marker, including nesting indentation.
+    ///
+    /// This uses terminal display width rather than bytes so continuation lines align after
+    /// unordered markers and multi-digit ordered markers alike.
+    continuation_width: usize,
+}
+
 struct TextWriter<'a, I, S: StyleSheet> {
     /// Iterator supplying events.
     iter: I,
@@ -182,6 +210,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
 
+    /// Layout of each active list item, from the outermost item to the innermost.
+    list_items: Vec<ListItemLayout>,
+
     /// A link which will be appended to the current line when the link tag is closed.
     link: Option<CowStr<'a>>,
 
@@ -199,6 +230,9 @@ struct TextWriter<'a, I, S: StyleSheet> {
 
     /// Whether we are inside a definition-list description.
     in_definition_description: bool,
+
+    /// Active table builder that accumulates cells during table parsing.
+    table_builder: Option<tables::TableBuilder<'a>>,
 
     needs_newline: bool,
 }
@@ -221,6 +255,7 @@ where
             line_styles: vec![],
             line_prefixes: vec![],
             list_indices: vec![],
+            list_items: vec![],
             needs_newline: false,
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
@@ -230,6 +265,7 @@ where
             in_metadata_block: false,
             in_footnote_definition: false,
             in_definition_description: false,
+            table_builder: None,
         }
     }
 
@@ -274,10 +310,10 @@ where
             Tag::List(start_index) => self.start_list(start_index),
             Tag::Item => self.start_item(),
             Tag::FootnoteDefinition(label) => self.start_footnote_definition(label),
-            Tag::Table(_) => warn!("Table not yet supported"),
-            Tag::TableHead => warn!("Table head not yet supported"),
-            Tag::TableRow => warn!("Table row not yet supported"),
-            Tag::TableCell => warn!("Table cell not yet supported"),
+            Tag::Table(alignments) => self.start_table(alignments),
+            Tag::TableHead => {}
+            Tag::TableRow => {}
+            Tag::TableCell => self.start_table_cell(),
             Tag::Emphasis => self.push_inline_style(Style::new().italic()),
             Tag::Strong => self.push_inline_style(Style::new().bold()),
             Tag::Strikethrough => self.push_inline_style(Style::new().crossed_out()),
@@ -300,12 +336,12 @@ where
             TagEnd::CodeBlock => self.end_codeblock(),
             TagEnd::HtmlBlock => self.end_html_block(),
             TagEnd::List(_is_ordered) => self.end_list(),
-            TagEnd::Item => {}
+            TagEnd::Item => self.end_item(),
             TagEnd::FootnoteDefinition => self.end_footnote_definition(),
-            TagEnd::Table => {}
-            TagEnd::TableHead => {}
-            TagEnd::TableRow => {}
-            TagEnd::TableCell => {}
+            TagEnd::Table => self.end_table(),
+            TagEnd::TableHead => self.end_table_header(),
+            TagEnd::TableRow => self.end_table_row(),
+            TagEnd::TableCell => self.end_table_cell(),
             TagEnd::Emphasis => self.pop_inline_style(),
             TagEnd::Strong => self.pop_inline_style(),
             TagEnd::Strikethrough => self.pop_inline_style(),
@@ -422,6 +458,12 @@ where
     }
 
     fn text(&mut self, text: CowStr<'a>) {
+        if self.table_builder.is_some() {
+            let style = self.inline_styles.last().copied().unwrap_or_default();
+            self.push_span(Span::styled(text, style));
+            return;
+        }
+
         #[cfg(feature = "highlight-code")]
         if let Some(highlighter) = &mut self.code_highlighter {
             let text: Text = LinesWithEndings::from(&text)
@@ -504,6 +546,7 @@ where
     }
 
     fn start_item(&mut self) {
+        let marker_line = self.text.lines.len();
         self.push_line(Line::default());
         let width = self.list_indices.len() * 4 - 3;
         if let Some(last_index) = self.list_indices.last_mut() {
@@ -514,9 +557,20 @@ where
                     format!("{:width$}. ", *index - 1).light_blue()
                 }
             };
+            let continuation_width = span.width();
             self.push_span(span);
+            let marker_span_count = self.text.lines[marker_line].spans.len();
+            self.list_items.push(ListItemLayout {
+                marker_line,
+                marker_span_count,
+                continuation_width,
+            });
         }
         self.needs_newline = false;
+    }
+
+    fn end_item(&mut self) {
+        self.list_items.pop();
     }
 
     fn task_list_marker(&mut self, checked: bool) {
@@ -632,6 +686,16 @@ where
 
     #[instrument(level = "trace", skip(self))]
     fn push_span(&mut self, span: Span<'a>) {
+        // GFM tables are leaf blocks: their cells parse inline content, and block-level elements
+        // cannot occur inside them. Pulldown-cmark preserves that boundary by emitting only inline
+        // events inside `TableCell`. Keep the active cell as the single span sink anyway so a new
+        // inline event handler cannot accidentally write table content into the surrounding text.
+        // See <https://github.github.com/gfm/#tables-extension->.
+        if let Some(builder) = &mut self.table_builder {
+            builder.push_span(span);
+            return;
+        }
+
         if let Some(line) = self.text.lines.last_mut() {
             line.push_span(span);
         } else {
@@ -776,6 +840,85 @@ where
         self.pop_inline_style();
         self.in_definition_description = false;
         self.needs_newline = false;
+    }
+
+    fn start_table(&mut self, alignments: Vec<pulldown_cmark::Alignment>) {
+        if self.needs_newline {
+            self.push_line(Line::default());
+        }
+        self.table_builder = Some(tables::TableBuilder::new(alignments));
+        self.needs_newline = false;
+    }
+
+    fn end_table_header(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.finish_header();
+        }
+    }
+
+    fn end_table_row(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.finish_row();
+        }
+    }
+
+    fn start_table_cell(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.start_cell();
+        }
+    }
+
+    fn end_table_cell(&mut self) {
+        if let Some(builder) = &mut self.table_builder {
+            builder.finish_cell();
+        }
+    }
+
+    fn end_table(&mut self) {
+        if let Some(builder) = self.table_builder.take() {
+            let lines = builder.render(&self.styles);
+            self.push_table_lines(lines);
+            self.needs_newline = true;
+        }
+    }
+
+    /// Adds a buffered table to the output while preserving an active list item's layout.
+    ///
+    /// A table that is the first content in an item starts on the marker line. Its remaining lines
+    /// are indented by the marker's display width. A later table cannot reuse the marker line, but
+    /// all of its lines still need the continuation indentation.
+    ///
+    /// Table rendering currently puts styles on individual spans and leaves the line style and
+    /// alignment at their defaults. This makes it safe to move the first rendered line's spans
+    /// onto the existing marker line.
+    fn push_table_lines(&mut self, lines: Vec<Line<'a>>) {
+        let Some(list_item) = self.list_items.last().copied() else {
+            for line in lines {
+                self.push_line(line);
+            }
+            return;
+        };
+
+        let mut lines = lines.into_iter();
+        // The line position alone is insufficient: inline item content may already have appended
+        // spans to the marker line before the table was buffered.
+        let marker_line_is_last = self.text.lines.len() == list_item.marker_line + 1;
+        let marker_has_no_content =
+            self.text.lines[list_item.marker_line].spans.len() == list_item.marker_span_count;
+        let table_starts_on_marker = marker_line_is_last && marker_has_no_content;
+        if table_starts_on_marker {
+            if let Some(first_line) = lines.next() {
+                self.text.lines[list_item.marker_line]
+                    .spans
+                    .extend(first_line.spans);
+            }
+        }
+
+        let continuation = " ".repeat(list_item.continuation_width);
+        for mut line in lines {
+            line.spans.insert(0, Span::raw(continuation.clone()));
+            self.push_line(line);
+        }
     }
 }
 
