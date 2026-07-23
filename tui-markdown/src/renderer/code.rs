@@ -60,14 +60,20 @@ where
         #[cfg(feature = "highlight-code")]
         self.set_code_highlighter(lang);
 
-        let span = Span::from(format!("```{lang}"));
-        self.push_line(span.into());
+        let fence = self.styles.code_block_fence();
+        if !fence.is_empty() {
+            let span = Span::from(format!("{fence}{lang}"));
+            self.push_line(span.into());
+        }
         self.needs_newline = true;
     }
 
     pub fn end_codeblock(&mut self) {
-        let span = Span::from("```");
-        self.push_line(span.into());
+        let fence = self.styles.code_block_fence();
+        if !fence.is_empty() {
+            let span = Span::from(fence.to_owned());
+            self.push_line(span.into());
+        }
         self.needs_newline = true;
 
         #[cfg(not(feature = "highlight-code"))]
@@ -139,6 +145,40 @@ mod tests {
     use super::*;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
     use crate::renderer::*;
+    use crate::DefaultStyleSheet;
+
+    #[derive(Clone, Copy)]
+    struct CustomCodeBlockFence(&'static str);
+
+    impl StyleSheet for CustomCodeBlockFence {
+        fn heading(&self, level: u8) -> Style {
+            DefaultStyleSheet.heading(level)
+        }
+
+        fn code(&self) -> Style {
+            DefaultStyleSheet.code()
+        }
+
+        fn link(&self) -> Style {
+            DefaultStyleSheet.link()
+        }
+
+        fn blockquote(&self) -> Style {
+            DefaultStyleSheet.blockquote()
+        }
+
+        fn heading_meta(&self) -> Style {
+            DefaultStyleSheet.heading_meta()
+        }
+
+        fn metadata_block(&self) -> Style {
+            DefaultStyleSheet.metadata_block()
+        }
+
+        fn code_block_fence(&self) -> &str {
+            self.0
+        }
+    }
 
     #[cfg_attr(not(feature = "highlight-code"), ignore)]
     #[rstest]
@@ -219,6 +259,48 @@ mod tests {
         let text = from_str(markdown);
 
         assert_eq!(text.lines.last(), Some(&Line::from("After")));
+    }
+
+    #[rstest]
+    fn custom_code_block_fence(_with_tracing: DefaultGuard) {
+        let options = Options::new(CustomCodeBlockFence("~~~"));
+        let markdown = "```not-a-language\ncode\n```";
+
+        assert_eq!(
+            from_str_with_options(markdown, &options).to_string(),
+            "~~~not-a-language\ncode\n~~~"
+        );
+    }
+
+    #[rstest]
+    fn empty_code_block_fence_preserves_spacing(_with_tracing: DefaultGuard) {
+        let options = Options::new(CustomCodeBlockFence(""));
+        let markdown = "Before\n\n```not-a-language\ncode\n```\n\nAfter";
+
+        assert_eq!(
+            from_str_with_options(markdown, &options).to_string(),
+            "Before\n\ncode\n\nAfter"
+        );
+    }
+
+    #[rstest]
+    fn empty_code_block_fence_applies_to_indented_code(_with_tracing: DefaultGuard) {
+        let options = Options::new(CustomCodeBlockFence(""));
+
+        assert_eq!(
+            from_str_with_options("    indented code", &options).to_string(),
+            "indented code"
+        );
+    }
+
+    #[cfg(feature = "highlight-code")]
+    #[rstest]
+    fn empty_code_block_fence_applies_to_highlighted_code(_with_tracing: DefaultGuard) {
+        let options = Options::new(CustomCodeBlockFence(""));
+        let markdown = "```rust\nfn main() {}\n```";
+        let text = from_str_with_options(markdown, &options);
+
+        assert_eq!(text.to_string(), "fn main() {}");
     }
 
     #[cfg(feature = "highlight-code")]

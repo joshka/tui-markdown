@@ -71,7 +71,12 @@ where
             HeadingLevel::H6 => 6,
         };
         let style = self.styles.heading(heading_level);
-        let content = format!("{} ", "#".repeat(heading_level as usize));
+        let marker = self.styles.heading_marker(heading_level);
+        let content = if marker.is_empty() {
+            String::new()
+        } else {
+            format!("{marker} ")
+        };
         self.push_line(Line::styled(content, style));
         self.heading_meta = heading_meta.into_option();
         self.needs_newline = false;
@@ -91,11 +96,49 @@ where
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
+    use ratatui_core::style::Style;
     use rstest::rstest;
 
     use super::*;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
     use crate::renderer::*;
+    use crate::DefaultStyleSheet;
+
+    #[derive(Clone, Copy)]
+    struct CustomHeadingMarker;
+
+    impl StyleSheet for CustomHeadingMarker {
+        fn heading(&self, level: u8) -> Style {
+            DefaultStyleSheet.heading(level)
+        }
+
+        fn code(&self) -> Style {
+            DefaultStyleSheet.code()
+        }
+
+        fn link(&self) -> Style {
+            DefaultStyleSheet.link()
+        }
+
+        fn blockquote(&self) -> Style {
+            DefaultStyleSheet.blockquote()
+        }
+
+        fn heading_meta(&self) -> Style {
+            DefaultStyleSheet.heading_meta()
+        }
+
+        fn metadata_block(&self) -> Style {
+            DefaultStyleSheet.metadata_block()
+        }
+
+        fn heading_marker(&self, level: u8) -> &str {
+            match level {
+                1 => "",
+                _ => "§",
+            }
+        }
+    }
 
     #[rstest]
     fn headings(_with_tracing: DefaultGuard) {
@@ -170,6 +213,39 @@ mod tests {
                 Line::default(),
                 Line::from_iter([Span::raw("# "), Span::raw("Second")]).style(h1),
             ])
+        );
+    }
+
+    #[rstest]
+    fn custom_and_empty_heading_markers(_with_tracing: DefaultGuard) {
+        let options = Options::new(CustomHeadingMarker);
+        let h1 = Style::new().on_cyan().bold().underlined();
+        let h2 = Style::new().cyan().bold();
+
+        assert_eq!(
+            from_str_with_options("# Hidden\n\n## Custom", &options),
+            Text::from_iter([
+                Line::from("Hidden").style(h1),
+                Line::default(),
+                Line::from_iter(["§ ", "Custom"]).style(h2),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn empty_heading_marker_preserves_attributes(_with_tracing: DefaultGuard) {
+        let options = Options::new(CustomHeadingMarker);
+        let h1 = Style::new().on_cyan().bold().underlined();
+
+        assert_eq!(
+            from_str_with_options("# Heading {#title}", &options),
+            Text::from(
+                Line::from_iter([
+                    Span::raw("Heading"),
+                    Span::styled(" {#title}", Style::new().dim()),
+                ])
+                .style(h1)
+            )
         );
     }
 }

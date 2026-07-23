@@ -73,6 +73,64 @@ fn options() -> Result<Options, CodeThemeLoadError> {
 [`include_str!`]: https://doc.rust-lang.org/std/macro.include_str.html
 [`BuiltinCodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/enum.BuiltinCodeTheme.html
 
+### Markdown presentation symbols
+
+The renderer normally retains heading markers and frames block code with triple backticks. A custom
+style sheet can replace either symbol with [`StyleSheet::heading_marker()`] and
+[`StyleSheet::code_block_fence()`], or return an empty string to hide it:
+
+```rust
+use ratatui::style::Style;
+use tui_markdown::{from_str_with_options, DefaultStyleSheet, Options, StyleSheet};
+
+#[derive(Clone, Copy)]
+struct MinimalStyleSheet;
+
+impl StyleSheet for MinimalStyleSheet {
+    fn heading(&self, level: u8) -> Style {
+        DefaultStyleSheet.heading(level)
+    }
+
+    fn code(&self) -> Style {
+        DefaultStyleSheet.code()
+    }
+
+    fn link(&self) -> Style {
+        DefaultStyleSheet.link()
+    }
+
+    fn blockquote(&self) -> Style {
+        DefaultStyleSheet.blockquote()
+    }
+
+    fn heading_meta(&self) -> Style {
+        DefaultStyleSheet.heading_meta()
+    }
+
+    fn metadata_block(&self) -> Style {
+        DefaultStyleSheet.metadata_block()
+    }
+
+    fn heading_marker(&self, _level: u8) -> &str {
+        ""
+    }
+
+    fn code_block_fence(&self) -> &str {
+        ""
+    }
+}
+
+let options = Options::new(MinimalStyleSheet);
+let markdown = "# Heading\n\n```text\ncode\n```";
+let text = from_str_with_options(markdown, &options);
+
+assert_eq!(text.to_string(), "Heading\n\ncode");
+```
+
+The code-block fence choice is independent of syntax highlighting and applies to fenced and
+indented code blocks alike. Other presentation symbols, such as list markers, blockquote prefixes,
+image indicators, and table borders, retain their standard output.
+
 ## Status
 
 This is working code, but not every markdown feature is supported. PRs welcome!
@@ -236,6 +294,8 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::table_border()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_border
 [`StyleSheet::table_cell()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_cell
 [`StyleSheet::table_header()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.table_header
+[`StyleSheet::heading_marker()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.heading_marker
+[`StyleSheet::code_block_fence()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.code_block_fence
 [`ImageFallback`]: https://docs.rs/tui-markdown/latest/tui_markdown/enum.ImageFallback.html
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge

@@ -61,6 +61,30 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 
     /// Style for metadata blocks (front matter).
     fn metadata_block(&self) -> Style;
+
+    /// Marker displayed before a Markdown heading.
+    ///
+    /// `level` is one-based (`1` for an H1, …). The renderer adds one separating space after a
+    /// non-empty marker. Return an empty string to omit the marker and its separator.
+    fn heading_marker(&self, level: u8) -> &str {
+        match level {
+            1 => "#",
+            2 => "##",
+            3 => "###",
+            4 => "####",
+            5 => "#####",
+            _ => "######",
+        }
+    }
+
+    /// Delimiter displayed above and below block code.
+    ///
+    /// The renderer appends fenced-code info to the opening delimiter. Return an empty string to
+    /// omit both delimiter lines.
+    fn code_block_fence(&self) -> &str {
+        "```"
+    }
+
     /// Style for raw HTML blocks and inline HTML tags.
     fn html(&self) -> Style {
         Style::new().dim()
@@ -174,6 +198,8 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - link: blue, underlined
 /// - blockquote: green
 /// - metadata block: light yellow
+/// - heading markers: one to six `#` characters
+/// - code block fences: three backticks
 /// - raw HTML: dim
 /// - inline math: magenta, italic
 /// - display math: magenta

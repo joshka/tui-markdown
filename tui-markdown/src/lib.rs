@@ -1,8 +1,8 @@
 //! Convert Markdown into Ratatui [`Text`](ratatui_core::text::Text).
 //!
 //! [`from_str`] renders with the default styles and options. [`from_str_with_options`] accepts an
-//! [`Options`] value for a custom [`StyleSheet`], image fallback mode, and, when the
-//! `highlight-code` feature is enabled, syntax-highlighting theme.
+//! [`Options`] value for custom [`StyleSheet`] styles and symbols, image fallback mode, and, when
+//! the `highlight-code` feature is enabled, syntax-highlighting theme.
 //!
 //! The returned text may borrow from the Markdown input. It contains terminal text and styles only;
 //! image syntax produces a configurable text fallback and does not read or render image resources.
