@@ -145,6 +145,96 @@ mod tests {
     }
 
     #[rstest]
+    fn styled_list_items_keep_content_on_marker_line(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            - *Emphasis* and **strong**
+            - Before **strong *emphasis*** after
+
+            1. **Strong**
+            2. Before *emphasis* after
+        "};
+
+        assert_eq!(
+            from_str(markdown),
+            Text::from_iter([
+                Line::from_iter([
+                    Span::raw("- "),
+                    Span::raw("Emphasis").italic(),
+                    Span::raw(" and "),
+                    Span::raw("strong").bold(),
+                ]),
+                Line::from_iter([
+                    Span::raw("- "),
+                    Span::raw("Before "),
+                    Span::raw("strong ").bold(),
+                    Span::raw("emphasis").bold().italic(),
+                    Span::raw(" after"),
+                ]),
+                Line::default(),
+                Line::from_iter([Span::raw("1. ").light_blue(), Span::raw("Strong").bold()]),
+                Line::from_iter([
+                    Span::raw("2. ").light_blue(),
+                    Span::raw("Before "),
+                    Span::raw("emphasis").italic(),
+                    Span::raw(" after"),
+                ]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn loose_styled_list_items_keep_first_paragraph_on_marker_line(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            - *Emphasized first item.*
+
+            - **Strong second item.**
+
+            1. **Strong first item.**
+
+            2. *Emphasized second item.*
+        "};
+
+        // Regression: loose lists emit paragraph boundaries after their item markers.
+        assert_eq!(
+            from_str(markdown),
+            Text::from_iter([
+                Line::from_iter([
+                    Span::raw("- "),
+                    Span::raw("Emphasized first item.").italic(),
+                ]),
+                Line::from_iter([Span::raw("- "), Span::raw("Strong second item.").bold(),]),
+                Line::default(),
+                Line::from_iter([
+                    Span::raw("1. ").light_blue(),
+                    Span::raw("Strong first item.").bold(),
+                ]),
+                Line::from_iter([
+                    Span::raw("2. ").light_blue(),
+                    Span::raw("Emphasized second item.").italic(),
+                ]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn later_styled_paragraph_in_list_stays_separate(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            - **First paragraph.**
+
+              *Second paragraph.*
+        "};
+
+        assert_eq!(
+            from_str(markdown),
+            Text::from_iter([
+                Line::from_iter([Span::raw("- "), Span::raw("First paragraph.").bold(),]),
+                Line::default(),
+                Line::from(Span::raw("Second paragraph.").italic()),
+            ])
+        );
+    }
+
+    #[rstest]
     fn ordered_list_respects_start_index(_with_tracing: DefaultGuard) {
         let markdown = indoc! {"
             10. Tenth
