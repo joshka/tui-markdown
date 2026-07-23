@@ -13,8 +13,9 @@
 //! resources.
 //!
 //! The default `highlight-code` feature highlights fenced code blocks whose language is recognized,
-//! using `Base16OceanDark` unless [`Options`] selects another built-in theme.
-//! Fences without a recognized language remain unhighlighted.
+//! using `Base16OceanDark` unless [`Options`] selects another `CodeTheme`.
+//! Themes can be bundled with tui-markdown, parsed from TextMate source, or loaded from a TextMate
+//! file. Fences without a recognized language remain unhighlighted.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example

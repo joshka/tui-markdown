@@ -55,7 +55,8 @@ fn options() -> Result<Options, CodeThemeLoadError> {
 ```
 
 Use [`CodeTheme::from_textmate`] with [`include_str!`] to compile a theme into the application
-instead of reading it at runtime:
+instead of reading it at runtime. The returned theme owns the parsed data and does not borrow the
+source string:
 
 ```rust
 use tui_markdown::{CodeTheme, CodeThemeLoadError, Options};
@@ -67,7 +68,6 @@ fn options() -> Result<Options, CodeThemeLoadError> {
 }
 ```
 
-[`CodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html
 [`CodeTheme::from_file`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html#method.from_file
 [`CodeTheme::from_textmate`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html#method.from_textmate
 [`include_str!`]: https://doc.rust-lang.org/std/macro.include_str.html

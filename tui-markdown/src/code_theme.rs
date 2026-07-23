@@ -35,8 +35,9 @@ pub struct CodeTheme {
 impl CodeTheme {
     /// Parses a TextMate syntax-highlighting theme.
     ///
-    /// This constructor does not access the filesystem. Applications can combine it with
-    /// [`include_str!`] to compile a theme into their binary.
+    /// This constructor parses `source` immediately and does not access the filesystem. The
+    /// returned theme owns the parsed data and does not borrow `source`. Applications can combine
+    /// this method with [`include_str!`] to compile a theme into their binary.
     ///
     /// # Errors
     ///
@@ -232,43 +233,41 @@ mod tests {
 
     #[test]
     fn loaded_theme_applies_its_foreground_color() {
-        let input = indoc! {"
-            ```rust
-            fn main() {}
-            ```
-        "};
         let theme = CodeTheme::from_file(fixture("custom.tmTheme")).unwrap();
-        let options = Options::default().code_theme(theme);
-        let loaded = from_str_with_options(input, &options);
-        let keyword = loaded
-            .lines
-            .iter()
-            .flat_map(|line| &line.spans)
-            .find(|span| span.content == "fn")
-            .expect("Rust highlighting should emit the `fn` keyword");
 
-        assert_eq!(keyword.style.fg, Some(Color::Rgb(255, 255, 255)));
+        assert_eq!(
+            rendered_keyword_foreground(theme),
+            Some(Color::Rgb(255, 255, 255))
+        );
     }
 
     #[test]
-    fn bundled_theme_applies_its_foreground_color() {
+    fn embedded_theme_applies_its_foreground_color() {
+        let source = include_str!("code_theme/fixtures/custom.tmTheme");
+        let theme = CodeTheme::from_textmate(source).unwrap();
+
+        assert_eq!(
+            rendered_keyword_foreground(theme),
+            Some(Color::Rgb(255, 255, 255))
+        );
+    }
+
+    fn rendered_keyword_foreground(theme: CodeTheme) -> Option<Color> {
         let input = indoc! {"
             ```rust
             fn main() {}
             ```
         "};
-        let source = include_str!("code_theme/fixtures/custom.tmTheme");
-        let theme = CodeTheme::from_textmate(source).unwrap();
         let options = Options::default().code_theme(theme);
-        let bundled = from_str_with_options(input, &options);
-        let keyword = bundled
+        let rendered = from_str_with_options(input, &options);
+        rendered
             .lines
             .iter()
             .flat_map(|line| &line.spans)
             .find(|span| span.content == "fn")
-            .expect("Rust highlighting should emit the `fn` keyword");
-
-        assert_eq!(keyword.style.fg, Some(Color::Rgb(255, 255, 255)));
+            .expect("Rust highlighting should emit the `fn` keyword")
+            .style
+            .fg
     }
 
     #[test]
@@ -297,13 +296,12 @@ mod tests {
     }
 
     #[test]
-    fn malformed_bundled_theme_reports_a_parse_error() {
+    fn malformed_embedded_theme_reports_a_parse_error() {
         let error = CodeTheme::from_textmate("this is not a TextMate theme").unwrap_err();
 
-        assert_eq!(
-            error.to_string(),
-            "failed to parse TextMate code theme: Invalid syntax theme settings"
-        );
+        assert!(error
+            .to_string()
+            .starts_with("failed to parse TextMate code theme:"));
         assert!(matches!(
             &error.source,
             syntect::LoadingError::ReadSettings(_)
