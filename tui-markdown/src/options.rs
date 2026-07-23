@@ -125,7 +125,8 @@ impl<S: StyleSheet> Options<S> {
 
     /// Selects the syntax-highlighting theme for fenced code blocks.
     ///
-    /// The default is [`Base16OceanDark`](crate::BuiltinCodeTheme::Base16OceanDark).
+    /// By default, no explicit theme is stored and the renderer borrows its shared
+    /// [`Base16OceanDark`](crate::BuiltinCodeTheme::Base16OceanDark) theme.
     /// The selected theme applies when a fenced code block names a recognized language.
     ///
     /// # Example

@@ -12,9 +12,9 @@
 //! description is empty. This is a text fallback; the crate does not load or render image
 //! resources.
 //!
-//! The default `highlight-code` feature highlights fenced code blocks whose language is recognized.
-//! Configure the built-in theme through [`Options`]; fences without a recognized language remain
-//! unhighlighted.
+//! The default `highlight-code` feature highlights fenced code blocks whose language is recognized,
+//! using `Base16OceanDark` unless [`Options`] selects another built-in theme.
+//! Fences without a recognized language remain unhighlighted.
 #![cfg_attr(feature = "document-features", doc = "\n# Features")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 //! # Example

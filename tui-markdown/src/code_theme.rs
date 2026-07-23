@@ -3,28 +3,35 @@
 //! Construct a [`CodeTheme`] with [`CodeTheme::builtin`], then select it with
 //! [`Options::code_theme`](crate::Options::code_theme). The renderer consults the theme when a
 //! fenced code block names a recognized language.
+//!
+//! A configured [`CodeTheme`] owns its theme data. [`Options`](crate::Options) stores no theme by
+//! default; the renderer instead borrows the shared [`BuiltinCodeTheme::Base16OceanDark`] theme
+//! when it first encounters a recognized fenced language.
 
 use std::sync::LazyLock;
 
 use syntect::highlighting::{Theme, ThemeSet};
 
-/// A syntax-highlighting theme for fenced code blocks.
+/// An owned syntax-highlighting theme for fenced code blocks.
 ///
 /// Construct a bundled theme with [`CodeTheme::builtin`], then pass it to
-/// [`Options::code_theme`](crate::Options::code_theme). The default is
-/// [`BuiltinCodeTheme::Base16OceanDark`].
+/// [`Options::code_theme`](crate::Options::code_theme).
 ///
 /// The renderer consults the theme only for fenced code blocks whose language is recognized.
 ///
 /// This type hides the syntax-highlighting backend so applications do not need to depend on its
 /// types or version.
+///
+/// [`CodeTheme::default`] constructs an owned [`BuiltinCodeTheme::Base16OceanDark`] theme. Default
+/// [`Options`](crate::Options), however, leave the theme unset so the renderer can borrow its shared
+/// copy of that theme.
 #[derive(Clone, Debug)]
 pub struct CodeTheme {
     theme: Theme,
 }
 
 impl CodeTheme {
-    /// Selects a syntax-highlighting theme bundled with tui-markdown.
+    /// Constructs an owned syntax-highlighting theme from a bundled theme.
     #[must_use]
     pub fn builtin(theme: BuiltinCodeTheme) -> Self {
         let theme = builtin_theme(theme).clone();
@@ -76,10 +83,11 @@ impl BuiltinCodeTheme {
     }
 }
 
-/// Resolves the configured theme or the shared default.
+/// Returns the configured theme or the shared default.
 ///
-/// Calling this only after recognizing a fenced language avoids initializing the bundled theme set
-/// for ordinary Markdown and code fences that cannot be highlighted.
+/// The renderer calls this only after recognizing a fenced language. Keeping the choice here means
+/// ordinary Markdown and unrecognized code fences do not initialize the bundled theme set, while
+/// default options can borrow the shared theme instead of cloning it.
 pub fn theme_or_default(theme: Option<&CodeTheme>) -> &Theme {
     match theme {
         Some(theme) => &theme.theme,
@@ -105,7 +113,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_builtin_theme_resolves() {
+    fn every_builtin_theme_can_be_selected() {
         let themes = [
             BuiltinCodeTheme::Base16EightiesDark,
             BuiltinCodeTheme::Base16MochaDark,
@@ -120,5 +128,17 @@ mod tests {
             let theme = CodeTheme::builtin(theme);
             let _ = theme_or_default(Some(&theme));
         }
+    }
+
+    #[test]
+    fn configured_theme_is_borrowed_directly() {
+        let theme = CodeTheme::builtin(BuiltinCodeTheme::SolarizedDark);
+
+        assert!(std::ptr::eq(theme_or_default(Some(&theme)), &theme.theme));
+    }
+
+    #[test]
+    fn absent_theme_uses_shared_default() {
+        assert!(std::ptr::eq(theme_or_default(None), default_theme()));
     }
 }
