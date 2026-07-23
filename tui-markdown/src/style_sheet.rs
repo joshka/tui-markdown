@@ -2,8 +2,7 @@
 //!
 //! The library used to hard–code all color and attribute choices in an internal `styles` module.
 //! That made it impossible for downstream crates to provide their own look-and-feel. The
-//! [`StyleSheet`] trait makes it possible to customize the styles used to display the
-//! [`ratatui_core::style::Style`] values the renderer needs.
+//! [`StyleSheet`] trait makes it possible to customize the styles and symbols the renderer uses.
 //!
 //! Users that are happy with the stock colors do not have to do anything – the crate exports a
 //! [`DefaultStyleSheet`] which matches the old behaviour and is used by default. Projects that want
@@ -12,11 +11,38 @@
 
 use ratatui_core::style::Style;
 
-/// A collection of `ratatui_core::style::Style`s consumed by the renderer.
+/// The kind of a GitHub Flavored Markdown alert.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum AlertKind {
+    /// Supplementary information.
+    Note,
+    /// Helpful advice.
+    Tip,
+    /// Information essential to success.
+    Important,
+    /// Urgent information that needs attention.
+    Warning,
+    /// A risk or negative outcome.
+    Caution,
+}
+
+impl AlertKind {
+    /// The canonical English label for this alert kind.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Note => "Note",
+            Self::Tip => "Tip",
+            Self::Important => "Important",
+            Self::Warning => "Warning",
+            Self::Caution => "Caution",
+        }
+    }
+}
+
+/// Visual styles and symbols consumed by the renderer.
 ///
-/// The trait purposefully stays tiny: whenever the renderer needs a color choice we add a new
-/// getter here. The default implementation maintains full backward-compatibility with the styles
-/// that lived in the old `mod styles`.
+/// The trait purposefully stays tiny: whenever the renderer needs a presentation choice we add a
+/// new getter here. The default implementation maintains the renderer's standard appearance.
 pub trait StyleSheet: Clone + Send + Sync + 'static {
     /// Style for a Markdown heading.
     ///
@@ -71,6 +97,41 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
     fn definition_description(&self) -> Style {
         Style::default()
     }
+
+    /// Style for a GFM alert heading and body.
+    ///
+    /// The generated icon and label are bold in addition to this base style.
+    fn alert(&self, kind: AlertKind) -> Style {
+        use ratatui_core::style::Color;
+
+        match kind {
+            AlertKind::Note => Style::new().fg(Color::Blue),
+            AlertKind::Tip => Style::new().fg(Color::Green),
+            AlertKind::Important => Style::new().fg(Color::Magenta),
+            AlertKind::Warning => Style::new().fg(Color::Yellow),
+            AlertKind::Caution => Style::new().fg(Color::Red),
+        }
+    }
+
+    /// Icon displayed before a GFM alert label.
+    ///
+    /// Return an empty string to render the label without an icon.
+    fn alert_icon(&self, kind: AlertKind) -> &str {
+        match kind {
+            AlertKind::Note => "\u{2139}\u{FE0F}",
+            AlertKind::Tip => "\u{1F4A1}",
+            AlertKind::Important => "\u{2757}",
+            AlertKind::Warning => "\u{26A0}\u{FE0F}",
+            AlertKind::Caution => "\u{1F534}",
+        }
+    }
+
+    /// Label displayed after a GFM alert icon.
+    ///
+    /// Return an empty string to render the icon without a label.
+    fn alert_label(&self, kind: AlertKind) -> &str {
+        kind.label()
+    }
 }
 
 /// The default style set
@@ -93,6 +154,11 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
 /// - footnote definitions: dim
 /// - definition list terms: bold
 /// - definition list descriptions: the surrounding style
+/// - note alerts: blue
+/// - tip alerts: green
+/// - important alerts: magenta
+/// - warning alerts: yellow
+/// - caution alerts: red
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultStyleSheet;
 
