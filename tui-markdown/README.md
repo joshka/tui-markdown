@@ -29,21 +29,20 @@ text.render(area, &mut buf);
 ### Syntax highlighting themes
 
 With the default `highlight-code` feature enabled, fenced code blocks whose language is recognized
-use the built-in `Base16OceanDark` syntax-highlighting theme. Construct a [`CodeTheme`] to select a
-different bundled theme:
+use the built-in `Base16OceanDark` syntax-highlighting theme. Pass a [`BuiltinCodeTheme`] to select
+a different bundled theme:
 
 ```rust
-use tui_markdown::{from_str_with_options, BuiltinCodeTheme, CodeTheme, Options};
+use tui_markdown::{from_str_with_options, BuiltinCodeTheme, Options};
 
-let theme = CodeTheme::builtin(BuiltinCodeTheme::InspiredGitHub);
-let options = Options::default().code_theme(theme);
+let options = Options::default().code_theme(BuiltinCodeTheme::InspiredGitHub);
 let markdown = r#"```rust
 fn main() {}
 ```"#;
 let text = from_str_with_options(markdown, &options);
 ```
 
-[`CodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html
+[`BuiltinCodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/enum.BuiltinCodeTheme.html
 
 ## Status
 

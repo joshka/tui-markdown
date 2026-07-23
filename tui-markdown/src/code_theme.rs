@@ -1,8 +1,8 @@
 //! Built-in syntax-highlighting themes for fenced code blocks.
 //!
-//! Construct a [`CodeTheme`] with [`CodeTheme::builtin`], then select it with
-//! [`Options::code_theme`](crate::Options::code_theme). The renderer consults the theme when a
-//! fenced code block names a recognized language.
+//! Pass a [`BuiltinCodeTheme`] to [`Options::code_theme`](crate::Options::code_theme), or convert it
+//! into an owned [`CodeTheme`]. The renderer consults the theme when a fenced code block names a
+//! recognized language.
 //!
 //! A configured [`CodeTheme`] owns its theme data. [`Options`](crate::Options) stores no theme by
 //! default; the renderer instead borrows the shared [`BuiltinCodeTheme::Base16OceanDark`] theme
@@ -14,7 +14,7 @@ use syntect::highlighting::{Theme, ThemeSet};
 
 /// An owned syntax-highlighting theme for fenced code blocks.
 ///
-/// Construct a bundled theme with [`CodeTheme::builtin`], then pass it to
+/// Convert a [`BuiltinCodeTheme`] into this type, or pass the built-in theme directly to
 /// [`Options::code_theme`](crate::Options::code_theme).
 ///
 /// The renderer consults the theme only for fenced code blocks whose language is recognized.
@@ -30,10 +30,8 @@ pub struct CodeTheme {
     theme: Theme,
 }
 
-impl CodeTheme {
-    /// Constructs an owned syntax-highlighting theme from a bundled theme.
-    #[must_use]
-    pub fn builtin(theme: BuiltinCodeTheme) -> Self {
+impl From<BuiltinCodeTheme> for CodeTheme {
+    fn from(theme: BuiltinCodeTheme) -> Self {
         let theme = builtin_theme(theme).clone();
         Self { theme }
     }
@@ -41,14 +39,14 @@ impl CodeTheme {
 
 impl Default for CodeTheme {
     fn default() -> Self {
-        Self::builtin(BuiltinCodeTheme::default())
+        BuiltinCodeTheme::default().into()
     }
 }
 
 /// A syntax-highlighting theme bundled with tui-markdown.
 ///
-/// Pass a variant to [`CodeTheme::builtin`] and select the resulting theme with
-/// [`Options::code_theme`](crate::Options::code_theme).
+/// Pass a variant directly to [`Options::code_theme`](crate::Options::code_theme), or convert it
+/// into an owned [`CodeTheme`].
 #[non_exhaustive]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BuiltinCodeTheme {
@@ -125,14 +123,14 @@ mod tests {
         ];
 
         for theme in themes {
-            let theme = CodeTheme::builtin(theme);
+            let theme = CodeTheme::from(theme);
             let _ = theme_or_default(Some(&theme));
         }
     }
 
     #[test]
     fn configured_theme_is_borrowed_directly() {
-        let theme = CodeTheme::builtin(BuiltinCodeTheme::SolarizedDark);
+        let theme = CodeTheme::from(BuiltinCodeTheme::SolarizedDark);
 
         assert!(std::ptr::eq(theme_or_default(Some(&theme)), &theme.theme));
     }

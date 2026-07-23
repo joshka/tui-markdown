@@ -2635,8 +2635,7 @@ mod tests {
                 ```
             "};
             let default_out = from_str(input);
-            let theme = CodeTheme::builtin(BuiltinCodeTheme::InspiredGitHub);
-            let options = Options::default().code_theme(theme);
+            let options = Options::default().code_theme(BuiltinCodeTheme::InspiredGitHub);
             let custom_out = from_str_with_options(input, &options);
 
             assert_ne!(default_out, custom_out);
@@ -2664,8 +2663,7 @@ mod tests {
                 ```
             "};
             let default_out = from_str(input);
-            let theme = CodeTheme::builtin(BuiltinCodeTheme::InspiredGitHub);
-            let options = Options::default().code_theme(theme);
+            let options = Options::default().code_theme(BuiltinCodeTheme::InspiredGitHub);
             let selected_out = from_str_with_options(input, &options);
 
             assert_eq!(selected_out, default_out);

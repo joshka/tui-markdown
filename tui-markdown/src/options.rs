@@ -127,20 +127,21 @@ impl<S: StyleSheet> Options<S> {
     ///
     /// By default, no explicit theme is stored and the renderer borrows its shared
     /// [`Base16OceanDark`](crate::BuiltinCodeTheme::Base16OceanDark) theme.
-    /// The selected theme applies when a fenced code block names a recognized language.
+    /// Pass a [`BuiltinCodeTheme`](crate::BuiltinCodeTheme) directly, or pass an owned
+    /// [`CodeTheme`] constructed by another theme source. The selected theme applies when a fenced
+    /// code block names a recognized language.
     ///
     /// # Example
     ///
     /// ```
-    /// use tui_markdown::{BuiltinCodeTheme, CodeTheme, Options};
+    /// use tui_markdown::{BuiltinCodeTheme, Options};
     ///
-    /// let theme = CodeTheme::builtin(BuiltinCodeTheme::SolarizedDark);
-    /// let options = Options::default().code_theme(theme);
+    /// let options = Options::default().code_theme(BuiltinCodeTheme::SolarizedDark);
     /// ```
     #[cfg(feature = "highlight-code")]
     #[must_use]
-    pub fn code_theme(mut self, code_theme: CodeTheme) -> Self {
-        self.code_theme = Some(code_theme);
+    pub fn code_theme(mut self, code_theme: impl Into<CodeTheme>) -> Self {
+        self.code_theme = Some(code_theme.into());
         self
     }
 
@@ -252,8 +253,7 @@ mod tests {
     #[test]
     #[cfg(feature = "highlight-code")]
     fn code_theme_selects_theme() {
-        let theme = CodeTheme::builtin(crate::BuiltinCodeTheme::SolarizedDark);
-        let options = Options::default().code_theme(theme);
+        let options = Options::default().code_theme(crate::BuiltinCodeTheme::SolarizedDark);
 
         assert!(options.selected_code_theme().is_some());
     }
