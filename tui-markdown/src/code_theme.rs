@@ -4,7 +4,6 @@
 //! obtained is deliberately not part of the rendering options: built-in themes and themes loaded
 //! from other sources have the same type once constructed.
 
-use std::borrow::Cow;
 use std::sync::LazyLock;
 
 use syntect::highlighting::{Theme, ThemeSet};
@@ -19,7 +18,12 @@ use syntect::highlighting::{Theme, ThemeSet};
 /// types or version.
 #[derive(Clone, Debug)]
 pub struct CodeTheme {
-    backend: Cow<'static, Theme>,
+    backend: CodeThemeBackend,
+}
+
+#[derive(Clone, Debug)]
+enum CodeThemeBackend {
+    Builtin(BuiltinCodeTheme),
 }
 
 impl CodeTheme {
@@ -27,7 +31,7 @@ impl CodeTheme {
     #[must_use]
     pub fn builtin(theme: BuiltinCodeTheme) -> Self {
         Self {
-            backend: Cow::Borrowed(builtin_theme(theme)),
+            backend: CodeThemeBackend::Builtin(theme),
         }
     }
 }
@@ -78,12 +82,17 @@ impl BuiltinCodeTheme {
 
 /// Returns the backend theme represented by a public theme.
 pub fn backend_theme(theme: &CodeTheme) -> &Theme {
-    theme.backend.as_ref()
+    match &theme.backend {
+        CodeThemeBackend::Builtin(theme) => builtin_theme(*theme),
+    }
 }
 
-/// Returns the backend theme used when no configured theme has been applied yet.
-pub fn default_backend_theme() -> &'static Theme {
-    builtin_theme(BuiltinCodeTheme::default())
+/// Returns the unresolved default theme used until options are applied.
+pub fn default_code_theme() -> &'static CodeTheme {
+    static DEFAULT: CodeTheme = CodeTheme {
+        backend: CodeThemeBackend::Builtin(BuiltinCodeTheme::Base16OceanDark),
+    };
+    &DEFAULT
 }
 
 fn builtin_theme(theme: BuiltinCodeTheme) -> &'static Theme {
@@ -102,11 +111,10 @@ mod tests {
     #[test]
     fn ocean_dark_is_the_default() {
         let default = CodeTheme::default();
-        let ocean_dark = CodeTheme::builtin(BuiltinCodeTheme::Base16OceanDark);
 
-        assert!(std::ptr::eq(
-            backend_theme(&default),
-            backend_theme(&ocean_dark)
+        assert!(matches!(
+            default.backend,
+            CodeThemeBackend::Builtin(BuiltinCodeTheme::Base16OceanDark)
         ));
     }
 

@@ -54,7 +54,6 @@ use ratatui_core::text::{Line, Span, Text};
 #[cfg(feature = "highlight-code")]
 use syntect::{
     easy::HighlightLines,
-    highlighting::Theme,
     parsing::SyntaxSet,
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
@@ -323,9 +322,9 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     /// Active table builder that accumulates cells during table parsing.
     table_builder: Option<tables::TableBuilder<'a>>,
 
-    /// Resolved syntect theme used for code highlighting.
+    /// Theme to resolve when a fenced code block starts highlighting.
     #[cfg(feature = "highlight-code")]
-    code_theme: &'theme Theme,
+    code_theme: &'theme CodeTheme,
 
     /// Keeps the writer's shape consistent when syntax highlighting is disabled.
     #[cfg(not(feature = "highlight-code"))]
@@ -364,7 +363,7 @@ where
             in_definition_description: false,
             table_builder: None,
             #[cfg(feature = "highlight-code")]
-            code_theme: code_theme::default_backend_theme(),
+            code_theme: code_theme::default_code_theme(),
             #[cfg(not(feature = "highlight-code"))]
             code_theme_lifetime: std::marker::PhantomData,
         }
@@ -373,7 +372,7 @@ where
     /// Selects a configured theme before the event loop starts.
     #[cfg(feature = "highlight-code")]
     fn set_code_theme(&mut self, theme: &'theme CodeTheme) {
-        self.code_theme = code_theme::backend_theme(theme);
+        self.code_theme = theme;
     }
 
     fn run(&mut self) {
@@ -766,7 +765,8 @@ where
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
             debug!("Starting code block with syntax: {:?}", lang);
-            let highlighter = HighlightLines::new(syntax, self.code_theme);
+            let theme = code_theme::backend_theme(self.code_theme);
+            let highlighter = HighlightLines::new(syntax, theme);
             self.code_highlighter = Some(highlighter);
         } else {
             warn!("Could not find syntax for code block: {:?}", lang);
