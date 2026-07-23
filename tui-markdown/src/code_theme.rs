@@ -1,58 +1,127 @@
-//! Built-in syntax-highlighting theme discovery and selection.
+//! Syntax-highlighting themes for fenced code blocks.
 //!
-//! Resolve the configured name before parsing events so an unknown name produces one warning per
-//! rendered document rather than one warning for every fenced code block.
+//! [`CodeTheme`] represents a theme that is ready for the renderer to use. How the theme was
+//! obtained is deliberately not part of the rendering options: built-in themes and themes loaded
+//! from other sources have the same type once constructed.
 
+use std::borrow::Cow;
 use std::sync::LazyLock;
 
 use syntect::highlighting::{Theme, ThemeSet};
-use tracing::warn;
 
-use crate::DEFAULT_CODE_THEME;
+/// A syntax-highlighting theme that is ready to render fenced code blocks.
+///
+/// Construct a bundled theme with [`CodeTheme::builtin`], then pass it to
+/// [`Options::code_theme`](crate::Options::code_theme). The default is
+/// [`BuiltinCodeTheme::Base16OceanDark`].
+///
+/// This type hides the syntax-highlighting backend so applications do not need to depend on its
+/// types or version.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CodeTheme {
+    backend: Cow<'static, Theme>,
+}
+
+impl CodeTheme {
+    /// Constructs a theme from one bundled with tui-markdown.
+    #[must_use]
+    pub fn builtin(theme: BuiltinCodeTheme) -> Self {
+        Self {
+            backend: Cow::Borrowed(builtin_theme(theme)),
+        }
+    }
+}
+
+impl Default for CodeTheme {
+    fn default() -> Self {
+        Self::builtin(BuiltinCodeTheme::default())
+    }
+}
+
+/// A syntax-highlighting theme bundled with tui-markdown.
+///
+/// Use this type to select a bundled theme, then construct a renderer-ready [`CodeTheme`] with
+/// [`CodeTheme::builtin`].
+#[non_exhaustive]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BuiltinCodeTheme {
+    /// The dark Base16 Eighties theme.
+    Base16EightiesDark,
+    /// The dark Base16 Mocha theme.
+    Base16MochaDark,
+    /// The default dark Base16 Ocean theme.
+    #[default]
+    Base16OceanDark,
+    /// The light Base16 Ocean theme.
+    Base16OceanLight,
+    /// The light Inspired GitHub theme.
+    InspiredGitHub,
+    /// The dark Solarized theme.
+    SolarizedDark,
+    /// The light Solarized theme.
+    SolarizedLight,
+}
+
+impl BuiltinCodeTheme {
+    fn backend_name(self) -> &'static str {
+        match self {
+            Self::Base16EightiesDark => "base16-eighties.dark",
+            Self::Base16MochaDark => "base16-mocha.dark",
+            Self::Base16OceanDark => "base16-ocean.dark",
+            Self::Base16OceanLight => "base16-ocean.light",
+            Self::InspiredGitHub => "InspiredGitHub",
+            Self::SolarizedDark => "Solarized (dark)",
+            Self::SolarizedLight => "Solarized (light)",
+        }
+    }
+}
+
+/// Returns the backend theme represented by a public theme.
+pub fn backend_theme(theme: &CodeTheme) -> &Theme {
+    theme.backend.as_ref()
+}
+
+/// Returns the backend theme used when no configured theme has been applied yet.
+pub fn default_backend_theme() -> &'static Theme {
+    builtin_theme(BuiltinCodeTheme::default())
+}
+
+fn builtin_theme(theme: BuiltinCodeTheme) -> &'static Theme {
+    THEMES
+        .themes
+        .get(theme.backend_name())
+        .expect("every BuiltinCodeTheme variant must map to a bundled theme")
+}
 
 static THEMES: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
-
-/// Returns the names of all built-in syntax-highlighting themes.
-///
-/// Pass one of these names to [`crate::Options::code_theme`]. Code blocks use
-/// [`DEFAULT_CODE_THEME`] when no theme is selected.
-///
-/// This function is available with the `highlight-code` feature, which is enabled by default.
-///
-/// # Example
-///
-/// ```
-/// use tui_markdown::{available_themes, Options};
-///
-/// assert!(available_themes().contains(&"InspiredGitHub"));
-/// let options = Options::default().code_theme("InspiredGitHub");
-/// ```
-pub fn available_themes() -> Vec<&'static str> {
-    THEMES.themes.keys().map(String::as_str).collect()
-}
-
-/// Returns the default built-in theme.
-pub fn default_theme() -> &'static Theme {
-    &THEMES.themes[DEFAULT_CODE_THEME]
-}
-
-/// Resolves a requested theme name, falling back to the default when the name is unknown.
-pub fn resolve(name: &str) -> &'static Theme {
-    THEMES.themes.get(name).unwrap_or_else(|| {
-        warn!("Theme {name:?} not found, falling back to {DEFAULT_CODE_THEME:?}");
-        default_theme()
-    })
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn available_themes_include_the_default_and_documented_example() {
-        let themes = available_themes();
+    fn ocean_dark_is_the_default() {
+        let default = CodeTheme::default();
+        let ocean_dark = CodeTheme::builtin(BuiltinCodeTheme::Base16OceanDark);
 
-        assert!(themes.contains(&DEFAULT_CODE_THEME));
-        assert!(themes.contains(&"InspiredGitHub"));
+        assert_eq!(default, ocean_dark);
+    }
+
+    #[test]
+    fn every_builtin_theme_has_a_backend_theme() {
+        let themes = [
+            BuiltinCodeTheme::Base16EightiesDark,
+            BuiltinCodeTheme::Base16MochaDark,
+            BuiltinCodeTheme::Base16OceanDark,
+            BuiltinCodeTheme::Base16OceanLight,
+            BuiltinCodeTheme::InspiredGitHub,
+            BuiltinCodeTheme::SolarizedDark,
+            BuiltinCodeTheme::SolarizedLight,
+        ];
+
+        for theme in themes {
+            let theme = CodeTheme::builtin(theme);
+            let _ = backend_theme(&theme);
+        }
     }
 }

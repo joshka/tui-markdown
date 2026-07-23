@@ -4,12 +4,9 @@
 //! theme. [`Options`] is non-exhaustive, allowing new rendering choices to be added without
 //! breaking existing code.
 
+#[cfg(feature = "highlight-code")]
+use crate::CodeTheme;
 use crate::{DefaultStyleSheet, StyleSheet};
-
-/// Name of the built-in syntax-highlighting theme used by default.
-///
-/// This constant identifies a syntect theme when the `highlight-code` feature is enabled.
-pub const DEFAULT_CODE_THEME: &str = "base16-ocean.dark";
 
 /// Text used to represent Markdown images in rendered terminal output.
 ///
@@ -52,6 +49,7 @@ pub enum ImageFallback {
 ///
 /// ```
 /// use tui_markdown::Options;
+///
 /// let options = Options::default();
 ///
 /// // or with a custom style sheet
@@ -88,7 +86,7 @@ pub enum ImageFallback {
 ///     }
 /// }
 ///
-/// let options = Options::new(MyStyleSheet).code_theme("Solarized (dark)");
+/// let options = Options::new(MyStyleSheet);
 /// ```
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -98,11 +96,9 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     pub(crate) styles: S,
     /// The content to render in place of images.
     pub(crate) image_fallback: ImageFallback,
-    /// Name of the selected syntect theme for syntax-highlighted code blocks.
-    ///
-    /// `None` uses [`DEFAULT_CODE_THEME`]. When the `highlight-code` feature is disabled this
-    /// field has no effect.
-    code_theme: Option<String>,
+    /// Syntax-highlighting theme for fenced code blocks.
+    #[cfg(feature = "highlight-code")]
+    code_theme: CodeTheme,
 }
 
 impl<S: StyleSheet> Options<S> {
@@ -111,7 +107,8 @@ impl<S: StyleSheet> Options<S> {
         Self {
             styles,
             image_fallback: ImageFallback::default(),
-            code_theme: None,
+            #[cfg(feature = "highlight-code")]
+            code_theme: CodeTheme::default(),
         }
     }
 
@@ -124,24 +121,32 @@ impl<S: StyleSheet> Options<S> {
         self
     }
 
-    /// Sets the syntax-highlighting theme by name.
+    /// Selects the syntax-highlighting theme for fenced code blocks.
     ///
-    /// The name must match a theme returned by [`crate::available_themes`]. Invalid names fall back
-    /// to [`DEFAULT_CODE_THEME`] when a code block is rendered.
+    /// The theme's origin is not significant here. Construct a bundled theme with
+    /// [`CodeTheme::builtin`](crate::CodeTheme::builtin), or use another `CodeTheme` constructor
+    /// provided by an enabled feature.
     ///
-    /// This setting has no effect when the `highlight-code` feature is disabled.
+    /// # Example
+    ///
+    /// ```
+    /// use tui_markdown::{BuiltinCodeTheme, CodeTheme, Options};
+    ///
+    /// let theme = CodeTheme::builtin(BuiltinCodeTheme::SolarizedDark);
+    /// let options = Options::default().code_theme(theme);
+    /// ```
+    #[cfg(feature = "highlight-code")]
     #[must_use]
-    pub fn code_theme(mut self, theme_name: impl Into<String>) -> Self {
-        self.code_theme = Some(theme_name.into());
+    pub fn code_theme(mut self, code_theme: CodeTheme) -> Self {
+        self.code_theme = code_theme;
         self
     }
 
-    /// Returns the explicitly selected syntax-highlighting theme name.
-    ///
-    /// `None` means code blocks use [`DEFAULT_CODE_THEME`].
+    /// Returns the syntax-highlighting theme used for fenced code blocks.
+    #[cfg(feature = "highlight-code")]
     #[must_use]
-    pub fn selected_code_theme(&self) -> Option<&str> {
-        self.code_theme.as_deref()
+    pub fn selected_code_theme(&self) -> &CodeTheme {
+        &self.code_theme
     }
 }
 
@@ -203,7 +208,8 @@ mod tests {
         let options = Options {
             styles: CustomStyleSheet,
             image_fallback: ImageFallback::default(),
-            code_theme: None,
+            #[cfg(feature = "highlight-code")]
+            code_theme: CodeTheme::default(),
         };
 
         assert_eq!(options.styles.heading(1), Style::new().red().bold());
@@ -231,16 +237,19 @@ mod tests {
     }
 
     #[test]
-    fn code_theme_is_opt_in() {
+    #[cfg(feature = "highlight-code")]
+    fn code_theme_has_a_default() {
         let options: Options = Options::default();
 
-        assert_eq!(options.selected_code_theme(), None);
+        assert_eq!(options.selected_code_theme(), &CodeTheme::default());
     }
 
     #[test]
-    fn code_theme_selects_a_name() {
-        let options = Options::default().code_theme("Solarized (dark)");
+    #[cfg(feature = "highlight-code")]
+    fn code_theme_selects_theme() {
+        let theme = CodeTheme::builtin(crate::BuiltinCodeTheme::SolarizedDark);
+        let options = Options::default().code_theme(theme.clone());
 
-        assert_eq!(options.selected_code_theme(), Some("Solarized (dark)"));
+        assert_eq!(options.selected_code_theme(), &theme);
     }
 }

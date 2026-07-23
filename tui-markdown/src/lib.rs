@@ -60,10 +60,10 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
-#[cfg(feature = "highlight-code")]
 #[doc(inline)]
-pub use crate::code_theme::available_themes;
-pub use crate::options::{ImageFallback, Options, DEFAULT_CODE_THEME};
+#[cfg(feature = "highlight-code")]
+pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme};
+pub use crate::options::{ImageFallback, Options};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
 
 #[cfg(feature = "highlight-code")]
@@ -116,9 +116,7 @@ where
 
     let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
     #[cfg(feature = "highlight-code")]
-    if let Some(theme_name) = options.selected_code_theme() {
-        writer.set_code_theme(theme_name);
-    }
+    writer.set_code_theme(options.selected_code_theme());
     writer.run();
     writer.text
 }
@@ -270,7 +268,7 @@ impl<'a> PendingImage<'a> {
     }
 }
 
-struct TextWriter<'a, I, S: StyleSheet> {
+struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     /// Iterator supplying events.
     iter: I,
 
@@ -290,7 +288,7 @@ struct TextWriter<'a, I, S: StyleSheet> {
 
     /// Used to highlight code blocks, set when  a codeblock is encountered
     #[cfg(feature = "highlight-code")]
-    code_highlighter: Option<HighlightLines<'a>>,
+    code_highlighter: Option<HighlightLines<'theme>>,
 
     /// Current list index as a stack of indices.
     list_indices: Vec<Option<u64>>,
@@ -327,7 +325,11 @@ struct TextWriter<'a, I, S: StyleSheet> {
 
     /// Resolved syntect theme used for code highlighting.
     #[cfg(feature = "highlight-code")]
-    code_theme: &'static Theme,
+    code_theme: &'theme Theme,
+
+    /// Keeps the writer's shape consistent when syntax highlighting is disabled.
+    #[cfg(not(feature = "highlight-code"))]
+    code_theme_lifetime: std::marker::PhantomData<&'theme ()>,
 
     needs_newline: bool,
 }
@@ -335,7 +337,7 @@ struct TextWriter<'a, I, S: StyleSheet> {
 #[cfg(feature = "highlight-code")]
 static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
 
-impl<'a, I, S> TextWriter<'a, I, S>
+impl<'a, 'theme, I, S> TextWriter<'a, 'theme, I, S>
 where
     I: Iterator<Item = Event<'a>>,
     S: StyleSheet,
@@ -362,14 +364,16 @@ where
             in_definition_description: false,
             table_builder: None,
             #[cfg(feature = "highlight-code")]
-            code_theme: code_theme::default_theme(),
+            code_theme: code_theme::default_backend_theme(),
+            #[cfg(not(feature = "highlight-code"))]
+            code_theme_lifetime: std::marker::PhantomData,
         }
     }
 
-    /// Resolves a configured theme before the event loop starts.
+    /// Selects a configured theme before the event loop starts.
     #[cfg(feature = "highlight-code")]
-    fn set_code_theme(&mut self, theme_name: &str) {
-        self.code_theme = code_theme::resolve(theme_name);
+    fn set_code_theme(&mut self, theme: &'theme CodeTheme) {
+        self.code_theme = code_theme::backend_theme(theme);
     }
 
     fn run(&mut self) {
@@ -2611,27 +2615,13 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "highlight-code")]
     mod code_theme {
         use pretty_assertions::assert_eq;
 
         use super::*;
 
         #[rstest]
-        fn invalid_theme_falls_back_to_default(_with_tracing: DefaultGuard) {
-            let input = indoc! {"
-                ```rust
-                fn main() {}
-                ```
-            "};
-            let default_text = from_str(input);
-            let options = Options::default().code_theme("nonexistent-theme");
-            let fallback_text = from_str_with_options(input, &options);
-
-            assert_eq!(fallback_text, default_text);
-        }
-
-        #[rstest]
-        #[cfg(feature = "highlight-code")]
         fn different_theme_produces_different_output(_with_tracing: DefaultGuard) {
             let input = indoc! {"
                 ```rust
@@ -2639,14 +2629,14 @@ mod tests {
                 ```
             "};
             let default_out = from_str(input);
-            let options = Options::default().code_theme("InspiredGitHub");
+            let theme = CodeTheme::builtin(BuiltinCodeTheme::InspiredGitHub);
+            let options = Options::default().code_theme(theme);
             let custom_out = from_str_with_options(input, &options);
 
             assert_ne!(default_out, custom_out);
         }
 
         #[rstest]
-        #[cfg(feature = "highlight-code")]
         fn explicit_default_theme_matches_implicit_default(_with_tracing: DefaultGuard) {
             let input = indoc! {"
                 ```rust
@@ -2654,7 +2644,7 @@ mod tests {
                 ```
             "};
             let implicit = from_str(input);
-            let options = Options::default().code_theme(DEFAULT_CODE_THEME);
+            let options = Options::default().code_theme(CodeTheme::default());
             let explicit = from_str_with_options(input, &options);
 
             assert_eq!(explicit, implicit);

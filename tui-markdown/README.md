@@ -29,16 +29,18 @@ text.render(area, &mut buf);
 ### Syntax highlighting themes
 
 With the default `highlight-code` feature enabled, fenced code blocks use a built-in syntax
-highlighting theme. Use `available_themes` to discover theme names and pass one to the rendering
-options:
+highlighting theme. Construct a [`CodeTheme`] from one of the bundled themes, then pass that
+renderer-ready theme through the rendering options:
 
 ```rust
-use tui_markdown::{available_themes, from_str_with_options, Options};
+use tui_markdown::{BuiltinCodeTheme, CodeTheme, Options, from_str_with_options};
 
-assert!(available_themes().contains(&"InspiredGitHub"));
-let options = Options::default().code_theme("InspiredGitHub");
+let theme = CodeTheme::builtin(BuiltinCodeTheme::InspiredGitHub);
+let options = Options::default().code_theme(theme);
 let text = from_str_with_options("```rust\nfn main() {}\n```", &options);
 ```
+
+[`CodeTheme`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.CodeTheme.html
 
 ## Status
 
