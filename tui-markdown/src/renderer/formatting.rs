@@ -1,4 +1,7 @@
 //! Markdown inline formatting.
+//!
+//! The inline style stack patches nested formatting over its enclosing style. Closing a formatting
+//! tag restores the previous style.
 
 use pulldown_cmark::Event;
 use ratatui_core::style::Style;
@@ -92,6 +95,18 @@ mod tests {
             Text::from(Line::from_iter([
                 "Strong ".bold(),
                 "emphasis".bold().italic()
+            ]))
+        );
+    }
+
+    #[rstest]
+    fn formatting_does_not_leak_into_following_text(_with_tracing: DefaultGuard) {
+        assert_eq!(
+            from_str("Before **strong** after"),
+            Text::from(Line::from_iter([
+                Span::raw("Before "),
+                Span::raw("strong").bold(),
+                Span::raw(" after"),
             ]))
         );
     }

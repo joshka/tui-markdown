@@ -1,4 +1,7 @@
 //! Markdown footnote rendering.
+//!
+//! References render inline as `[label]`. Definitions start with `[label]: ` and retain paragraph
+//! boundaries without leaking their line style into following content.
 
 use pulldown_cmark::{CowStr, Event};
 use ratatui_core::text::{Line, Span};
@@ -42,6 +45,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
     use rstest::rstest;
 
     use super::*;
@@ -56,11 +60,17 @@ mod tests {
 
         #[rstest]
         fn multiline_definition_has_exact_layout(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Text[^one]
+
+                [^one]: First line
+                    continued line.
+            "};
             let reference_style = Style::new().dim().italic();
             let definition_style = Style::new().dim();
 
             assert_eq!(
-                from_str("Text[^one]\n\n[^one]: First line\n    continued line."),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([Span::raw("Text"), Span::styled("[one]", reference_style),]),
                     Line::default(),
@@ -77,11 +87,18 @@ mod tests {
 
         #[rstest]
         fn multiple_definitions_have_exact_layout(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                First[^a] second[^b].
+
+                [^a]: Alpha.
+
+                [^b]: Beta.
+            "};
             let reference_style = Style::new().dim().italic();
             let definition_style = Style::new().dim();
 
             assert_eq!(
-                from_str("First[^a] second[^b].\n\n[^a]: Alpha.\n\n[^b]: Beta."),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw("First"),
@@ -104,9 +121,15 @@ mod tests {
 
         #[rstest]
         fn reference_combines_with_enclosing_style(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                **Text[^one]**
+
+                [^one]: Note.
+            "};
             let reference_style = Style::new().bold().dim().italic();
+
             assert_eq!(
-                from_str("**Text[^one]**\n\n[^one]: Note."),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([
                         Span::styled("Text", Style::new().bold()),
@@ -124,9 +147,17 @@ mod tests {
 
         #[rstest]
         fn multiple_definition_paragraphs_keep_blank_line(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Text[^one]
+
+                [^one]: First paragraph.
+
+                    Second paragraph.
+            "};
             let definition_style = Style::new().dim();
+
             assert_eq!(
-                from_str("Text[^one]\n\n[^one]: First paragraph.\n\n    Second paragraph."),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw("Text"),
@@ -146,11 +177,19 @@ mod tests {
 
         #[rstest]
         fn definition_style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Text[^one]
+
+                [^one]: First paragraph.
+
+                    Second paragraph.
+
+                After.
+            "};
             let definition_style = Style::new().dim();
+
             assert_eq!(
-                from_str(
-                    "Text[^one]\n\n[^one]: First paragraph.\n\n    Second paragraph.\n\nAfter."
-                ),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from_iter([
                         Span::raw("Text"),
@@ -209,11 +248,17 @@ mod tests {
                 }
             }
 
+            let markdown = indoc! {"
+                **Text[^one]**
+
+                [^one]: Note.
+            "};
+            let options = Options::new(CustomFootnoteStyle);
             let reference_style = Style::new().red().bold().underlined();
             let definition_style = Style::new().blue().underlined();
-            let options = Options::new(CustomFootnoteStyle);
+
             assert_eq!(
-                from_str_with_options("**Text[^one]**\n\n[^one]: Note.", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from_iter([
                         Span::styled("Text", Style::new().bold()),

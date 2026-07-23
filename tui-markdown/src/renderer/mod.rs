@@ -3,6 +3,10 @@
 //! [`TextWriter`] owns the event loop and shared output state. The event matches remain here as an
 //! index of supported pulldown-cmark events, while each Markdown construct keeps its state,
 //! rendering behavior, and tests in the corresponding child module.
+//!
+//! Inline handlers ultimately write spans through [`TextWriter::push_span`]. Active image
+//! descriptions receive those spans first, followed by active table cells, then the output line.
+//! This sink order preserves inline event ordering inside buffered constructs.
 
 use std::vec;
 
@@ -34,25 +38,36 @@ mod test_support;
 
 /// Render Markdown `input` into a [`Text`] using the default [`Options`].
 ///
-/// This is a convenience function that uses the default options, which are defined in
-/// [`Options::default`]. Image syntax renders as a styled text fallback so its description or
-/// destination remains visible in terminals without image graphics.
+/// The returned text may borrow from `input`. Image syntax renders as a styled text fallback; this
+/// function does not read or render image resources.
+///
+/// # Example
+///
+/// ```
+/// use tui_markdown::from_str;
+///
+/// let text = from_str("# Status\n\nReady");
+///
+/// assert_eq!(text.to_string(), "# Status\n\nReady");
+/// ```
 pub fn from_str(input: &str) -> Text<'_> {
     from_str_with_options(input, &Options::default())
 }
 
 /// Render Markdown `input` into a [`Text`] using the supplied [`Options`].
 ///
-/// This allows you to customize the styles and other rendering options.
+/// The returned text may borrow from `input`. The options control styles, image fallback content,
+/// and, with the `highlight-code` feature, fenced-code syntax highlighting.
 ///
 /// # Example
 ///
 /// ```
-/// use tui_markdown::{from_str_with_options, DefaultStyleSheet, Options};
+/// use tui_markdown::{from_str_with_options, ImageFallback, Options};
 ///
-/// let input = "This is a **bold** text.";
-/// let options = Options::default();
-/// let text = from_str_with_options(input, &options);
+/// let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+/// let text = from_str_with_options("![diagram](diagram.png)", &options);
+///
+/// assert_eq!(text.to_string(), "[img] diagram (diagram.png)");
 /// ```
 pub fn from_str_with_options<'a, S>(input: &'a str, options: &Options<S>) -> Text<'a>
 where
@@ -438,6 +453,16 @@ mod tests {
                 Span::from("World"),
             ]))
         );
+    }
+
+    #[rstest]
+    fn paragraph_hard_break(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {r"
+            Hello\
+            World
+        "};
+
+        assert_eq!(from_str(markdown), Text::from_iter(["Hello", "World"]));
     }
 
     #[rstest]

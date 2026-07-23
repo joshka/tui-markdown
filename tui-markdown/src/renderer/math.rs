@@ -1,4 +1,7 @@
 //! Markdown inline and display math rendering.
+//!
+//! Inline math retains `$` delimiters and its position in the surrounding line. Display math keeps
+//! `$$` delimiters and writes each source line as a physical Ratatui line.
 
 use pulldown_cmark::{CowStr, Event};
 use ratatui_core::text::{Line, Span};
@@ -35,6 +38,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
     use rstest::rstest;
 
     use super::*;
@@ -71,9 +75,20 @@ mod tests {
 
         #[rstest]
         fn multiline_display_math_styles_every_line(_with_tracing: DefaultGuard) {
+            let markdown = indoc! {"
+                Before
+
+                $$
+                x = y
+                y = z
+                $$
+
+                After
+            "};
             let style = Style::new().fg(Color::Magenta);
+
             assert_eq!(
-                from_str("Before\n\n$$\nx = y\ny = z\n$$\n\nAfter"),
+                from_str(markdown),
                 Text::from_iter([
                     Line::from("Before"),
                     Line::default(),
@@ -122,10 +137,17 @@ mod tests {
                 }
             }
 
-            let style = Style::new().red().bold();
+            let markdown = indoc! {"
+                $$
+                x = y
+                y = z
+                $$
+            "};
             let options = Options::new(CustomMathStyle);
+            let style = Style::new().red().bold();
+
             assert_eq!(
-                from_str_with_options("$$\nx = y\ny = z\n$$", &options),
+                from_str_with_options(markdown, &options),
                 Text::from_iter([
                     Line::from(Span::styled("$$", style)),
                     Line::from(Span::styled("x = y", style)),

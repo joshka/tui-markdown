@@ -1,4 +1,7 @@
 //! Markdown link rendering.
+//!
+//! Links render as `label (destination)`. The link style applies to the label and destination while
+//! nested inline formatting remains on the label.
 
 use pulldown_cmark::{CowStr, Event};
 use ratatui_core::text::Span;
@@ -64,6 +67,26 @@ mod tests {
                 Span::from(" ("),
                 Span::styled("https://example.com", link_style),
                 Span::from(")"),
+            ]))
+        );
+    }
+
+    #[rstest]
+    fn consecutive_links_restore_surrounding_style(_with_tracing: DefaultGuard) {
+        let link_style = Style::new().blue().underlined();
+        assert_eq!(
+            from_str("[One](one) and [Two](two) after"),
+            Text::from(Line::from_iter([
+                Span::styled("One", link_style),
+                Span::raw(" ("),
+                Span::styled("one", link_style),
+                Span::raw(")"),
+                Span::raw(" and "),
+                Span::styled("Two", link_style),
+                Span::raw(" ("),
+                Span::styled("two", link_style),
+                Span::raw(")"),
+                Span::raw(" after"),
             ]))
         );
     }

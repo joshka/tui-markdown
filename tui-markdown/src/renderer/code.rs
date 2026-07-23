@@ -1,4 +1,7 @@
 //! Markdown inline and fenced code rendering.
+//!
+//! Inline code and unrecognized fences use the style sheet's code style. With `highlight-code`
+//! enabled, a recognized fenced language uses the selected syntax-highlighting theme.
 
 #[cfg(feature = "highlight-code")]
 use std::sync::LazyLock;
@@ -202,6 +205,20 @@ mod tests {
             ])
             .into()
         );
+    }
+
+    #[rstest]
+    fn fenced_code_style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
+        let markdown = indoc! {"
+            ```rust
+            fn main() {}
+            ```
+
+            After
+        "};
+        let text = from_str(markdown);
+
+        assert_eq!(text.lines.last(), Some(&Line::from("After")));
     }
 
     #[cfg(feature = "highlight-code")]
