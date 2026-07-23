@@ -278,6 +278,18 @@ where
     }
 
     fn start_paragraph(&mut self) {
+        // Loose list items emit a paragraph start after the item handler has already written the
+        // marker. Keep only that first paragraph on the marker line; later paragraphs have either
+        // added content or set `needs_newline`.
+        let list_marker_line_is_open = self.list_items.last().is_some_and(|item| {
+            !self.needs_newline
+                && self.text.lines.len() == item.marker_line + 1
+                && self.text.lines[item.marker_line].spans.len() == item.marker_span_count
+        });
+        if list_marker_line_is_open {
+            return;
+        }
+
         // Footnote definitions and loose definition-list descriptions start with a paragraph event
         // after their handlers have already written a visible prefix (`[label]: ` or `: `) to the
         // current line. Skip normal paragraph handling only for that first paragraph so its content
