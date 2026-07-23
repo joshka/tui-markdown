@@ -554,7 +554,7 @@ where
         if self.in_metadata_block {
             self.hard_break();
         } else {
-            self.push_span(Span::raw(" "));
+            self.push_inline_span(Span::raw(" "));
         }
     }
 
@@ -704,13 +704,13 @@ where
     fn inline_html(&mut self, html: CowStr<'a>) {
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.html());
-        self.push_span(Span::styled(html, style));
+        self.push_inline_span(Span::styled(html, style));
     }
 
     fn inline_math(&mut self, math: CowStr<'a>) {
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.math_inline());
-        self.push_span(Span::styled(format!("${math}$"), style));
+        self.push_inline_span(Span::styled(format!("${math}$"), style));
     }
 
     fn display_math(&mut self, math: CowStr<'a>) {
@@ -735,7 +735,7 @@ where
         // over it so the reference adds its own appearance without losing enclosing formatting.
         let inline_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = inline_style.patch(self.styles.footnote_ref());
-        self.push_span(Span::styled(format!("[{label}]"), style));
+        self.push_inline_span(Span::styled(format!("[{label}]"), style));
     }
 
     fn start_footnote_definition(&mut self, label: CowStr<'a>) {

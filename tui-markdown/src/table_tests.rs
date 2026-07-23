@@ -4,17 +4,6 @@ mod table {
     use super::*;
 
     #[rstest]
-    fn simple_table(_with_tracing: DefaultGuard) {
-        let text = from_str(indoc! {"
-            | A | B |
-            |---|---|
-            | 1 | 2 |
-        "});
-        assert_eq!(text.lines.len(), 5);
-        assert!(format!("{}", text.lines[0]).contains('┌'));
-    }
-
-    #[rstest]
     fn table_with_alignment(_with_tracing: DefaultGuard) {
         let text = from_str(indoc! {"
             | Left | Center | Right |
@@ -56,9 +45,9 @@ mod table {
     }
 
     #[derive(Clone)]
-    struct PreTableStyleSheet;
+    struct CustomTableStyleSheet;
 
-    impl StyleSheet for PreTableStyleSheet {
+    impl StyleSheet for CustomTableStyleSheet {
         fn heading(&self, _level: u8) -> Style {
             Style::default()
         }
@@ -82,63 +71,103 @@ mod table {
         fn metadata_block(&self) -> Style {
             Style::default()
         }
+
+        fn table_header(&self) -> Style {
+            Style::new().on_blue()
+        }
+
+        fn table_border(&self) -> Style {
+            Style::new().red()
+        }
     }
 
     #[rstest]
-    fn table_styles_are_backward_compatible(_with_tracing: DefaultGuard) {
-        let options = Options::new(PreTableStyleSheet);
+    fn custom_styles_apply_to_header_content_and_every_border(_with_tracing: DefaultGuard) {
+        let border_style = Style::new().red();
+        let header_style = Style::new().on_blue();
+        let options = Options::new(CustomTableStyleSheet);
         let text = from_str_with_options("| A |\n|---|\n| a |", &options);
-        assert_eq!(text.lines[0].spans[0].style, Style::new().dark_gray());
-        assert!(text.lines[1]
-            .spans
-            .iter()
-            .any(|span| span.style == Style::new().bold().cyan()));
+        assert_eq!(
+            text,
+            Text::from_iter([
+                Line::from(Span::styled("┌───┐", border_style)),
+                Line::from_iter([
+                    Span::styled("│", border_style),
+                    Span::raw(" "),
+                    Span::styled("A", header_style),
+                    Span::raw(" "),
+                    Span::styled("│", border_style),
+                ]),
+                Line::from(Span::styled("├───┤", border_style)),
+                Line::from_iter([
+                    Span::styled("│", border_style),
+                    Span::raw(" "),
+                    Span::raw("a"),
+                    Span::raw(" "),
+                    Span::styled("│", border_style),
+                ]),
+                Line::from(Span::styled("└───┘", border_style)),
+            ])
+        );
     }
 
     #[rstest]
-    fn table_with_header_styling(_with_tracing: DefaultGuard) {
-        let text = from_str("| Name |\n|------|\n| foo  |");
-        let has_bold = text.lines[1]
-            .spans
-            .iter()
-            .any(|span| span.style.add_modifier.contains(ratatui::style::Modifier::BOLD));
-        assert!(has_bold);
-    }
-
-    #[rstest]
-    fn table_after_paragraph(_with_tracing: DefaultGuard) {
+    fn table_preserves_surrounding_paragraph_spacing(_with_tracing: DefaultGuard) {
         let text = from_str(indoc! {"
-            Hello world
+            Before
 
-            | A | B |
-            |---|---|
-            | 1 | 2 |
+            | A |
+            |---|
+            | a |
+
+            After
         "});
-        assert!(text.lines.len() >= 7);
-        assert_eq!(format!("{}", text.lines[0]), "Hello world");
+        let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+        assert_eq!(
+            rendered,
+            [
+                "Before", "", "┌───┐", "│ A │", "├───┤", "│ a │", "└───┘", "", "After",
+            ]
+        );
     }
 
     #[rstest]
-    fn table_empty_cells(_with_tracing: DefaultGuard) {
+    fn empty_cells_keep_minimum_column_width(_with_tracing: DefaultGuard) {
         let text = from_str("| A | B |\n|---|---|\n|   |   |");
-        assert_eq!(text.lines.len(), 5);
+        let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+        assert_eq!(
+            rendered,
+            [
+                "┌───┬───┐",
+                "│ A │ B │",
+                "├───┼───┤",
+                "│   │   │",
+                "└───┴───┘",
+            ]
+        );
     }
 
     #[rstest]
     fn table_with_inline_code(_with_tracing: DefaultGuard) {
         let text = from_str("| Name | Type |\n|------|------|\n| foo  | `u32` |");
         let code_style = Style::new().white().on_black();
-        assert!(text.lines[3].spans.iter().any(|span| span.style == code_style));
+        let code = text.lines[3]
+            .spans
+            .iter()
+            .find(|span| span.content == "u32")
+            .expect("inline code cell content");
+        assert_eq!(code, &Span::styled("u32", code_style));
     }
 
     #[rstest]
     fn table_with_bold_in_cells(_with_tracing: DefaultGuard) {
         let text = from_str("| Col |\n|-----|\n| **bold** |");
-        let has_bold = text.lines[3]
+        let bold = text.lines[3]
             .spans
             .iter()
-            .any(|span| span.style.add_modifier.contains(ratatui::style::Modifier::BOLD));
-        assert!(has_bold);
+            .find(|span| span.content == "bold")
+            .expect("bold cell content");
+        assert_eq!(bold, &Span::styled("bold", Style::new().bold()));
     }
 
     #[rstest]
@@ -155,20 +184,61 @@ mod table {
                 "└──────────┘",
             ]
         );
+        let link_style = DefaultStyleSheet.link();
+        assert_eq!(
+            text.lines[3],
+            Line::from_iter([
+                Span::styled("│", DefaultStyleSheet.table_border()),
+                Span::raw(" "),
+                Span::styled("docs", link_style),
+                Span::raw(" ("),
+                Span::styled("u", link_style),
+                Span::raw(")"),
+                Span::raw(" "),
+                Span::styled("│", DefaultStyleSheet.table_border()),
+            ])
+        );
     }
 
     #[rstest]
-    fn table_bottom_border(_with_tracing: DefaultGuard) {
-        let text = from_str("| X |\n|---|\n| y |");
-        let bottom = format!("{}", text.lines.last().unwrap());
-        assert!(bottom.contains('└'));
-        assert!(bottom.contains('┘'));
+    fn table_keeps_inline_features_in_cell(_with_tracing: DefaultGuard) {
+        let text = from_str("| Value |\n|-------|\n| <em>x</em> $y$ |");
+        let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+        assert_eq!(
+            rendered,
+            [
+                "┌────────────────┐",
+                "│ Value          │",
+                "├────────────────┤",
+                "│ <em>x</em> $y$ │",
+                "└────────────────┘",
+            ]
+        );
+
+        let row = &text.lines[3];
+        assert!(row
+            .spans
+            .contains(&Span::styled("<em>", DefaultStyleSheet.html())));
+        assert!(row.spans.contains(&Span::styled(
+            "$y$",
+            DefaultStyleSheet.math_inline()
+        )));
     }
 
     #[rstest]
-    fn table_multi_row(_with_tracing: DefaultGuard) {
-        let text = from_str("| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |");
-        assert_eq!(text.lines.len(), 6);
+    fn table_in_blockquote_keeps_quote_prefix(_with_tracing: DefaultGuard) {
+        let text = from_str("> | A |\n> |---|\n> | a |");
+        let rendered = text.lines.iter().map(ToString::to_string).collect_vec();
+        assert_eq!(
+            rendered,
+            [
+                "> ┌───┐",
+                "> │ A │",
+                "> ├───┤",
+                "> │ a │",
+                "> └───┘",
+            ]
+        );
     }
 
     #[rstest]
