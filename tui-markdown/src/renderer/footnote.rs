@@ -51,7 +51,6 @@ mod tests {
     use super::*;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
     use crate::renderer::*;
-    use crate::*;
 
     mod footnotes {
         use pretty_assertions::assert_eq;
@@ -215,30 +214,6 @@ mod tests {
             struct CustomFootnoteStyle;
 
             impl StyleSheet for CustomFootnoteStyle {
-                fn heading(&self, level: u8) -> Style {
-                    DefaultStyleSheet.heading(level)
-                }
-
-                fn code(&self) -> Style {
-                    DefaultStyleSheet.code()
-                }
-
-                fn link(&self) -> Style {
-                    DefaultStyleSheet.link()
-                }
-
-                fn blockquote(&self) -> Style {
-                    DefaultStyleSheet.blockquote()
-                }
-
-                fn heading_meta(&self) -> Style {
-                    DefaultStyleSheet.heading_meta()
-                }
-
-                fn metadata_block(&self) -> Style {
-                    DefaultStyleSheet.metadata_block()
-                }
-
                 fn footnote_ref(&self) -> Style {
                     Style::new().red().underlined()
                 }
