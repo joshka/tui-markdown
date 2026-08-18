@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.30](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.29...markdown-reader-v0.1.30) - 2026-08-18
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.1.29](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.28...markdown-reader-v0.1.29) - 2026-07-23
 
 - Render images, GFM tables and alerts, raw HTML, math, footnotes, and definition lists
