@@ -50,11 +50,12 @@ where
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
+    use ratatui_core::{style::Style, text::Text};
     use rstest::rstest;
 
     use super::*;
+    use crate::from_str;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
-    use crate::renderer::*;
 
     mod html {
         use pretty_assertions::assert_eq;

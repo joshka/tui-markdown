@@ -37,11 +37,15 @@ where
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+    use ratatui_core::{
+        style::Style,
+        text::{Line, Text},
+    };
     use rstest::rstest;
 
     use super::*;
+    use crate::from_str;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
-    use crate::renderer::*;
 
     #[rstest]
     fn link_uses_default_style(_with_tracing: DefaultGuard) {

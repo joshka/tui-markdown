@@ -76,12 +76,12 @@ fn alert_kind(kind: BlockQuoteKind) -> AlertKind {
 #[cfg(test)]
 mod tests {
     use indoc::{formatdoc, indoc};
+    use ratatui_core::text::Text;
     use rstest::rstest;
 
     use super::*;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
-    use crate::renderer::*;
-    use crate::*;
+    use crate::{from_str, from_str_with_options, DefaultStyleSheet, Options};
 
     mod gfm_alerts {
         use pretty_assertions::assert_eq;

@@ -72,6 +72,24 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
+  clippy-beta:
+    name: Clippy (beta, non-blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: beta
+          components: clippy
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features --workspace -- -D warnings
+
   check:
     name: Check Targets
     runs-on: ubuntu-latest
