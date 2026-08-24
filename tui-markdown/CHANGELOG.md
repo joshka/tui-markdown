@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.10](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.9...tui-markdown-v0.3.10) - 2026-08-24
+
+### Other
+
+- Catch clippy regressions before stable ([#181](https://github.com/joshka/tui-markdown/pull/181))
+
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
 
 - Render GFM tables and alerts, raw HTML, math, footnotes, and definition lists ([#153], [#154]).
