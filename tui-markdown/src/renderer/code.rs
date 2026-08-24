@@ -140,11 +140,12 @@ where
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
+    use ratatui_core::style::Style;
     use rstest::rstest;
 
     use super::*;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
-    use crate::renderer::*;
+    use crate::{from_str, from_str_with_options, Options};
 
     #[derive(Clone, Copy)]
     struct CustomCodeBlockFence(&'static str);
