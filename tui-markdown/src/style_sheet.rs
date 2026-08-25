@@ -196,6 +196,13 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         Style::new().dark_gray()
     }
 
+    /// Style for ordered list markers (`1.`, `2.`, ...)
+    ///
+    /// This changes the presentation of the ordered list marker, not the marker text itself.
+    fn list_marker(&self) -> Style {
+        Style::new().light_blue()
+    }
+
     /// Style for the `[img]` marker and text used to represent Markdown images.
     ///
     /// The default is dim and italic. The renderer patches this over any enclosing inline style.
