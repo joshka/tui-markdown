@@ -1,7 +1,6 @@
 //! Markdown list and task-item rendering.
 
 use pulldown_cmark::Event;
-use ratatui_core::style::Stylize;
 use ratatui_core::text::{Line, Span};
 
 use super::TextWriter;
@@ -55,7 +54,10 @@ where
                 None => Span::from(" ".repeat(width - 1) + "- "),
                 Some(index) => {
                     *index += 1;
-                    format!("{:width$}. ", *index - 1).light_blue()
+                    Span::styled(
+                        format!("{:width$}. ", *index - 1),
+                        self.styles.list_marker(),
+                    )
                 }
             };
             let continuation_width = span.width();
@@ -100,6 +102,7 @@ where
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
+    use ratatui_core::style::Stylize;
     use rstest::rstest;
 
     use super::*;
@@ -307,6 +310,60 @@ mod tests {
                 Line::default(),
                 Line::from("After"),
             ])
+        );
+    }
+
+    #[rstest]
+    fn ordered_list_marker_uses_style_sheet(_with_tracing: DefaultGuard) {
+        #[derive(Clone, Copy)]
+        struct CustomListMarkerStyle;
+
+        impl StyleSheet for CustomListMarkerStyle {
+            fn list_marker(&self) -> Style {
+                Style::new().magenta().bold()
+            }
+        }
+
+        let markdown = indoc! {"
+            1. List item 1
+            2. List item 2
+        "};
+        let options = Options::new(CustomListMarkerStyle);
+        assert_eq!(
+            from_str_with_options(markdown, &options),
+            Text::from_iter([
+                Line::from_iter([
+                    Span::styled("1. ", Style::new().magenta().bold()),
+                    Span::raw("List item 1"),
+                ]),
+                Line::from_iter([
+                    Span::styled("2. ", Style::new().magenta().bold()),
+                    Span::raw("List item 2"),
+                ]),
+            ])
+        );
+    }
+
+    #[rstest]
+    fn unordered_list_marker_is_not_affected_by_style_sheet(_with_tracing: DefaultGuard) {
+        #[derive(Clone, Copy)]
+        struct CustomListMarkerStyle;
+
+        impl StyleSheet for CustomListMarkerStyle {
+            fn list_marker(&self) -> Style {
+                Style::new().magenta().bold()
+            }
+        }
+
+        let markdown = indoc! {"
+            - List item 1
+        "};
+        let options = Options::new(CustomListMarkerStyle);
+        assert_eq!(
+            from_str_with_options(markdown, &options),
+            Text::from_iter([Line::from_iter(
+                [Span::raw("- "), Span::raw("List item 1"),]
+            ),])
         );
     }
 }

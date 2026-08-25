@@ -191,6 +191,7 @@ mod tests {
         assert_eq!(options.styles.heading_meta(), Style::new().dim());
         assert_eq!(options.styles.metadata_block(), Style::new().light_yellow());
         assert_eq!(options.styles.image_alt(), Style::new().dim().italic());
+        assert_eq!(options.styles.list_marker(), Style::new().light_blue());
     }
 
     #[test]
