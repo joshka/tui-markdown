@@ -49,13 +49,20 @@
 
 #[cfg(feature = "highlight-code")]
 mod code_theme;
+mod layout;
 mod options;
 mod renderer;
+mod streaming;
 mod style_sheet;
 
 #[doc(inline)]
 #[cfg(feature = "highlight-code")]
 pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme, CodeThemeLoadError};
+pub use crate::layout::{InvalidReplacementCharacter, RenderContext, TableLimits};
 pub use crate::options::{ImageFallback, Options};
-pub use crate::renderer::{from_str, from_str_with_options};
+pub use crate::renderer::{from_str, from_str_with_context, from_str_with_options};
+pub use crate::streaming::{
+    ChangeReason, PreparedRows, ResourceUsage, StreamingMarkdown, TableFallbacks, Update,
+    WorkCounters,
+};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};

@@ -8,6 +8,9 @@
 //! descriptions receive those spans first, followed by active table cells, then the output line.
 //! This sink order preserves inline event ordering inside buffered constructs.
 
+use std::cell::{Cell, RefCell};
+use std::ops::Range;
+use std::rc::Rc;
 use std::vec;
 
 use itertools::Itertools;
@@ -20,6 +23,7 @@ use tracing::{debug, instrument};
 use crate::code_theme::CodeTheme;
 use crate::options::{ImageFallback, Options};
 use crate::style_sheet::StyleSheet;
+use crate::RenderContext;
 
 mod blockquote;
 mod code;
@@ -73,6 +77,24 @@ pub fn from_str_with_options<'a, S>(input: &'a str, options: &Options<S>) -> Tex
 where
     S: StyleSheet,
 {
+    render(input, options, None)
+}
+
+fn render<'a, S: StyleSheet>(
+    input: &'a str,
+    options: &Options<S>,
+    context: Option<RenderContext>,
+) -> Text<'a> {
+    let parser = Parser::new_ext(input, parser_options());
+
+    let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
+    writer.context = context;
+    #[cfg(feature = "highlight-code")]
+    let writer = writer.with_code_theme(options.selected_code_theme());
+    writer.run()
+}
+
+fn parser_options() -> ParseOptions {
     let mut parse_opts = ParseOptions::empty();
     parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
     parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
@@ -85,12 +107,239 @@ where
     parse_opts.insert(ParseOptions::ENABLE_DEFINITION_LIST);
     parse_opts.insert(ParseOptions::ENABLE_GFM);
     parse_opts.insert(ParseOptions::ENABLE_TABLES);
-    let parser = Parser::new_ext(input, parse_opts);
+    parse_opts
+}
 
-    let writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
+/// Renders Markdown with an explicit terminal body width and table-presentation limits.
+///
+/// Unlike [`from_str_with_options`], this opt-in entry point prepares visual rows for the supplied
+/// context. Application-owned reply markers are not included in that width. Zero width returns no
+/// rows without parsing. Graphemes wider than the whole body use the context's ASCII replacement;
+/// ordinary line-end overflow wraps to the next row.
+pub fn from_str_with_context<'a, S: StyleSheet>(
+    input: &'a str,
+    options: &Options<S>,
+    context: &RenderContext,
+) -> Text<'a> {
+    if context.width() == 0 {
+        return Text::default();
+    }
+    crate::layout::wrap_text(render(input, options, Some(*context)), *context)
+}
+
+pub(crate) struct RenderPrefix {
+    pub text: Text<'static>,
+    pub needs_newline: bool,
+    pub table_fallbacks: [usize; 3],
+    pub table_count: usize,
+}
+
+pub(crate) struct RenderCheckpoint {
+    pub source_offset: usize,
+    pub semantic_row: usize,
+    pub needs_newline: bool,
+    pub table_fallbacks: [usize; 3],
+    pub table_count: usize,
+}
+
+pub(crate) struct StreamingRender {
+    pub text: Text<'static>,
+    pub checkpoint: Option<RenderCheckpoint>,
+    pub events: u64,
+    pub blocks: u64,
+    pub has_global_dependency: bool,
+    pub table_fallbacks: [usize; 3],
+    pub table_count: usize,
+}
+
+struct TrackedRender<'a> {
+    text: Text<'a>,
+    checkpoint: Option<RenderCheckpoint>,
+    events: u64,
+    blocks: u64,
+    has_global_dependency: bool,
+    table_fallbacks: [usize; 3],
+    table_count: usize,
+}
+
+#[derive(Default)]
+struct TrackingState {
+    depth: usize,
+    pending_start: Option<usize>,
+    previous_block_start: Option<usize>,
+    previous_block_was_table: bool,
+    events: u64,
+    blocks: u64,
+    has_global_dependency: bool,
+}
+
+struct TrackingEvents<'a, I> {
+    iter: I,
+    source: &'a str,
+    base_offset: usize,
+    state: Rc<RefCell<TrackingState>>,
+}
+
+impl<'a, I> Iterator for TrackingEvents<'a, I>
+where
+    I: Iterator<Item = (Event<'a>, Range<usize>)>,
+{
+    type Item = Event<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (event, range) = self.iter.next()?;
+        let mut state = self.state.borrow_mut();
+        state.events += 1;
+        match &event {
+            Event::Start(tag) => {
+                if matches!(tag, Tag::FootnoteDefinition(_)) {
+                    state.has_global_dependency = true;
+                }
+                if state.depth == 0 && is_block_tag(tag) {
+                    let block_start = line_start(self.source, range.start);
+                    let can_advance = state.previous_block_start.is_none_or(|start| {
+                        !state.previous_block_was_table
+                            || has_blank_line(&self.source[start..block_start])
+                    });
+                    if can_advance {
+                        state.pending_start = Some(self.base_offset + block_start);
+                    }
+                    state.previous_block_start = Some(block_start);
+                    state.previous_block_was_table = matches!(tag, Tag::Table(_));
+                    state.blocks += 1;
+                }
+                state.depth += 1;
+            }
+            Event::End(_) => {
+                state.depth = state.depth.saturating_sub(1);
+            }
+            Event::FootnoteReference(_) => state.has_global_dependency = true,
+            Event::Rule if state.depth == 0 => {
+                let block_start = line_start(self.source, range.start);
+                if self.base_offset + block_start == 0 {
+                    // A leading thematic rule can become a YAML metadata opener after later input.
+                    state.has_global_dependency = true;
+                }
+                let can_advance = state.previous_block_start.is_none_or(|start| {
+                    !state.previous_block_was_table
+                        || has_blank_line(&self.source[start..block_start])
+                });
+                if can_advance {
+                    state.pending_start = Some(self.base_offset + block_start);
+                }
+                state.previous_block_start = Some(block_start);
+                state.previous_block_was_table = false;
+                state.blocks += 1;
+            }
+            _ => {}
+        }
+        drop(state);
+        Some(event)
+    }
+}
+
+fn has_blank_line(gap: &str) -> bool {
+    gap.split_inclusive('\n').any(|line| {
+        let Some(line) = line.strip_suffix('\n') else {
+            return false;
+        };
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        line.bytes().all(|byte| matches!(byte, b' ' | b'\t'))
+    })
+}
+
+fn line_start(source: &str, offset: usize) -> usize {
+    source[..offset.min(source.len())]
+        .rfind('\n')
+        .map_or(0, |newline| newline + 1)
+}
+
+fn is_block_tag(tag: &Tag<'_>) -> bool {
+    matches!(
+        tag,
+        Tag::Paragraph
+            | Tag::Heading { .. }
+            | Tag::BlockQuote(_)
+            | Tag::CodeBlock(_)
+            | Tag::HtmlBlock
+            | Tag::List(_)
+            | Tag::FootnoteDefinition(_)
+            | Tag::Table(_)
+            | Tag::MetadataBlock(_)
+            | Tag::DefinitionList
+    )
+}
+
+pub(crate) fn render_streaming<S: StyleSheet>(
+    input: &str,
+    options: &Options<S>,
+    context: RenderContext,
+    base_offset: usize,
+    prefix: RenderPrefix,
+) -> StreamingRender {
+    let unresolved = Rc::new(Cell::new(false));
+    let callback_flag = Rc::clone(&unresolved);
+    let parser = Parser::new_with_broken_link_callback(
+        input,
+        parser_options(),
+        Some(move |_| {
+            callback_flag.set(true);
+            None
+        }),
+    );
+    let has_reference_definitions = parser.reference_definitions().iter().next().is_some();
+    let state = Rc::new(RefCell::new(TrackingState {
+        has_global_dependency: has_reference_definitions,
+        ..TrackingState::default()
+    }));
+    let events = TrackingEvents {
+        iter: parser.into_offset_iter(),
+        source: input,
+        base_offset,
+        state: Rc::clone(&state),
+    };
+    let mut writer = TextWriter::with_prefix(
+        events,
+        options.styles.clone(),
+        options.image_fallback,
+        prefix.text,
+        prefix.needs_newline,
+    );
+    writer.table_fallbacks = prefix.table_fallbacks;
+    writer.table_count = prefix.table_count;
+    writer.context = Some(context);
     #[cfg(feature = "highlight-code")]
     let writer = writer.with_code_theme(options.selected_code_theme());
-    writer.run()
+    let tracked = writer.run_tracked(&state);
+    StreamingRender {
+        text: own_text(tracked.text),
+        checkpoint: tracked.checkpoint,
+        events: tracked.events,
+        blocks: tracked.blocks,
+        has_global_dependency: tracked.has_global_dependency || unresolved.get(),
+        table_fallbacks: tracked.table_fallbacks,
+        table_count: tracked.table_count,
+    }
+}
+
+fn own_text(text: Text<'_>) -> Text<'static> {
+    Text {
+        alignment: text.alignment,
+        style: text.style,
+        lines: text
+            .lines
+            .into_iter()
+            .map(|line| Line {
+                style: line.style,
+                alignment: line.alignment,
+                spans: line
+                    .spans
+                    .into_iter()
+                    .map(|span| Span::styled(span.content.into_owned(), span.style))
+                    .collect(),
+            })
+            .collect(),
+    }
 }
 
 struct TextWriter<'a, 'theme, I, S: StyleSheet> {
@@ -111,6 +360,8 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     needs_newline: bool,
     /// Whether raw text is inside a metadata block.
     in_metadata_block: bool,
+    /// Optional width-aware layout; absent for the original batch API.
+    context: Option<RenderContext>,
 
     // Code rendering state.
     /// Active syntax highlighter while rendering a recognized fenced code block.
@@ -154,6 +405,10 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     // Table rendering state.
     /// Active table builder that accumulates cells during table parsing.
     table_builder: Option<table::TableBuilder<'a>>,
+    /// Current snapshot's table fallback counts by [`table::TableFallback`] discriminant.
+    table_fallbacks: [usize; 3],
+    /// Number of tables retained in the current renderer snapshot.
+    table_count: usize,
 }
 
 impl<'a, 'theme, I, S> TextWriter<'a, 'theme, I, S>
@@ -171,6 +426,7 @@ where
             styles,
             needs_newline: false,
             in_metadata_block: false,
+            context: None,
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
             #[cfg(feature = "highlight-code")]
@@ -186,7 +442,22 @@ where
             in_footnote_definition: false,
             in_definition_description: false,
             table_builder: None,
+            table_fallbacks: [0; 3],
+            table_count: 0,
         }
+    }
+
+    fn with_prefix(
+        iter: I,
+        styles: S,
+        image_fallback: ImageFallback,
+        text: Text<'a>,
+        needs_newline: bool,
+    ) -> Self {
+        let mut writer = Self::new(iter, styles, image_fallback);
+        writer.text = text;
+        writer.needs_newline = needs_newline;
+        writer
     }
 
     fn run(mut self) -> Text<'a> {
@@ -197,7 +468,34 @@ where
         self.text
     }
 
-    #[instrument(level = "debug", skip(self))]
+    fn run_tracked(mut self, state: &Rc<RefCell<TrackingState>>) -> TrackedRender<'a> {
+        debug!("Running tracked text writer");
+        let mut checkpoint = None;
+        while let Some(event) = self.iter.next() {
+            if let Some(source_offset) = state.borrow_mut().pending_start.take() {
+                checkpoint = Some(RenderCheckpoint {
+                    source_offset,
+                    semantic_row: self.text.lines.len(),
+                    needs_newline: self.needs_newline,
+                    table_fallbacks: self.table_fallbacks,
+                    table_count: self.table_count,
+                });
+            }
+            self.handle_event(event);
+        }
+        let state = state.borrow();
+        TrackedRender {
+            text: self.text,
+            checkpoint,
+            events: state.events,
+            blocks: state.blocks,
+            has_global_dependency: state.has_global_dependency,
+            table_fallbacks: self.table_fallbacks,
+            table_count: self.table_count,
+        }
+    }
+
+    #[instrument(level = "debug", skip_all)]
     fn handle_event(&mut self, event: Event<'a>) {
         match event {
             Event::Start(tag) => self.start_tag(tag),
@@ -389,7 +687,7 @@ where
         }
     }
 
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     fn push_line(&mut self, line: Line<'a>) {
         let style = self.line_styles.last().copied().unwrap_or_default();
         let mut line = line.patch_style(style);
@@ -406,7 +704,7 @@ where
         self.text.lines.push(line);
     }
 
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     fn push_span(&mut self, span: Span<'a>) {
         // An active image owns every span produced by its inline event stream. Checking it before
         // the table sink also lets a completed fallback enter a table cell as one ordered unit.

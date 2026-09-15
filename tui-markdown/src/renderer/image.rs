@@ -85,7 +85,7 @@ where
     S: StyleSheet,
 {
     /// Begins collecting the rendered image description.
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     pub fn start_image(&mut self, dest_url: CowStr<'a>) {
         self.push_inline_style(self.styles.image_alt());
         let style = self.inline_styles.last().copied().unwrap_or_default();
@@ -96,7 +96,7 @@ where
     ///
     /// Pop the image before emitting so a nested image becomes part of its parent's description,
     /// while an outer image continues through the usual table or document span sink.
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     pub fn end_image(&mut self) {
         self.pop_inline_style();
         if let Some(image) = self.images.pop() {

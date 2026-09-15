@@ -6,7 +6,7 @@ value. See [Markdown-reader] for an example application that uses this library.
 [![Crate badge]][tui-markdown]
 [![Docs.rs Badge]][API Docs]
 [![Deps.rs Badge]][Dependency Status]
-[![License Badge]](../LICENSE-MIT)
+[![License Badge]](LICENSE-MIT)
 [![Codecov.io Badge]][Code Coverage]
 [![Discord Badge]][Ratatui Discord]
 
@@ -25,6 +25,83 @@ let input = "# Heading\n\n**bold**"; // this can come from wherever
 let text = tui_markdown::from_str(input);
 text.render(area, &mut buf);
 ```
+
+### Width-aware rendering
+
+Use the opt-in `from_str_with_context` API to prepare rows for the available body width. Exclude
+application-owned reply markers and other surrounding UI from this width:
+
+```rust
+use tui_markdown::{from_str_with_context, Options, RenderContext};
+
+let context = RenderContext::new(1)
+    .with_wide_grapheme_replacement('*')
+    .expect("a printable ASCII character");
+let text = from_str_with_context("\u{754c}", &Options::default(), &context);
+assert_eq!(text.to_string(), "*");
+```
+
+Normal line-end overflow wraps to another row without changing the text. Only a whole grapheme
+that is wider than the entire body width uses a replacement, which defaults to `-`. The replacement
+retains the text style and must be one printable ASCII character (`U+0020` through `U+007E`);
+non-ASCII and control characters return `InvalidReplacementCharacter`. Source remains unchanged,
+so rendering at a wider width restores the original grapheme. Width zero returns no rows.
+
+Tables use stacked rows and numbered cells when their grid cannot fit or its configurable
+`TableLimits` are exceeded. These limits cover grid-presentation buffers, not all parser or output
+allocations. Joined cell text used only for cross-style grapheme measurement is charged to that
+table buffer as one reusable per-table scratch allocation; an over-budget table switches to stacked
+presentation before allocating the scratch. The complete current snapshot is accounted separately
+by `ResourceUsage`. The original `from_str` and `from_str_with_options` APIs keep their unwrapped
+behavior.
+
+### Streaming rendering
+
+`StreamingMarkdown` retains exact source and an owned `Text<'static>` snapshot. Ordinary appends
+replay only the parser-confirmed mutable suffix; `finish` performs one fresh canonical
+whole-document pass for each source version:
+
+```rust
+use tui_markdown::{Options, RenderContext, StreamingMarkdown};
+
+let mut markdown = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+markdown.append("First paragraph.\n\n");
+let update = markdown.append("Second **paragraph**.");
+
+let complete_text = markdown.current();
+let earliest_replacement = update.first_changed_row;
+let irreversible_prefix = update.stable_rows;
+assert_eq!(markdown.source(), "First paragraph.\n\nSecond **paragraph**.");
+
+markdown.finish();
+```
+
+Retained UIs can borrow only the currently visible rows plus bounded overscan without cloning or
+walking the rest of the snapshot:
+
+```rust
+# use tui_markdown::{Options, RenderContext, StreamingMarkdown};
+# let mut markdown = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+# markdown.append("one\n\ntwo\n\nthree");
+let viewport = markdown.prepare_rows(1, 2);
+for row in viewport.rows() {
+    // Draw, measure, select, and hit-test this same prepared row.
+    let _ = row;
+}
+```
+
+Repeated viewport requests reuse the same row storage and perform no parser or renderer work. The
+borrow prevents mutation while a prepared view is active, avoiding stale geometry. The complete
+snapshot remains available through `current`; applications remain responsible for retaining only
+bounded active/history objects.
+
+`replace`, `clear`, `set_context`, and `set_options` invalidate incompatible state. Repeated
+`current`, empty `append`, unchanged `set_context`, and repeated `finish` do no parser or renderer
+work. `WorkCounters` exposes source-free processing counts, while `ResourceUsage` accounts for
+source and owned snapshots without claiming a total-memory cap. References and footnotes use an
+explicit conservative whole-document recomputation path and never make a false stable-prefix
+promise. A nonempty append after `finish` explicitly starts a new mutable lineage and returns
+`ChangeReason::Reopen`; it never reports an ordinary append after all rows were declared stable.
 
 ### Syntax highlighting themes
 
@@ -264,9 +341,9 @@ Copyright (c) 2024 Josh McKinney
 This project is licensed under either of
 
 - Apache License, Version 2.0
-   ([LICENSE-APACHE](../LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+   ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
 - MIT license
-   ([LICENSE-MIT](../LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+   ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
 

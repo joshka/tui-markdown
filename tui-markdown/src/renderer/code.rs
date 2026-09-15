@@ -19,7 +19,7 @@ use syntect::{
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 #[cfg(feature = "highlight-code")]
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument};
 
 use super::TextWriter;
 #[cfg(feature = "highlight-code")]
@@ -113,10 +113,10 @@ where
     }
 
     #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
-            debug!("Starting code block with syntax: {:?}", lang);
+            debug!("Starting syntax-highlighted code block");
             let code_theme = match self.code_theme {
                 Some(code_theme) => code_theme,
                 None => code_theme::default(),
@@ -125,12 +125,12 @@ where
             let highlighter = HighlightLines::new(syntax, theme);
             self.code_highlighter = Some(highlighter);
         } else {
-            warn!("Could not find syntax for code block: {:?}", lang);
+            debug!("Using plain style for unrecognized code block language");
         }
     }
 
     #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     fn clear_code_highlighter(&mut self) {
         self.code_highlighter = None;
     }
