@@ -26,7 +26,9 @@ impl Default for TableLimits {
 
 /// Opt-in terminal body width and table-presentation limits.
 ///
-/// Width does not include application-owned reply markers or other chrome.
+/// Width is measured in terminal cells (columns), not pixels, bytes, or Unicode characters.
+/// It does not include application-owned reply markers or other chrome. Use the actual available
+/// body width and update the context on resize.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RenderContext {
     width: u16,
@@ -36,6 +38,9 @@ pub struct RenderContext {
 
 impl RenderContext {
     /// Creates a layout context for the supplied terminal body width.
+    ///
+    /// For example, `new(80)` allows 80 cells per display row; most ASCII characters use one cell
+    /// and many CJK characters or emoji use two. Eighty is an example, not a required fixed width.
     ///
     /// At width zero, rendering returns no rows. A grapheme wider than the entire body width is
     /// displayed as `-`; ordinary line-end overflow wraps without replacing the grapheme.

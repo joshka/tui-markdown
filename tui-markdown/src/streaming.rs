@@ -37,7 +37,7 @@ pub enum ChangeReason {
 /// Metadata returned by every mutation.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Update {
-    /// Earliest display row that differs, or `None` when display output is unchanged.
+    /// Zero-based earliest wrapped display row that differs, or `None` for unchanged output.
     pub first_changed_row: Option<usize>,
     /// Display rows safe for irreversible output in the current append lineage.
     pub stable_rows: usize,
@@ -58,7 +58,10 @@ pub struct WorkCounters {
     pub rendered_events: u64,
     /// Top-level blocks recomputed.
     pub recomputed_blocks: u64,
-    /// Fresh whole-document parser and renderer passes.
+    /// Explicit whole-document recomputations.
+    ///
+    /// Ordinary suffix replay that happens to start at byte zero is not counted here; use
+    /// [`Self::processed_source_bytes`] and event counts to measure the total work.
     pub full_recomputations: u64,
     /// Display reflows caused by context changes.
     pub context_reflows: u64,
@@ -160,7 +163,35 @@ struct ReplayCheckpoint {
     table_count: usize,
 }
 
-/// A consumer-owned streaming Markdown document.
+/// A consumer-owned streaming Markdown document with internally managed suffix replay.
+///
+/// # Input and output
+///
+/// Append only new, ordered, valid UTF-8 fragments. Fragments may split Markdown constructs or
+/// extended grapheme clusters; transport decoding and reveal scheduling belong to the caller.
+/// Each mutation synchronously updates a complete styled [`Text`] snapshot for all source
+/// submitted to this object. [`Self::current`] borrows that snapshot, and [`Self::prepare_rows`]
+/// borrows a window of wrapped display rows without further parsing, rendering, or copying.
+/// This is styled Ratatui data, not terminal I/O or an emitted ANSI stream.
+///
+/// # Incremental work and invalidation
+///
+/// The object owns the replay byte offset, parser-derived boundaries, and cached output.
+/// Ordinary append reuses an unaffected prefix and reparses/rerenders the mutable suffix.
+/// A growing paragraph, list, table, or code block can remain mutable; if replay starts at zero,
+/// the suffix is the whole document. Previously displayed content can change as syntax completes.
+///
+/// [`Self::finish`] is not the only full-input path: global dependencies, different-source
+/// replacement, option changes, and context changes for documents containing tables also cause
+/// full recomputation in the current implementation. Global-dependency mode remains conservative
+/// for subsequent appends until different source is supplied to [`Self::replace`] or the document
+/// is cleared. Without tables, context changes reuse unwrapped output and only reflow it.
+///
+/// A nonempty append after finish explicitly reopens a new lineage, reporting
+/// [`ChangeReason::Reopen`] and resetting the previous stable-prefix promise. Consumers of
+/// irreversible output must also treat replacement, context, and option changes as invalidation
+/// boundaries. Every intermediate snapshot must already match fresh batch rendering; the final
+/// pass is not a correction mechanism for inaccurate streaming output.
 pub struct StreamingMarkdown<S: StyleSheet = DefaultStyleSheet> {
     options: Options<S>,
     context: RenderContext,
@@ -178,7 +209,9 @@ pub struct StreamingMarkdown<S: StyleSheet = DefaultStyleSheet> {
 }
 
 impl<S: StyleSheet> StreamingMarkdown<S> {
-    /// Creates an empty document with the supplied rendering options and body context.
+    /// Creates an independent empty document with the supplied options and terminal-cell width.
+    ///
+    /// No parser or renderer work occurs until a subsequent mutation.
     pub fn new(options: Options<S>, context: RenderContext) -> Self {
         Self {
             options,
@@ -198,6 +231,14 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
     }
 
     /// Appends ordered UTF-8 source and incrementally replaces the affected display suffix.
+    ///
+    /// Pass only the newly visible fragment. The updated full snapshot is available immediately
+    /// through [`Self::current`]. Empty input is a no-op.
+    ///
+    /// The replay offset may remain at zero for an unfinished document-wide construct. References,
+    /// footnotes, and other global dependencies can require full-input passes on this and later
+    /// appends. Appending after [`Self::finish`] explicitly reopens the lineage with a full pass
+    /// and [`ChangeReason::Reopen`], rather than silently retracting previously stable rows.
     pub fn append(&mut self, chunk: &str) -> Update {
         if chunk.is_empty() {
             return self.unchanged();
@@ -221,6 +262,9 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
     }
 
     /// Replaces the complete source and discards incompatible incremental state.
+    ///
+    /// Identical source is a no-op. Different nonempty source gets a full-input pass; empty source
+    /// discards the projection without parsing. This resets the append lineage and global mode.
     pub fn replace(&mut self, source: &str) -> Update {
         if self.source == source {
             return self.unchanged();
@@ -242,6 +286,8 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
     }
 
     /// Clears source and all document-specific parser and renderer state.
+    ///
+    /// An already empty document is a no-op. Options, context, and cumulative counters are retained.
     pub fn clear(&mut self) -> Update {
         if self.source.is_empty() && self.current.lines.is_empty() {
             return self.unchanged();
@@ -259,6 +305,11 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
     }
 
     /// Updates terminal body width and presentation limits.
+    ///
+    /// Identical context is a no-op. A changed context reflows the complete retained output
+    /// without reparsing when the document contains no tables. With tables, the current
+    /// implementation performs a full-input parse/render pass. This invalidates row coordinates,
+    /// completion status, and the previous context's stable-prefix guarantee.
     pub fn set_context(&mut self, context: RenderContext) -> Update {
         if self.context == context {
             return self.unchanged();
@@ -275,6 +326,9 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
     }
 
     /// Replaces styling and rendering options and recomputes the current document.
+    ///
+    /// This always performs a full-input pass; option values are not compared for equality.
+    /// It also invalidates completion status and the previous stable-prefix guarantee.
     pub fn set_options(&mut self, options: Options<S>) -> Update {
         self.options = options;
         self.bump_version();
@@ -282,7 +336,12 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
         self.render_full(ChangeReason::Options)
     }
 
-    /// Performs one fresh canonical full-input pass for the current source version.
+    /// Performs one fresh canonical full-input pass for the current source/options/context version.
+    ///
+    /// Read the final snapshot with [`Self::current`]. Repeated calls without an intervening
+    /// mutation do no further work. Other operations can also require full-input recomputation;
+    /// see the type-level invalidation contract. Finish does not consume the object, but a
+    /// subsequent nonempty append explicitly reopens a new mutable lineage.
     pub fn finish(&mut self) -> Update {
         if self.finished_version == Some(self.version) {
             return self.unchanged();
@@ -296,15 +355,36 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
     }
 
     /// Borrows the complete current owned display snapshot.
+    ///
+    /// The snapshot includes all source currently submitted to this object, including incomplete
+    /// Markdown. Reading it does no parsing, rendering, or cloning. The returned borrow is tied to
+    /// this document; `'static` describes its owned span contents, not the lifetime of the borrow.
     pub fn current(&self) -> &Text<'static> {
         &self.current
     }
 
     /// Borrows a clamped range of already prepared display rows.
     ///
+    /// `first_row` is zero-based and `row_count` is a count, not an inclusive or exclusive end
+    /// index. Rows are measured after wrapping, not by source newlines. Starts beyond the snapshot
+    /// return an empty slice; ranges extending beyond it return only the available rows.
+    ///
     /// Repeated calls reuse the current snapshot's backing storage. This lets retained UIs
     /// materialize only their viewport and overscan while [`Self::current`] continues to provide
-    /// the complete canonical snapshot.
+    /// the complete canonical snapshot. It does not defer initial rendering to the requested
+    /// viewport. Source or context changes can move content to different row numbers.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tui_markdown::{Options, RenderContext, StreamingMarkdown};
+    ///
+    /// let mut document = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    /// document.append("one\n\ntwo\n\nthree");
+    /// let window = document.prepare_rows(2, 3);
+    /// assert_eq!(window.rows(), &document.current().lines[2..5]);
+    /// assert!(document.prepare_rows(100, 10).is_empty());
+    /// ```
     #[must_use]
     pub fn prepare_rows(&self, first_row: usize, row_count: usize) -> PreparedRows<'_> {
         let total_rows = self.current.lines.len();

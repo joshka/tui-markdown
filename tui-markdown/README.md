@@ -29,7 +29,12 @@ text.render(area, &mut buf);
 ### Width-aware rendering
 
 Use the opt-in `from_str_with_context` API to prepare rows for the available body width. Exclude
-application-owned reply markers and other surrounding UI from this width:
+application-owned reply markers and other surrounding UI from this width.
+
+Width is measured in terminal cells (columns), not bytes, Unicode characters, or pixels. For
+example, `RenderContext::new(80)` gives the Markdown body 80 cells per row; most ASCII characters
+occupy one cell and many CJK characters or emoji occupy two. Use the actual available body width
+and update the streaming context when it changes rather than hard-coding the example value.
 
 ```rust
 use tui_markdown::{from_str_with_context, Options, RenderContext};
@@ -57,9 +62,17 @@ behavior.
 
 ### Streaming rendering
 
-`StreamingMarkdown` retains exact source and an owned `Text<'static>` snapshot. Ordinary appends
-replay only the parser-confirmed mutable suffix; `finish` performs one fresh canonical
-whole-document pass for each source version:
+`StreamingMarkdown` owns one document's exact source and current styled snapshot. Pass only new,
+ordered UTF-8 fragments to `append(&str)`; do not resubmit the accumulated source. A fragment may
+end inside Markdown syntax or a grapheme cluster, but it must be valid UTF-8. The application owns
+transport decoding, event ordering, reveal scheduling, and document/session boundaries.
+
+After a mutation returns, `current()` borrows the complete current rendering of all source
+submitted to this object, not just the latest fragment. The output is Ratatui `Text` containing
+styled `Line` and `Span` values, not HTML, an image, or an ANSI byte stream written to a terminal.
+`Update` separately reports the earliest changed display row, stable-prefix row count, replay
+byte offset, and change reason. Readable output is not necessarily final: later input may change
+earlier Markdown interpretation or layout.
 
 ```rust
 use tui_markdown::{Options, RenderContext, StreamingMarkdown};
@@ -76,32 +89,73 @@ assert_eq!(markdown.source(), "First paragraph.\n\nSecond **paragraph**.");
 markdown.finish();
 ```
 
-Retained UIs can borrow only the currently visible rows plus bounded overscan without cloning or
-walking the rest of the snapshot:
+#### Reading a display-row range
+
+Retained UIs can borrow visible rows plus overscan without cloning or walking the rest of the
+snapshot. `prepare_rows(first_row, row_count)` takes a **zero-based start and a count**, not an end
+index. These are visual rows after wrapping, not Markdown source lines. For example, human-numbered
+rows 10 through 20 inclusive use `prepare_rows(9, 11)`. A request extending past the snapshot is
+clamped; a start at or beyond its end returns an empty slice.
 
 ```rust
 # use tui_markdown::{Options, RenderContext, StreamingMarkdown};
 # let mut markdown = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
 # markdown.append("one\n\ntwo\n\nthree");
 let viewport = markdown.prepare_rows(1, 2);
+assert_eq!(viewport.first_row(), 1);
+assert_eq!(viewport.rows(), &markdown.current().lines[1..3]);
 for row in viewport.rows() {
     // Draw, measure, select, and hit-test this same prepared row.
     let _ = row;
 }
 ```
 
-Repeated viewport requests reuse the same row storage and perform no parser or renderer work. The
-borrow prevents mutation while a prepared view is active, avoiding stale geometry. The complete
-snapshot remains available through `current`; applications remain responsible for retaining only
-bounded active/history objects.
+Repeated `current()` and viewport requests reuse existing storage and perform no parsing,
+rendering, cloning, or allocation. Borrowing prevents mutation while the output is still being used; the
+`'static` span content is owned by the document, not a promise that the snapshot borrow outlives it.
+Width changes and later input can move text to different row numbers, so compute hit testing and
+selection from the same snapshot being drawn.
 
-`replace`, `clear`, `set_context`, and `set_options` invalidate incompatible state. Repeated
-`current`, empty `append`, unchanged `set_context`, and repeated `finish` do no parser or renderer
-work. `WorkCounters` exposes source-free processing counts, while `ResourceUsage` accounts for
-source and owned snapshots without claiming a total-memory cap. References and footnotes use an
-explicit conservative whole-document recomputation path and never make a false stable-prefix
-promise. A nonempty append after `finish` explicitly starts a new mutable lineage and returns
-`ChangeReason::Reopen`; it never reports an ordinary append after all rows were declared stable.
+Row access is a view of an already prepared complete snapshot; it is not lazy parsing or initial
+rendering of only the requested rows. Applications remain responsible for retaining only bounded
+active/history objects.
+
+#### Incremental work and full recomputation
+
+The object maintains its own parser-derived replay checkpoint, including the original UTF-8 byte
+offset and corresponding output boundaries. Ordinary append reuses unaffected prefix results and
+parses/renders the affected suffix. An open paragraph, enclosing list, table, or code block may
+remain in that suffix and be processed again; the algorithm does not promise work only on newly
+received characters. If the replay offset is zero, even ordinary suffix replay covers the whole
+current document.
+
+**`finish()` is not the only operation that can process the whole document.** The current
+implementation has these paths:
+
+| Operation or condition | Parsing and rendering work |
+| --- | --- |
+| Ordinary nonempty `append` | Reuse the prefix and replay the mutable suffix, possibly from byte zero |
+| A reference, footnote, unresolved reference, or other global dependency is discovered | Explicit whole-document recomputation may be required |
+| Further nonempty appends after entering global-dependency mode | Conservatively reprocess the whole document until a different source replaces it or it is cleared |
+| `replace` with different, nonempty source | Discard the old projection and perform a full-input pass |
+| `set_options` | Perform a full-input pass, even if the supplied options would produce identical output |
+| Changed `set_context`, no tables in the current document | Reflow the retained unwrapped output without reparsing |
+| Changed `set_context`, with tables in the current document | Perform a full-input pass to rebuild table presentation |
+| `finish` | Perform one fresh canonical full-input pass for the current source/options/context version |
+| Nonempty append after completion | Explicitly reopen a mutable lineage, perform a full-input pass, and report `ChangeReason::Reopen` |
+| `current`, `prepare_rows`, empty `append`, identical-source `replace`, unchanged `set_context`, or repeated `finish` with no intervening mutation | No parser or renderer work |
+| `clear` or replacement with empty source | Discard source/projection and return empty output; already empty is a no-op |
+
+The replay offset is internal implementation state, not a caller-maintained pointer or a promise
+that rendered rows are permanently stable. Only the reported stable prefix can be committed to
+irreversible output in the current append lineage. Replacement, reflow, option changes, and
+explicit reopening must be treated as invalidation boundaries, not continuations of that promise.
+Finish must not hide intermediate errors: every submitted prefix must already match fresh batch
+rendering with the same options and context.
+
+`WorkCounters` exposes source-free processing counts. Use processed bytes/events to measure actual
+work: `ChangeReason::Append` does not imply less than a whole document was processed.
+`ResourceUsage` accounts for source and owned snapshots without claiming a total-memory cap.
 
 ### Syntax highlighting themes
 
