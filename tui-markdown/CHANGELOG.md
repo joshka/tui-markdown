@@ -6,8 +6,8 @@ All notable changes to this project will be documented in this file.
 
 - Add `StreamingMarkdown` for incremental parsing and rendering as Markdown fragments arrive, with
   complete styled snapshots, change metadata, and explicit finalization for streaming terminal UIs.
-- Add `prepare_rows` to borrow visible display rows without reparsing, rendering, or cloning, so
-  retained UIs can share one snapshot for drawing, measurement, selection, and hit testing.
+  Its `prepare_rows` method borrows visible display rows without reparsing, rendering, or cloning,
+  so retained UIs can draw, measure, select, and hit-test the same snapshot.
 - Add opt-in width-aware rendering with Unicode wrapping and content-preserving stacked-table
   fallbacks when grid tables exceed the available width or configured buffering limits.
 - Preserve literal code/HTML lines and metadata span structure across LF and CRLF parser events.
