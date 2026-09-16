@@ -24,72 +24,43 @@ impl Default for TableLimits {
     }
 }
 
-/// Opt-in terminal body width and table-presentation limits.
-///
-/// Width is measured in terminal cells (columns), not pixels, bytes, or Unicode characters.
-/// It does not include application-owned reply markers or other chrome. Use the actual available
-/// body width and update the context on resize.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct RenderContext {
-    width: u16,
+pub(crate) struct LayoutOptions {
+    width: Option<u16>,
     table_limits: TableLimits,
     wide_grapheme_replacement: char,
 }
 
-impl RenderContext {
-    /// Creates a layout context for the supplied terminal body width.
-    ///
-    /// For example, `new(80)` allows 80 cells per display row; most ASCII characters use one cell
-    /// and many CJK characters or emoji use two. Eighty is an example, not a required fixed width.
-    ///
-    /// At width zero, rendering returns no rows. A grapheme wider than the entire body width is
-    /// displayed as `-`; ordinary line-end overflow wraps without replacing the grapheme.
-    pub fn new(width: u16) -> Self {
+impl Default for LayoutOptions {
+    fn default() -> Self {
         Self {
-            width,
+            width: None,
             table_limits: TableLimits::default(),
             wide_grapheme_replacement: '-',
         }
     }
+}
 
-    /// Returns the terminal body width.
-    pub const fn width(self) -> u16 {
+impl LayoutOptions {
+    pub(crate) const fn with_width(mut self, width: Option<u16>) -> Self {
+        self.width = width;
+        self
+    }
+
+    pub(crate) const fn width(self) -> Option<u16> {
         self.width
     }
 
-    /// Selects grid-table buffer limits. Zero requests stacked presentation for every table.
-    #[must_use]
-    pub const fn table_limits(mut self, limits: TableLimits) -> Self {
+    pub(crate) const fn table_limits(mut self, limits: TableLimits) -> Self {
         self.table_limits = limits;
         self
     }
 
-    /// Returns the grid-table buffer limits.
-    pub const fn limits(self) -> TableLimits {
+    pub(crate) const fn limits(self) -> TableLimits {
         self.table_limits
     }
 
-    /// Selects the one-cell replacement for a grapheme wider than the entire body width.
-    ///
-    /// This affects display only; the input is unchanged. Widening the context allows the original
-    /// grapheme to be displayed again. The replacement retains the grapheme's style.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`InvalidReplacementCharacter`] unless `replacement` is printable ASCII
-    /// (`U+0020` through `U+007E`). ASCII control characters, including DEL, are rejected.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use tui_markdown::{from_str_with_context, Options, RenderContext};
-    ///
-    /// let context = RenderContext::new(1).with_wide_grapheme_replacement('*')?;
-    /// let text = from_str_with_context("\u{754c}", &Options::default(), &context);
-    /// assert_eq!(text.to_string(), "*");
-    /// # Ok::<(), tui_markdown::InvalidReplacementCharacter>(())
-    /// ```
-    pub fn with_wide_grapheme_replacement(
+    pub(crate) fn with_wide_grapheme_replacement(
         mut self,
         replacement: char,
     ) -> Result<Self, InvalidReplacementCharacter> {
@@ -100,8 +71,7 @@ impl RenderContext {
         Ok(self)
     }
 
-    /// Returns the configured one-cell replacement, which defaults to `-`.
-    pub const fn wide_grapheme_replacement(self) -> char {
+    pub(crate) const fn wide_grapheme_replacement(self) -> char {
         self.wide_grapheme_replacement
     }
 }
@@ -118,16 +88,20 @@ impl fmt::Display for InvalidReplacementCharacter {
 
 impl std::error::Error for InvalidReplacementCharacter {}
 
-pub(crate) fn wrap_text(text: Text<'_>, context: RenderContext) -> Text<'_> {
+pub(crate) fn wrap_text(text: Text<'_>, context: LayoutOptions) -> Text<'_> {
     wrap_text_with_checkpoint(text, context, usize::MAX).0
 }
 
 pub(crate) fn wrap_text_with_checkpoint(
     mut text: Text<'_>,
-    context: RenderContext,
+    context: LayoutOptions,
     checkpoint_row: usize,
 ) -> (Text<'_>, usize) {
-    if context.width() == 0 {
+    let Some(width) = context.width() else {
+        let checkpoint = checkpoint_row.min(text.lines.len());
+        return (text, checkpoint);
+    };
+    if width == 0 {
         text.lines.clear();
         return (text, 0);
     }
@@ -138,7 +112,7 @@ pub(crate) fn wrap_text_with_checkpoint(
         if row == checkpoint_row {
             display_checkpoint = lines.len();
         }
-        lines.extend(wrap_line(line, context));
+        lines.extend(wrap_line(line, width, context.wide_grapheme_replacement()));
     }
     if checkpoint_row >= semantic_rows {
         display_checkpoint = lines.len();
@@ -147,8 +121,8 @@ pub(crate) fn wrap_text_with_checkpoint(
     (text, display_checkpoint)
 }
 
-fn wrap_line(line: Line<'_>, context: RenderContext) -> Vec<Line<'_>> {
-    let width = usize::from(context.width());
+fn wrap_line(line: Line<'_>, width: u16, replacement: char) -> Vec<Line<'_>> {
+    let width = usize::from(width);
     let content: String = line
         .spans
         .iter()
@@ -187,9 +161,7 @@ fn wrap_line(line: Line<'_>, context: RenderContext) -> Vec<Line<'_>> {
     let mut word_boundaries = content.split_word_bound_indices();
     let mut word_boundary = word_boundaries.next();
     let mut replacement_buffer = [0; 4];
-    let replacement = context
-        .wide_grapheme_replacement()
-        .encode_utf8(&mut replacement_buffer);
+    let replacement = replacement.encode_utf8(&mut replacement_buffer);
 
     for (start, grapheme) in content.grapheme_indices(true) {
         let is_whitespace = grapheme.chars().all(char::is_whitespace);
@@ -273,7 +245,8 @@ mod tests {
     fn checkpoint_at_semantic_end_maps_after_all_wrapped_rows() {
         let text = Text::from("abcd");
 
-        let (wrapped, checkpoint) = wrap_text_with_checkpoint(text, RenderContext::new(2), 1);
+        let (wrapped, checkpoint) =
+            wrap_text_with_checkpoint(text, LayoutOptions::default().with_width(Some(2)), 1);
 
         assert_eq!(wrapped.lines.len(), 2);
         assert_eq!(checkpoint, 2);

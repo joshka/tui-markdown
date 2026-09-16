@@ -8,8 +8,9 @@ All notable changes to this project will be documented in this file.
   complete styled snapshots, change metadata, and explicit finalization for streaming terminal UIs.
   Its `prepare_rows` method borrows visible display rows without reparsing, rendering, or cloning,
   so retained UIs can draw, measure, select, and hit-test the same snapshot.
-- Add opt-in width-aware rendering with Unicode wrapping and content-preserving stacked-table
-  fallbacks when grid tables exceed the available width or configured buffering limits.
+- Add optional body width and table limits to `Options`, shared by batch and streaming rendering.
+  Wrap Unicode text and use content-preserving stacked tables when grid presentation exceeds
+  the width or buffering limits. Width-only streaming updates reuse cached output where possible.
 - Preserve literal code/HTML lines and metadata span structure across LF and CRLF parser events.
 
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23

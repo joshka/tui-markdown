@@ -16,7 +16,8 @@ use ratatui_core::text::{Line, Span};
 use unicode_width::UnicodeWidthStr;
 
 use super::TextWriter;
-use crate::{RenderContext, StyleSheet, TableLimits};
+use crate::layout::LayoutOptions;
+use crate::{StyleSheet, TableLimits};
 
 const HORIZONTAL_BORDER: char = '─';
 const VERTICAL_BORDER: &str = "│";
@@ -35,15 +36,15 @@ where
             self.push_line(Line::default());
         }
         let mut builder = TableBuilder::new(alignments);
-        if let Some(context) = self.context {
+        if let Some(body_width) = self.context.width() {
             let prefixes = self.line_prefixes.iter().map(Span::width).sum::<usize>()
                 + usize::from(!self.line_prefixes.is_empty());
             let indentation = self
                 .list_items
                 .last()
                 .map_or(0, |item| item.continuation_width);
-            let width = usize::from(context.width()).saturating_sub(prefixes + indentation);
-            builder.configure(context, width, &self.styles);
+            let width = usize::from(body_width).saturating_sub(prefixes + indentation);
+            builder.configure(self.context, width, &self.styles);
         }
         self.table_builder = Some(builder);
         self.needs_newline = false;
@@ -213,7 +214,7 @@ impl<'a> TableBuilder<'a> {
         }
     }
 
-    fn configure<S: StyleSheet>(&mut self, context: RenderContext, width: usize, styles: &S) {
+    fn configure<S: StyleSheet>(&mut self, context: LayoutOptions, width: usize, styles: &S) {
         let mut layout = TableLayout {
             width,
             limits: context.limits(),
@@ -766,10 +767,12 @@ mod tests {
     fn ragged_rows_charge_and_preserve_implicit_empty_cells() {
         let mut builder = TableBuilder::new(vec![Alignment::None, Alignment::None]);
         builder.configure(
-            RenderContext::new(80).table_limits(TableLimits {
-                max_cells: 3,
-                max_buffer_bytes: 4 * 1024 * 1024,
-            }),
+            LayoutOptions::default()
+                .with_width(Some(80))
+                .table_limits(TableLimits {
+                    max_cells: 3,
+                    max_buffer_bytes: 4 * 1024 * 1024,
+                }),
             80,
             &DefaultStyleSheet,
         );
@@ -799,10 +802,12 @@ mod tests {
         let (left, right) = content.split_at(content.len() / 2);
         let mut builder = TableBuilder::new(vec![Alignment::None, Alignment::None]);
         builder.configure(
-            RenderContext::new(u16::MAX).table_limits(TableLimits {
-                max_cells: 2,
-                max_buffer_bytes: 4 * 1024 * 1024,
-            }),
+            LayoutOptions::default()
+                .with_width(Some(u16::MAX))
+                .table_limits(TableLimits {
+                    max_cells: 2,
+                    max_buffer_bytes: 4 * 1024 * 1024,
+                }),
             usize::MAX,
             &DefaultStyleSheet,
         );
@@ -828,10 +833,12 @@ mod tests {
         let (left, right) = content.split_at(content.len() / 2);
         let mut builder = TableBuilder::new(vec![Alignment::None]);
         builder.configure(
-            RenderContext::new(u16::MAX).table_limits(TableLimits {
-                max_cells: 1,
-                max_buffer_bytes: 4 * 1024 * 1024,
-            }),
+            LayoutOptions::default()
+                .with_width(Some(u16::MAX))
+                .table_limits(TableLimits {
+                    max_cells: 1,
+                    max_buffer_bytes: 4 * 1024 * 1024,
+                }),
             usize::MAX,
             &DefaultStyleSheet,
         );

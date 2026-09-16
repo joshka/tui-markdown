@@ -28,21 +28,21 @@ text.render(area, &mut buf);
 
 ### Width-aware rendering
 
-Use the opt-in `from_str_with_context` API to prepare rows for the available body width. Exclude
+Set `Options::width` when calling `from_str_with_options` to prepare rows for the body width. Exclude
 application-owned reply markers and other surrounding UI from this width.
 
 Width is measured in terminal cells (columns), not bytes, Unicode characters, or pixels. For
-example, `RenderContext::new(80)` gives the Markdown body 80 cells per row; most ASCII characters
+example, `Options::default().width(Some(80))` gives the Markdown body 80 cells per row; most ASCII characters
 occupy one cell and many CJK characters or emoji occupy two. Use the actual available body width
-and update the streaming context when it changes rather than hard-coding the example value.
+and call the streaming object's `set_width` when it changes rather than hard-coding the example value.
 
 ```rust
-use tui_markdown::{from_str_with_context, Options, RenderContext};
+use tui_markdown::{from_str_with_options, Options};
 
-let context = RenderContext::new(1)
+let options = Options::default().width(Some(1))
     .with_wide_grapheme_replacement('*')
     .expect("a printable ASCII character");
-let text = from_str_with_context("\u{754c}", &Options::default(), &context);
+let text = from_str_with_options("\u{754c}", &options);
 assert_eq!(text.to_string(), "*");
 ```
 
@@ -50,15 +50,18 @@ Normal line-end overflow wraps to another row without changing the text. Only a 
 that is wider than the entire body width uses a replacement, which defaults to `-`. The replacement
 retains the text style and must be one printable ASCII character (`U+0020` through `U+007E`);
 non-ASCII and control characters return `InvalidReplacementCharacter`. Source remains unchanged,
-so rendering at a wider width restores the original grapheme. Width zero returns no rows.
+so rendering at a wider width restores the original grapheme. `Some(0)` returns no rows.
+The default width, `None`, keeps output unwrapped. Neither batch nor streaming invents a width
+or reads the terminal size.
 
 Tables use stacked rows and numbered cells when their grid cannot fit or its configurable
 `TableLimits` are exceeded. These limits cover grid-presentation buffers, not all parser or output
 allocations. Joined cell text used only for cross-style grapheme measurement is charged to that
 table buffer as one reusable per-table scratch allocation; an over-budget table switches to stacked
 presentation before allocating the scratch. The complete current snapshot is accounted separately
-by `ResourceUsage`. The original `from_str` and `from_str_with_options` APIs keep their unwrapped
-behavior.
+by `ResourceUsage`. With no width, table limits and the replacement character are stored but
+do not alter presentation. Existing calls to `from_str` and `from_str_with_options` remain
+unwrapped unless a width is explicitly selected.
 
 ### Streaming rendering
 
@@ -75,9 +78,9 @@ byte offset, and change reason. Readable output is not necessarily final: later 
 earlier Markdown interpretation or layout.
 
 ```rust
-use tui_markdown::{Options, RenderContext, StreamingMarkdown};
+use tui_markdown::{Options, StreamingMarkdown};
 
-let mut markdown = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+let mut markdown = StreamingMarkdown::new(Options::default().width(Some(80)));
 markdown.append("First paragraph.\n\n");
 let update = markdown.append("Second **paragraph**.");
 
@@ -89,6 +92,13 @@ assert_eq!(markdown.source(), "First paragraph.\n\nSecond **paragraph**.");
 markdown.finish();
 ```
 
+Batch and streaming accept the same `Options`. Use the streaming setters `set_width`,
+`set_table_limits`, and `set_wide_grapheme_replacement` for layout-only updates. Identical
+values do no work. Changed values reflow cached output without parsing when there are no tables;
+documents with tables use a full pass. An invalid replacement returns an error without changing
+the document. Replacing the complete options with `set_options` remains a full-input operation,
+because custom style sheets need not support equality comparison.
+
 #### Reading a display-row range
 
 Retained UIs can borrow visible rows plus overscan without cloning or walking the rest of the
@@ -98,8 +108,8 @@ rows 10 through 20 inclusive use `prepare_rows(9, 11)`. A request extending past
 clamped; a start at or beyond its end returns an empty slice.
 
 ```rust
-# use tui_markdown::{Options, RenderContext, StreamingMarkdown};
-# let mut markdown = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+# use tui_markdown::{Options, StreamingMarkdown};
+# let mut markdown = StreamingMarkdown::new(Options::default().width(Some(80)));
 # markdown.append("one\n\ntwo\n\nthree");
 let viewport = markdown.prepare_rows(1, 2);
 assert_eq!(viewport.first_row(), 1);
@@ -139,11 +149,11 @@ implementation has these paths:
 | Further nonempty appends after entering global-dependency mode | Conservatively reprocess the whole document until a different source replaces it or it is cleared |
 | `replace` with different, nonempty source | Discard the old projection and perform a full-input pass |
 | `set_options` | Perform a full-input pass, even if the supplied options would produce identical output |
-| Changed `set_context`, no tables in the current document | Reflow the retained unwrapped output without reparsing |
-| Changed `set_context`, with tables in the current document | Perform a full-input pass to rebuild table presentation |
-| `finish` | Perform one fresh canonical full-input pass for the current source/options/context version |
+| Changed layout-only setter, no tables in the current document | Reflow the retained unwrapped output without reparsing |
+| Changed layout-only setter, with tables in the current document | Perform a full-input pass to rebuild table presentation |
+| `finish` | Perform one fresh canonical full-input pass for the current source/options version |
 | Nonempty append after completion | Explicitly reopen a mutable lineage, perform a full-input pass, and report `ChangeReason::Reopen` |
-| `current`, `prepare_rows`, empty `append`, identical-source `replace`, unchanged `set_context`, or repeated `finish` with no intervening mutation | No parser or renderer work |
+| `current`, `prepare_rows`, empty `append`, identical-source `replace`, unchanged layout-only setters, or repeated `finish` with no intervening mutation | No parser or renderer work |
 | `clear` or replacement with empty source | Discard source/projection and return empty output; already empty is a no-op |
 
 The replay offset is internal implementation state, not a caller-maintained pointer or a promise
@@ -151,9 +161,9 @@ that rendered rows are permanently stable. Only the reported stable prefix can b
 irreversible output in the current append lineage. Replacement, reflow, option changes, and
 explicit reopening must be treated as invalidation boundaries, not continuations of that promise.
 Finish must not hide intermediate errors: every submitted prefix must already match fresh batch
-rendering with the same options and context.
+rendering with the same options.
 
-`WorkCounters` exposes source-free processing counts. Use processed bytes/events to measure actual
+`WorkCounters` exposes source-free processing counts, including `layout_reflows`. Use processed bytes/events to measure actual
 work: `ChangeReason::Append` does not imply less than a whole document was processed.
 `ResourceUsage` accounts for source and owned snapshots without claiming a total-memory cap.
 

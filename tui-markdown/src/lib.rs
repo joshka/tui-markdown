@@ -2,7 +2,9 @@
 //!
 //! [`from_str`] renders with the default styles and options. [`from_str_with_options`] accepts an
 //! [`Options`] value for custom [`StyleSheet`] styles and symbols, image fallback mode, and, when
-//! the `highlight-code` feature is enabled, syntax-highlighting theme.
+//! the `highlight-code` feature is enabled, syntax-highlighting theme. [`Options::width`] enables
+//! terminal-width layout; default options remain unwrapped. [`StreamingMarkdown`] accepts the same
+//! options and incrementally updates a cached text snapshot.
 //!
 //! The returned text may borrow from the Markdown input. It contains terminal text and styles only;
 //! image syntax produces a configurable text fallback and does not read or render image resources.
@@ -58,9 +60,9 @@ mod style_sheet;
 #[doc(inline)]
 #[cfg(feature = "highlight-code")]
 pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme, CodeThemeLoadError};
-pub use crate::layout::{InvalidReplacementCharacter, RenderContext, TableLimits};
+pub use crate::layout::{InvalidReplacementCharacter, TableLimits};
 pub use crate::options::{ImageFallback, Options};
-pub use crate::renderer::{from_str, from_str_with_context, from_str_with_options};
+pub use crate::renderer::{from_str, from_str_with_options};
 pub use crate::streaming::{
     ChangeReason, PreparedRows, ResourceUsage, StreamingMarkdown, TableFallbacks, Update,
     WorkCounters,

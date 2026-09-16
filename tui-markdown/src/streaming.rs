@@ -5,15 +5,15 @@ use std::ops::Sub;
 
 use ratatui_core::text::{Line, Span, Text};
 
-use crate::layout::wrap_text_with_checkpoint;
+use crate::layout::{wrap_text_with_checkpoint, LayoutOptions};
 use crate::renderer::{render_streaming, RenderPrefix, StreamingRender};
-use crate::{DefaultStyleSheet, Options, RenderContext, StyleSheet};
+use crate::{DefaultStyleSheet, InvalidReplacementCharacter, Options, StyleSheet, TableLimits};
 
 /// Why a streaming snapshot changed.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ChangeReason {
-    /// The operation did not change source, options, context, or output.
+    /// The operation did not change source, options, or output.
     #[default]
     None,
     /// Ordered source was appended using suffix replay.
@@ -24,8 +24,8 @@ pub enum ChangeReason {
     Replace,
     /// The document was cleared.
     Clear,
-    /// Rendering context changed.
-    Context,
+    /// Rendering layout changed through a narrow setter.
+    Layout,
     /// Rendering options changed.
     Options,
     /// A fresh canonical completion pass was performed.
@@ -63,8 +63,8 @@ pub struct WorkCounters {
     /// Ordinary suffix replay that happens to start at byte zero is not counted here; use
     /// [`Self::processed_source_bytes`] and event counts to measure the total work.
     pub full_recomputations: u64,
-    /// Display reflows caused by context changes.
-    pub context_reflows: u64,
+    /// Display reflows caused by narrow layout updates.
+    pub layout_reflows: u64,
 }
 
 impl Sub for WorkCounters {
@@ -81,7 +81,7 @@ impl Sub for WorkCounters {
             full_recomputations: self
                 .full_recomputations
                 .saturating_sub(rhs.full_recomputations),
-            context_reflows: self.context_reflows.saturating_sub(rhs.context_reflows),
+            layout_reflows: self.layout_reflows.saturating_sub(rhs.layout_reflows),
         }
     }
 }
@@ -182,19 +182,18 @@ struct ReplayCheckpoint {
 /// the suffix is the whole document. Previously displayed content can change as syntax completes.
 ///
 /// [`Self::finish`] is not the only full-input path: global dependencies, different-source
-/// replacement, option changes, and context changes for documents containing tables also cause
+/// replacement, full option updates, and layout changes for documents containing tables also cause
 /// full recomputation in the current implementation. Global-dependency mode remains conservative
 /// for subsequent appends until different source is supplied to [`Self::replace`] or the document
-/// is cleared. Without tables, context changes reuse unwrapped output and only reflow it.
+/// is cleared. Without tables, narrow layout updates reuse unwrapped output and only reflow it.
 ///
 /// A nonempty append after finish explicitly reopens a new lineage, reporting
 /// [`ChangeReason::Reopen`] and resetting the previous stable-prefix promise. Consumers of
-/// irreversible output must also treat replacement, context, and option changes as invalidation
+/// irreversible output must also treat replacement, layout, and option changes as invalidation
 /// boundaries. Every intermediate snapshot must already match fresh batch rendering; the final
 /// pass is not a correction mechanism for inaccurate streaming output.
 pub struct StreamingMarkdown<S: StyleSheet = DefaultStyleSheet> {
     options: Options<S>,
-    context: RenderContext,
     source: String,
     semantic: Text<'static>,
     current: Text<'static>,
@@ -209,13 +208,14 @@ pub struct StreamingMarkdown<S: StyleSheet = DefaultStyleSheet> {
 }
 
 impl<S: StyleSheet> StreamingMarkdown<S> {
-    /// Creates an independent empty document with the supplied options and terminal-cell width.
+    /// Creates an independent empty document using the same options as batch rendering.
     ///
+    /// Width is optional: default options preserve unwrapped output. Use
+    /// [`Options::width`] to supply the available body width in terminal cells.
     /// No parser or renderer work occurs until a subsequent mutation.
-    pub fn new(options: Options<S>, context: RenderContext) -> Self {
+    pub fn new(options: Options<S>) -> Self {
         Self {
             options,
-            context,
             source: String::new(),
             semantic: Text::default(),
             current: Text::default(),
@@ -287,7 +287,7 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
 
     /// Clears source and all document-specific parser and renderer state.
     ///
-    /// An already empty document is a no-op. Options, context, and cumulative counters are retained.
+    /// An already empty document is a no-op. Options and cumulative counters are retained.
     pub fn clear(&mut self) -> Update {
         if self.source.is_empty() && self.current.lines.is_empty() {
             return self.unchanged();
@@ -304,24 +304,56 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
         }
     }
 
-    /// Updates terminal body width and presentation limits.
+    /// Updates the terminal body width without replacing styling options.
     ///
-    /// Identical context is a no-op. A changed context reflows the complete retained output
-    /// without reparsing when the document contains no tables. With tables, the current
-    /// implementation performs a full-input parse/render pass. This invalidates row coordinates,
-    /// completion status, and the previous context's stable-prefix guarantee.
-    pub fn set_context(&mut self, context: RenderContext) -> Update {
-        if self.context == context {
+    /// `None` disables wrapping and table layout limits; `Some(0)` produces no display rows.
+    /// Identical width is a no-op. Without tables, changes only reflow cached output.
+    /// With tables, changes require a full pass. Changed layout invalidates completion and the
+    /// previous stable-prefix guarantee; unaffected source is still retained for later appends.
+    pub fn set_width(&mut self, width: Option<u16>) -> Update {
+        self.update_layout(self.options.layout.with_width(width))
+    }
+
+    /// Updates table buffer limits without replacing styling options.
+    ///
+    /// Identical limits are a no-op. Without tables, changes do not reparse source.
+    /// Limits are stored but do not affect table presentation while width is unspecified.
+    pub fn set_table_limits(&mut self, limits: TableLimits) -> Update {
+        self.update_layout(self.options.layout.table_limits(limits))
+    }
+
+    /// Updates the replacement for a grapheme wider than the entire body.
+    ///
+    /// Identical values are a no-op. Changed values use the same layout invalidation as
+    /// [`Self::set_width`], without replacing styling options.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InvalidReplacementCharacter`] for non-printable or non-ASCII characters.
+    /// Invalid input leaves source, options, output, counters, and completion unchanged.
+    pub fn set_wide_grapheme_replacement(
+        &mut self,
+        replacement: char,
+    ) -> Result<Update, InvalidReplacementCharacter> {
+        let layout = self
+            .options
+            .layout
+            .with_wide_grapheme_replacement(replacement)?;
+        Ok(self.update_layout(layout))
+    }
+
+    fn update_layout(&mut self, layout: LayoutOptions) -> Update {
+        if self.options.layout == layout {
             return self.unchanged();
         }
-        self.context = context;
+        self.options.layout = layout;
         self.bump_version();
         self.stable_rows_floor = 0;
-        self.counters.context_reflows += 1;
+        self.counters.layout_reflows += 1;
         if self.current_table_count == 0 {
             self.reflow_without_parse()
         } else {
-            self.render_full(ChangeReason::Context)
+            self.render_full(ChangeReason::Layout)
         }
     }
 
@@ -336,7 +368,7 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
         self.render_full(ChangeReason::Options)
     }
 
-    /// Performs one fresh canonical full-input pass for the current source/options/context version.
+    /// Performs one fresh canonical full-input pass for the current source/options version.
     ///
     /// Read the final snapshot with [`Self::current`]. Repeated calls without an intervening
     /// mutation do no further work. Other operations can also require full-input recomputation;
@@ -372,14 +404,14 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
     /// Repeated calls reuse the current snapshot's backing storage. This lets retained UIs
     /// materialize only their viewport and overscan while [`Self::current`] continues to provide
     /// the complete canonical snapshot. It does not defer initial rendering to the requested
-    /// viewport. Source or context changes can move content to different row numbers.
+    /// viewport. Source or layout changes can move content to different row numbers.
     ///
     /// # Example
     ///
     /// ```
-    /// use tui_markdown::{Options, RenderContext, StreamingMarkdown};
+    /// use tui_markdown::{Options, StreamingMarkdown};
     ///
-    /// let mut document = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    /// let mut document = StreamingMarkdown::new(Options::default().width(Some(80)));
     /// document.append("one\n\ntwo\n\nthree");
     /// let window = document.prepare_rows(2, 3);
     /// assert_eq!(window.rows(), &document.current().lines[2..5]);
@@ -521,7 +553,7 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
         };
         let (mut display_suffix, relative_display_checkpoint) = wrap_text_with_checkpoint(
             suffix,
-            self.context,
+            self.options.layout,
             checkpoint_semantic_row.saturating_sub(semantic_start),
         );
         let prefix_rows = current_prefix.lines.len();
@@ -564,7 +596,6 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
         let pass = render_streaming(
             input,
             &self.options,
-            self.context,
             replay.source_offset,
             RenderPrefix {
                 text: prefix,
@@ -588,7 +619,7 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
             lines: self.semantic.lines.clone(),
         };
         let (current, display_checkpoint) =
-            wrap_text_with_checkpoint(projection, self.context, self.replay.semantic_row);
+            wrap_text_with_checkpoint(projection, self.options.layout, self.replay.semantic_row);
         let first_changed_row = first_changed_row(0, &old.lines, &current.lines);
         self.current = current;
         self.replay.display_row = display_checkpoint;
@@ -600,7 +631,7 @@ impl<S: StyleSheet> StreamingMarkdown<S> {
                 self.replay.display_row
             },
             replay_start: self.replay.source_offset,
-            reason: ChangeReason::Context,
+            reason: ChangeReason::Layout,
         }
     }
 }

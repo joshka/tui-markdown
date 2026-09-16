@@ -21,9 +21,9 @@ use tracing::{debug, instrument};
 
 #[cfg(feature = "highlight-code")]
 use crate::code_theme::CodeTheme;
+use crate::layout::LayoutOptions;
 use crate::options::{ImageFallback, Options};
 use crate::style_sheet::StyleSheet;
-use crate::RenderContext;
 
 mod blockquote;
 mod code;
@@ -62,6 +62,8 @@ pub fn from_str(input: &str) -> Text<'_> {
 ///
 /// The returned text may borrow from `input`. The options control styles, image fallback content,
 /// and, with the `highlight-code` feature, fenced-code syntax highlighting.
+/// With [`Options::width`] set, output is wrapped to that terminal body width. With no width,
+/// the original unwrapped behavior is preserved. Width zero returns no rows without parsing.
 ///
 /// # Example
 ///
@@ -77,18 +79,17 @@ pub fn from_str_with_options<'a, S>(input: &'a str, options: &Options<S>) -> Tex
 where
     S: StyleSheet,
 {
-    render(input, options, None)
+    if options.layout.width() == Some(0) {
+        return Text::default();
+    }
+    crate::layout::wrap_text(render(input, options), options.layout)
 }
 
-fn render<'a, S: StyleSheet>(
-    input: &'a str,
-    options: &Options<S>,
-    context: Option<RenderContext>,
-) -> Text<'a> {
+fn render<'a, S: StyleSheet>(input: &'a str, options: &Options<S>) -> Text<'a> {
     let parser = Parser::new_ext(input, parser_options());
 
     let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
-    writer.context = context;
+    writer.context = options.layout;
     #[cfg(feature = "highlight-code")]
     let writer = writer.with_code_theme(options.selected_code_theme());
     writer.run()
@@ -108,23 +109,6 @@ fn parser_options() -> ParseOptions {
     parse_opts.insert(ParseOptions::ENABLE_GFM);
     parse_opts.insert(ParseOptions::ENABLE_TABLES);
     parse_opts
-}
-
-/// Renders Markdown with an explicit terminal body width and table-presentation limits.
-///
-/// Unlike [`from_str_with_options`], this opt-in entry point prepares visual rows for the supplied
-/// context. Application-owned reply markers are not included in that width. Zero width returns no
-/// rows without parsing. Graphemes wider than the whole body use the context's ASCII replacement;
-/// ordinary line-end overflow wraps to the next row.
-pub fn from_str_with_context<'a, S: StyleSheet>(
-    input: &'a str,
-    options: &Options<S>,
-    context: &RenderContext,
-) -> Text<'a> {
-    if context.width() == 0 {
-        return Text::default();
-    }
-    crate::layout::wrap_text(render(input, options, Some(*context)), *context)
 }
 
 pub(crate) struct RenderPrefix {
@@ -273,7 +257,6 @@ fn is_block_tag(tag: &Tag<'_>) -> bool {
 pub(crate) fn render_streaming<S: StyleSheet>(
     input: &str,
     options: &Options<S>,
-    context: RenderContext,
     base_offset: usize,
     prefix: RenderPrefix,
 ) -> StreamingRender {
@@ -307,7 +290,7 @@ pub(crate) fn render_streaming<S: StyleSheet>(
     );
     writer.table_fallbacks = prefix.table_fallbacks;
     writer.table_count = prefix.table_count;
-    writer.context = Some(context);
+    writer.context = options.layout;
     #[cfg(feature = "highlight-code")]
     let writer = writer.with_code_theme(options.selected_code_theme());
     let tracked = writer.run_tracked(&state);
@@ -360,8 +343,8 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     needs_newline: bool,
     /// Whether raw text is inside a metadata block.
     in_metadata_block: bool,
-    /// Optional width-aware layout; absent for the original batch API.
-    context: Option<RenderContext>,
+    /// Shared layout settings; an absent width preserves unwrapped output.
+    context: LayoutOptions,
 
     // Code rendering state.
     /// Only the unfinished code line is retained between parser text events.
@@ -428,7 +411,7 @@ where
             styles,
             needs_newline: false,
             in_metadata_block: false,
-            context: None,
+            context: LayoutOptions::default(),
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
             code_line: None,

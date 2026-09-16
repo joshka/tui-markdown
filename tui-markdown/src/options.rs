@@ -1,12 +1,13 @@
 //! Rendering configuration for tui-markdown.
 //!
 //! Options control the renderer's style sheet, image fallback content, and syntax-highlighting
-//! theme. [`Options`] is non-exhaustive, allowing new rendering choices to be added without
+//! theme, and optional terminal-width layout. [`Options`] is non-exhaustive, allowing new choices without
 //! breaking existing code.
 
+use crate::layout::LayoutOptions;
 #[cfg(feature = "highlight-code")]
 use crate::CodeTheme;
-use crate::{DefaultStyleSheet, StyleSheet};
+use crate::{DefaultStyleSheet, InvalidReplacementCharacter, StyleSheet, TableLimits};
 
 /// Text used to represent Markdown images in rendered terminal output.
 ///
@@ -39,7 +40,7 @@ pub enum ImageFallback {
     AltTextAndUrl,
 }
 
-/// Rendering options for [`crate::from_str_with_options`].
+/// Shared rendering options for batch and [`crate::StreamingMarkdown`] output.
 ///
 /// `S` is the style sheet consulted while Markdown events are rendered. [`Options::default`] uses
 /// [`DefaultStyleSheet`]. Use [`Options::new`] to supply another [`StyleSheet`].
@@ -72,6 +73,7 @@ pub enum ImageFallback {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Options<S: StyleSheet = DefaultStyleSheet> {
+    pub(crate) layout: LayoutOptions,
     /// The [`StyleSheet`] implementation that will be consulted every time the renderer needs a
     /// style or symbol choice.
     pub(crate) styles: S,
@@ -90,11 +92,60 @@ impl<S: StyleSheet> Options<S> {
     /// Image fallback and syntax-highlighting settings retain their defaults.
     pub fn new(styles: S) -> Self {
         Self {
+            layout: LayoutOptions::default(),
             styles,
             image_fallback: ImageFallback::default(),
             #[cfg(feature = "highlight-code")]
             code_theme: None,
         }
+    }
+
+    /// Selects the optional terminal body width in cells, excluding application-owned chrome.
+    ///
+    /// The default `None` keeps output unwrapped and leaves table presentation unrestricted.
+    /// `Some(0)` produces no display rows. For example, `Some(80)` allows 80 cells per row;
+    /// the caller must supply the actual available width, rather than a fixed example value.
+    #[must_use]
+    pub fn width(mut self, width: Option<u16>) -> Self {
+        self.layout = self.layout.with_width(width);
+        self
+    }
+
+    /// Selects grid-table buffer limits, used only when a width is specified.
+    ///
+    /// Either limit at zero requests stacked presentation for every table. These limits do not
+    /// cap source storage or the complete rendered output.
+    #[must_use]
+    pub fn table_limits(mut self, limits: TableLimits) -> Self {
+        self.layout = self.layout.table_limits(limits);
+        self
+    }
+
+    /// Selects the replacement for a grapheme wider than the entire specified body width.
+    ///
+    /// The default is `-`. Ordinary line-end overflow wraps without changing the grapheme.
+    /// This affects display only, so widening or disabling wrapping restores the original text.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InvalidReplacementCharacter`] unless `replacement` is printable ASCII
+    /// (`U+0020` through `U+007E`).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tui_markdown::{from_str_with_options, Options};
+    ///
+    /// let options = Options::default().width(Some(1)).with_wide_grapheme_replacement('*')?;
+    /// assert_eq!(from_str_with_options("\u{754c}", &options).to_string(), "*");
+    /// # Ok::<(), tui_markdown::InvalidReplacementCharacter>(())
+    /// ```
+    pub fn with_wide_grapheme_replacement(
+        mut self,
+        replacement: char,
+    ) -> Result<Self, InvalidReplacementCharacter> {
+        self.layout = self.layout.with_wide_grapheme_replacement(replacement)?;
+        Ok(self)
     }
 
     /// Selects the text used to represent Markdown images.
@@ -176,12 +227,7 @@ mod tests {
             }
         }
 
-        let options = Options {
-            styles: CustomStyleSheet,
-            image_fallback: ImageFallback::default(),
-            #[cfg(feature = "highlight-code")]
-            code_theme: None,
-        };
+        let options = Options::new(CustomStyleSheet);
 
         assert_eq!(options.styles.heading(1), Style::new().red().bold());
         assert_eq!(options.styles.heading(2), Style::new().green());

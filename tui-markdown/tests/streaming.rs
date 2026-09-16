@@ -1,7 +1,6 @@
 use ratatui_core::style::{Color, Modifier, Style};
 use tui_markdown::{
-    from_str_with_context, ChangeReason, Options, RenderContext, StreamingMarkdown, StyleSheet,
-    TableLimits,
+    from_str_with_options, ChangeReason, Options, StreamingMarkdown, StyleSheet, TableLimits,
 };
 
 #[derive(Clone)]
@@ -17,14 +16,14 @@ fn assert_matches_batch(stream: &StreamingMarkdown, source: &str, width: u16) {
     assert_eq!(stream.source(), source);
     assert_eq!(
         stream.current(),
-        &from_str_with_context(source, &Options::default(), &RenderContext::new(width)),
+        &from_str_with_options(source, &Options::default().width(Some(width))),
         "source={source:?}"
     );
 }
 
 #[test]
 fn append_reuses_completed_blocks_and_reports_work() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(40));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(40)));
     let source = "first\n\nsecond\n\nthird";
     stream.append(source);
     let before = stream.counters();
@@ -45,11 +44,60 @@ fn append_reuses_completed_blocks_and_reports_work() {
 }
 
 #[test]
+fn configuration_refactor_preserves_incremental_work_profile() {
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(40)));
+    for index in 0..100 {
+        stream.append(&format!("Paragraph {index} has **styled** text.\n\n"));
+    }
+    let after_append = stream.counters();
+    let pointer = stream.current().lines.as_ptr();
+    for _ in 0..20 {
+        stream.set_width(Some(40));
+        let _ = stream.prepare_rows(20, 8);
+    }
+    assert_eq!(stream.counters(), after_append);
+    assert_eq!(stream.current().lines.as_ptr(), pointer);
+
+    stream.set_width(Some(23));
+    let after_resize = stream.counters();
+    assert_eq!(
+        after_resize.processed_source_bytes,
+        after_append.processed_source_bytes
+    );
+    assert_eq!(after_resize.parsed_events, after_append.parsed_events);
+    stream.append("Tail paragraph.");
+    let after_tail = stream.counters();
+    assert!(after_tail.processed_source_bytes - after_resize.processed_source_bytes < 100);
+    stream.finish();
+    let after_finish = stream.counters();
+    eprintln!(
+        "API_WORK_PROFILE append={after_append:?}; resize={after_resize:?}; tail={after_tail:?}; finish={after_finish:?}"
+    );
+    // Characterized before the API refactor for this fixed workload, not a document-size budget.
+    assert_eq!(
+        [after_append, after_resize, after_tail, after_finish].map(|work| (
+            work.processed_source_bytes,
+            work.parsed_events,
+            work.rendered_events,
+            work.recomputed_blocks,
+            work.full_recomputations,
+            work.layout_reflows,
+        )),
+        [
+            (6_945, 1_393, 1_393, 199, 0, 0),
+            (6_945, 1_393, 1_393, 199, 0, 1),
+            (6_995, 1_403, 1_403, 201, 0, 1),
+            (10_500, 2_106, 2_106, 302, 1, 1),
+        ]
+    );
+}
+
+#[test]
 fn adjacent_self_terminating_blocks_do_not_pin_replay_to_document_start() {
     let source = (0..200)
         .map(|index| format!("# heading {index}\n"))
         .collect::<String>();
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(40));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(40)));
     stream.append(&source);
     let before = stream.counters();
 
@@ -66,7 +114,7 @@ fn prepared_viewport_rows_borrow_the_cached_display_without_work() {
     let source = (0..200)
         .map(|index| format!("row {index}\n\n"))
         .collect::<String>();
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(40));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(40)));
     stream.append(&source);
     let before = stream.counters();
 
@@ -91,7 +139,7 @@ fn prepared_viewport_rows_borrow_the_cached_display_without_work() {
 
 #[test]
 fn prepared_viewport_rows_clamp_out_of_range_requests() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(20));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(20)));
     stream.append("one\n\ntwo");
     let total = stream.current().lines.len();
 
@@ -105,7 +153,7 @@ fn prepared_viewport_rows_clamp_out_of_range_requests() {
 
 #[test]
 fn no_op_operations_do_zero_work_and_finish_once_per_version() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(40));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(40)));
     stream.append("hello **world**");
 
     let before = stream.counters();
@@ -135,7 +183,7 @@ fn no_op_operations_do_zero_work_and_finish_once_per_version() {
 
 #[test]
 fn replace_clear_context_and_reuse_have_canonical_snapshots() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(8));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(8)));
     stream.append("long paragraph");
     stream.replace("same length!!!");
     assert_matches_batch(&stream, "same length!!!", 8);
@@ -144,12 +192,12 @@ fn replace_clear_context_and_reuse_have_canonical_snapshots() {
     assert_matches_batch(&stream, "tiny", 8);
 
     let before_context = stream.counters();
-    let update = stream.set_context(RenderContext::new(1));
-    assert_eq!(update.reason, ChangeReason::Context);
+    let update = stream.set_width(Some(1));
+    assert_eq!(update.reason, ChangeReason::Layout);
     assert_matches_batch(&stream, "tiny", 1);
     assert_eq!(
-        stream.counters().context_reflows,
-        before_context.context_reflows + 1
+        stream.counters().layout_reflows,
+        before_context.layout_reflows + 1
     );
     assert_eq!(
         stream.counters().processed_source_bytes,
@@ -176,7 +224,7 @@ fn references_and_footnotes_trigger_explicit_global_recomputation() {
         ("A [link][target].", "\n\n[target]: https://example.test"),
         ("A note[^1].", "\n\n[^1]: Later."),
     ] {
-        let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+        let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
         stream.append(first);
         let before = stream.counters();
         let update = stream.append(second);
@@ -192,7 +240,7 @@ fn references_and_footnotes_trigger_explicit_global_recomputation() {
 
 #[test]
 fn discovering_a_global_dependency_does_not_revoke_confirmed_rows() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     let before_global = stream.append("confirmed\n\nmutable");
     assert!(before_global.stable_rows > 0);
 
@@ -226,7 +274,7 @@ fn arbitrary_utf8_chunks_match_every_batch_prefix() {
 
     for (document_index, document) in documents.iter().enumerate() {
         for seed in 0..12u64 {
-            let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(17));
+            let mut stream = StreamingMarkdown::new(Options::default().width(Some(17)));
             let boundaries: Vec<_> = document
                 .char_indices()
                 .map(|(index, _)| index)
@@ -271,7 +319,7 @@ fn every_utf8_prefix_matches_for_incomplete_and_reclassified_syntax() {
     ];
 
     for document in corpus {
-        let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(23));
+        let mut stream = StreamingMarkdown::new(Options::default().width(Some(23)));
         let mut previous = 0;
         for next in document
             .char_indices()
@@ -288,8 +336,8 @@ fn every_utf8_prefix_matches_for_incomplete_and_reclassified_syntax() {
 
 #[test]
 fn interleaved_documents_keep_independent_source_and_projection_state() {
-    let mut left = StreamingMarkdown::new(Options::default(), RenderContext::new(7));
-    let mut right = StreamingMarkdown::new(Options::default(), RenderContext::new(13));
+    let mut left = StreamingMarkdown::new(Options::default().width(Some(7)));
+    let mut right = StreamingMarkdown::new(Options::default().width(Some(13)));
 
     left.append("| A |\n| - |");
     right.append("**right");
@@ -306,25 +354,25 @@ fn interleaved_documents_keep_independent_source_and_projection_state() {
 
 #[test]
 fn replacing_options_restyles_the_canonical_snapshot() {
-    let context = RenderContext::new(80);
-    let mut stream = StreamingMarkdown::new(Options::new(AlternateStyles), context);
+    let mut stream = StreamingMarkdown::new(Options::new(AlternateStyles).width(Some(80)));
     stream.append("# heading");
-    let options =
-        Options::new(AlternateStyles).image_fallback(tui_markdown::ImageFallback::AltTextAndUrl);
+    let options = Options::new(AlternateStyles)
+        .width(Some(80))
+        .image_fallback(tui_markdown::ImageFallback::AltTextAndUrl);
 
     let update = stream.set_options(options.clone());
 
     assert_eq!(update.reason, ChangeReason::Options);
     assert_eq!(
         stream.current(),
-        &from_str_with_context("# heading", &options, &context)
+        &from_str_with_options("# heading", &options)
     );
     assert_eq!(stream.source(), "# heading");
 }
 
 #[test]
 fn resource_usage_accounts_for_source_and_owned_snapshots() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(20));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(20)));
     stream.append("owned **content**");
     let usage = stream.resource_usage();
 
@@ -338,35 +386,36 @@ fn resource_usage_accounts_for_source_and_owned_snapshots() {
 
 #[test]
 fn resource_usage_reports_each_table_fallback_reason() {
-    let defaults = RenderContext::new(80).limits();
+    let defaults = TableLimits::default();
     assert_eq!(defaults.max_cells, 8_192);
     assert_eq!(defaults.max_buffer_bytes, 4 * 1024 * 1024);
 
     let input = "| A | B |\n| - | - |\n| one | two |";
     let cases = [
-        (RenderContext::new(5), (1, 0, 0)),
+        (Options::default().width(Some(5)), (1, 0, 0)),
         (
-            RenderContext::new(80).table_limits(TableLimits {
-                max_cells: 3,
-                max_buffer_bytes: 4 * 1024 * 1024,
-            }),
+            Options::default()
+                .width(Some(80))
+                .table_limits(TableLimits {
+                    max_cells: 3,
+                    max_buffer_bytes: 4 * 1024 * 1024,
+                }),
             (0, 1, 0),
         ),
         (
-            RenderContext::new(80).table_limits(TableLimits {
-                max_cells: usize::MAX,
-                max_buffer_bytes: 1,
-            }),
+            Options::default()
+                .width(Some(80))
+                .table_limits(TableLimits {
+                    max_cells: usize::MAX,
+                    max_buffer_bytes: 1,
+                }),
             (0, 0, 1),
         ),
     ];
-    for (context, expected) in cases {
-        let mut stream = StreamingMarkdown::new(Options::default(), context);
+    for (options, expected) in cases {
+        let mut stream = StreamingMarkdown::new(options.clone());
         stream.append(input);
-        assert_eq!(
-            stream.current(),
-            &from_str_with_context(input, &Options::default(), &context)
-        );
+        assert_eq!(stream.current(), &from_str_with_options(input, &options));
         let fallbacks = stream.resource_usage().table_fallbacks;
         assert_eq!(
             (
@@ -385,7 +434,7 @@ fn default_table_cell_budget_switches_to_stacked_without_losing_tail_content() {
     for _ in 0..4_095 {
         input.push_str("| x | y |\n");
     }
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     stream.append(&input);
     assert_eq!(stream.resource_usage().table_fallbacks.cell_limit, 0);
 
@@ -402,18 +451,15 @@ fn default_table_cell_budget_switches_to_stacked_without_losing_tail_content() {
 #[test]
 fn table_context_changes_recompute_canonical_geometry_and_fallbacks() {
     let input = "| A | B |\n| - | - |\n| long value | two |";
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     stream.append(input);
     let before = stream.counters();
 
-    let narrow = RenderContext::new(9);
-    let update = stream.set_context(narrow);
+    let narrow = Options::default().width(Some(9));
+    let update = stream.set_width(Some(9));
 
-    assert_eq!(update.reason, ChangeReason::Context);
-    assert_eq!(
-        stream.current(),
-        &from_str_with_context(input, &Options::default(), &narrow)
-    );
+    assert_eq!(update.reason, ChangeReason::Layout);
+    assert_eq!(stream.current(), &from_str_with_options(input, &narrow));
     assert!(stream.counters().parsed_events > before.parsed_events);
     assert_eq!(stream.resource_usage().table_fallbacks.width, 1);
 }
@@ -462,7 +508,7 @@ fn trace_diagnostics_do_not_contain_markdown_source() {
         .finish();
     let _guard = subscriber::set_default(tracing);
     let secret = "sensitive-markdown-9f36";
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     stream.append(&format!(
         "[{secret}](https://{secret}.invalid)\n\n```{secret}\n{secret}\n```"
     ));
@@ -474,7 +520,7 @@ fn trace_diagnostics_do_not_contain_markdown_source() {
 
 #[test]
 fn append_after_finish_explicitly_reopens_a_new_lineage() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     stream.append("hello");
     let finished = stream.finish();
     assert_eq!(finished.stable_rows, stream.current().lines.len());
@@ -491,7 +537,7 @@ fn append_after_finish_explicitly_reopens_a_new_lineage() {
 
 #[test]
 fn late_reference_after_finish_reopens_without_false_stability() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     stream.append("A [link][later].");
     stream.finish();
 
@@ -514,7 +560,7 @@ fn late_reference_after_finish_reopens_without_false_stability() {
 
 #[test]
 fn replacing_finished_source_starts_a_canonical_replacement_lineage() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     stream.append("finished");
     stream.finish();
     let before = stream.counters();
@@ -535,7 +581,7 @@ fn whitespace_only_blank_lines_advance_replay_past_a_long_table() {
 
     for separator in ["\n   \n", "\r\n\t \r\n"] {
         let source = format!("{table}{separator}stream");
-        let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+        let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
         stream.append(&source);
         let before = stream.counters();
 
@@ -550,7 +596,7 @@ fn whitespace_only_blank_lines_advance_replay_past_a_long_table() {
 
 #[test]
 fn full_recomputation_counter_counts_executed_full_passes_once() {
-    let mut stream = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     let replacement = "A [link][id].\n\n[id]: /target";
     let before_replace = stream.counters();
     stream.replace(replacement);
@@ -575,7 +621,7 @@ fn full_recomputation_counter_counts_executed_full_passes_once() {
         1
     );
 
-    let mut ordinary = StreamingMarkdown::new(Options::default(), RenderContext::new(80));
+    let mut ordinary = StreamingMarkdown::new(Options::default().width(Some(80)));
     ordinary.append("first\n\nsecond");
     let before_ordinary = ordinary.counters();
     ordinary.append("\n\nthird");
