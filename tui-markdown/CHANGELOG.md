@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+- Add `StreamingMarkdown` for incremental parsing and rendering as Markdown fragments arrive, with
+  complete styled snapshots, change metadata, and explicit finalization for streaming terminal UIs.
+- Add `prepare_rows` to borrow visible display rows without reparsing, rendering, or cloning, so
+  retained UIs can share one snapshot for drawing, measurement, selection, and hit testing.
+- Add opt-in width-aware rendering with Unicode wrapping and content-preserving stacked-table
+  fallbacks when grid tables exceed the available width or configured buffering limits.
 - Preserve literal code/HTML lines and metadata span structure across LF and CRLF parser events.
 
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
