@@ -364,6 +364,8 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     context: Option<RenderContext>,
 
     // Code rendering state.
+    /// Only the unfinished code line is retained between parser text events.
+    code_line: Option<String>,
     /// Active syntax highlighter while rendering a recognized fenced code block.
     #[cfg(feature = "highlight-code")]
     code_highlighter: Option<syntect::easy::HighlightLines<'theme>>,
@@ -429,6 +431,7 @@ where
             context: None,
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
+            code_line: None,
             #[cfg(feature = "highlight-code")]
             code_theme: None,
             #[cfg(not(feature = "highlight-code"))]
@@ -620,7 +623,8 @@ where
             return;
         }
 
-        if self.push_highlighted_text(&text) {
+        if self.code_line.is_some() {
+            self.code_block_text(&text);
             return;
         }
 
@@ -635,9 +639,15 @@ where
 
             let style = self.inline_styles.last().copied().unwrap_or_default();
 
-            let span = Span::styled(line.to_owned(), style);
-
-            self.push_span(span);
+            if !line.is_empty()
+                || self
+                    .text
+                    .lines
+                    .last()
+                    .is_none_or(|current| current.spans.is_empty())
+            {
+                self.push_span(Span::styled(line.to_owned(), style));
+            }
         }
         self.needs_newline = false;
     }
@@ -743,6 +753,13 @@ mod tests {
     #[rstest]
     fn empty(_with_tracing: DefaultGuard) {
         assert_eq!(from_str(""), Text::default());
+    }
+
+    #[rstest]
+    fn metadata_line_endings_preserve_span_structure() {
+        let lf = "---\nname: example\nitems:\n  - one\n---\n\nAfter";
+        let crlf = lf.replace('\n', "\r\n");
+        assert_eq!(from_str(&crlf), from_str(lf));
     }
 
     #[rstest]

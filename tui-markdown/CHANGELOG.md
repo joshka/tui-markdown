@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+- Preserve literal code/HTML lines and metadata span structure across LF and CRLF parser events.
+
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
 
 - Render GFM tables and alerts, raw HTML, math, footnotes, and definition lists ([#153], [#154]).
