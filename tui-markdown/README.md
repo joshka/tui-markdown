@@ -6,7 +6,7 @@ value. See [Markdown-reader] for an example application that uses this library.
 [![Crate badge]][tui-markdown]
 [![Docs.rs Badge]][API Docs]
 [![Deps.rs Badge]][Dependency Status]
-[![License Badge]](LICENSE-MIT)
+[![License Badge]](../LICENSE-MIT)
 [![Codecov.io Badge]][Code Coverage]
 [![Discord Badge]][Ratatui Discord]
 
@@ -395,9 +395,9 @@ Copyright (c) 2024 Josh McKinney
 This project is licensed under either of
 
 - Apache License, Version 2.0
-   ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+   ([LICENSE-APACHE](../LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
 - MIT license
-   ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+   ([LICENSE-MIT](../LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
 
