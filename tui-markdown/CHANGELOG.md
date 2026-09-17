@@ -7,8 +7,10 @@ All notable changes to this project will be documented in this file.
 - Add `StreamingMarkdown` to parse and render Markdown incrementally as text arrives.
   Callers can read the current rendered output and see which rows changed after each update.
   Call `finish()` when input ends.
-  Its `prepare_rows` method borrows visible display rows without reparsing, rendering, or cloning,
-  so retained UIs can draw, measure, select, and hit-test the same snapshot.
+  Its `prepare_rows` method lets callers read a chosen range of already rendered rows.
+  It does not reprocess the Markdown or copy the rows.
+  The UI can use the same rows to display text, calculate sizes, and handle text selection
+  and mouse clicks.
 - Add optional body width and table limits to `Options`, shared by batch and streaming rendering.
   Wrap Unicode text and use content-preserving stacked tables when grid presentation exceeds
   the width or buffering limits. Width-only streaming updates reuse cached output where possible.
