@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
   Without tables, `StreamingMarkdown::set_width` rearranges cached output without parsing again.
 - Keep code-block and HTML lines, including blank lines, when input uses LF (`\n`) or CRLF (`\r\n`).
   Avoid adding empty `Span` values when rendering metadata.
+- Avoid a panic when task-list text becomes an underlined heading and
+  `StyleSheet::heading_marker` returns an empty string. Keep the checkbox and text visible.
 
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
 
