@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use ratatui_core::style::Style;
 use ratatui_core::text::{Line, Span, Text};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -10,6 +11,7 @@ use unicode_width::UnicodeWidthStr;
 ///
 /// If a table grid exceeds a limit, the renderer lists cells vertically with numbers instead.
 /// Cell content is kept. Defaults are 8,192 logical cells and 4 MiB of tracked buffer capacity.
+/// Grids wrap their cells to fit the available width when their minimum geometry fits.
 ///
 /// These limits apply only when [`crate::Options::width`] is set. They do not cap source storage,
 /// rendered output, parser allocations, or total memory use.
@@ -17,7 +19,8 @@ use unicode_width::UnicodeWidthStr;
 pub struct TableLimits {
     /// Maximum number of buffered grid cells, including header cells and implicit empty cells.
     pub max_cells: usize,
-    /// Maximum tracked capacity in bytes for grid-presentation buffers.
+    /// Maximum tracked capacity in bytes for grid-presentation buffers, including column widths
+    /// and the shared buffer that joins styled fragments for measurement and wrapping.
     pub max_buffer_bytes: usize,
 }
 
@@ -160,8 +163,40 @@ fn wrap_line(line: Line<'_>, width: u16, replacement: char) -> Vec<Line<'_>> {
     let mut output = Vec::new();
     let mut current = Line::default().style(line.style);
     current.alignment = line.alignment;
+    wrap_spans(
+        &line.spans,
+        &content,
+        width,
+        replacement,
+        |display, style, new_line| {
+            if new_line {
+                let mut next = Line::default().style(line.style);
+                next.alignment = line.alignment;
+                output.push(std::mem::replace(&mut current, next));
+            }
+            if let Some(last) = current.spans.last_mut().filter(|span| span.style == style) {
+                last.content.to_mut().push_str(display);
+            } else {
+                current.spans.push(Span::styled(display.to_owned(), style));
+            }
+        },
+    );
+    output.push(current);
+    output
+}
+
+/// Emits wrapped graphemes without allocating intermediate rows. `content` joins `spans` so a
+/// grapheme crossing a style boundary stays whole and uses its first fragment's style.
+pub(crate) fn wrap_spans(
+    spans: &[Span<'_>],
+    content: &str,
+    width: usize,
+    replacement: char,
+    mut emit: impl FnMut(&str, Style, bool),
+) {
+    debug_assert!(width > 0);
     let mut columns = 0;
-    let mut spans = line.spans.iter();
+    let mut spans = spans.iter();
     let mut active = spans.next();
     let mut span_end = active.map_or(0, |span| span.content.len());
     let mut previous_was_whitespace = true;
@@ -172,6 +207,7 @@ fn wrap_line(line: Line<'_>, width: u16, replacement: char) -> Vec<Line<'_>> {
     let replacement = replacement.encode_utf8(&mut replacement_buffer);
 
     for (start, grapheme) in content.grapheme_indices(true) {
+        let mut new_line = false;
         let is_whitespace = grapheme.chars().all(char::is_whitespace);
         while word_boundary
             .as_ref()
@@ -187,9 +223,7 @@ fn wrap_line(line: Line<'_>, width: u16, replacement: char) -> Vec<Line<'_>> {
                 .sum::<usize>();
             whitespace_token_fits = token_width <= width;
             if columns > 0 && whitespace_token_fits && columns + token_width > width {
-                output.push(current);
-                current = Line::default().style(line.style);
-                current.alignment = line.alignment;
+                new_line = true;
                 columns = 0;
             }
         } else if !is_whitespace
@@ -204,9 +238,7 @@ fn wrap_line(line: Line<'_>, width: u16, replacement: char) -> Vec<Line<'_>> {
                         && columns + segment.width() > width
                 })
         {
-            output.push(current);
-            current = Line::default().style(line.style);
-            current.alignment = line.alignment;
+            new_line = true;
             columns = 0;
         }
         while start >= span_end {
@@ -222,25 +254,17 @@ fn wrap_line(line: Line<'_>, width: u16, replacement: char) -> Vec<Line<'_>> {
             (grapheme, grapheme.width())
         };
         if columns > 0 && columns + cells > width {
-            output.push(current);
-            current = Line::default().style(line.style);
-            current.alignment = line.alignment;
+            new_line = true;
             columns = 0;
         }
         let style = active.map(|span| span.style).unwrap_or_default();
-        if let Some(last) = current.spans.last_mut().filter(|span| span.style == style) {
-            last.content.to_mut().push_str(display);
-        } else {
-            current.spans.push(Span::styled(display.to_owned(), style));
-        }
+        emit(display, style, new_line);
         columns += cells;
         previous_was_whitespace = is_whitespace;
         if is_whitespace {
             whitespace_token_fits = false;
         }
     }
-    output.push(current);
-    output
 }
 
 #[cfg(test)]

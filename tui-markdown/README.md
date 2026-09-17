@@ -74,8 +74,20 @@ The original source is never changed. Rendering at a wider width restores the or
 
 #### Tables and buffer limits
 
-When a table grid is too wide, the renderer lists each row's cells vertically with numbers.
-It keeps every cell's content instead of cutting it off.
+With `Options::width(Some(...))`, tables stay as bordered grids when possible.
+Wide cells wrap into multiple physical lines. Horizontal rules separate logical rows.
+Each cell has one space of padding on each side. Shorter cells are padded to their row's height.
+Left, right, and center alignment apply to each physical cell line.
+
+The renderer keeps natural column widths when they fit. Otherwise, it caps wider columns
+while retaining shorter columns. Remaining space is assigned from left to right.
+Each column keeps at least one terminal cell and enough space for its widest complete grapheme.
+This prevents narrow columns from replacing CJK characters or emoji.
+List indentation and quote prefixes are subtracted before fitting the grid.
+
+If even these minimum column widths, padding, and borders cannot fit, the renderer lists
+each row's cells vertically with numbers. It keeps every cell's content instead of cutting it off.
+Widening a streaming document rebuilds the grid from the original source.
 
 - `Options::table_limits` controls how much data the renderer buffers while building a table grid.
   Defaults are 8,192 logical cells and 4 MiB of tracked buffer capacity.
@@ -86,9 +98,11 @@ It keeps every cell's content instead of cutting it off.
   remains in effect, even if you supplied custom limits.
 - The limits do not cap total memory use. The source, rendered output, and parser also use memory.
 
-The renderer sometimes joins styled cell fragments to measure a grapheme that crosses between them.
-It counts this temporary buffer against the byte limit, checks the limit before allocating,
-and reuses the buffer across cells. `ResourceUsage` separately reports the stored rendered output.
+The renderer sometimes joins styled cell fragments to measure and wrap graphemes that cross
+between them. It counts this shared buffer and both column-width vectors against the byte limit.
+It checks the limit before allocating and reuses the joined-content buffer across cells.
+Wrapping writes directly into the rendered rows without a second buffer of wrapped cells.
+`ResourceUsage` separately reports the stored rendered output.
 
 ### Streaming rendering
 

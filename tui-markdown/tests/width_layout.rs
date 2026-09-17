@@ -200,12 +200,12 @@ fn width_rows_preserve_wide_batch_output_and_hidden_markers() {
 }
 
 #[test]
-fn width_tables_stack_cells_when_grid_does_not_fit() {
+fn width_tables_wrap_cells_when_natural_grid_does_not_fit() {
     let input = "| A | B |\n| - | - |\n| alpha | beta |";
     let text = from_str_with_options(input, &Options::new(PaneStyles).width(Some(12)));
     assert_eq!(
         text.to_string(),
-        "Header\n[1] A\n[2] B\n\nRow 1\n[1] alpha\n[2] beta"
+        "┌─────┬────┐\n│ A   │ B  │\n├─────┼────┤\n│ alp │ be │\n│ ha  │ ta │\n└─────┴────┘"
     );
     assert!(text.lines.iter().all(|line| line.width() <= 12));
 }

@@ -122,10 +122,14 @@ pub struct ResourceUsage {
 
 /// Counts of tables shown as vertical lists of numbered cells instead of grids.
 ///
-/// This presentation keeps cell content when a grid would not fit or would exceed a buffer limit.
+/// Grids wrap their cells when possible. This presentation keeps cell content when even a grid's
+/// minimum geometry cannot fit, or when a grid would exceed a cell or buffer limit.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct TableFallbacks {
-    /// Number of table grids that did not fit the supplied body width.
+    /// Number of tables whose minimum grid geometry did not fit the supplied body width.
+    ///
+    /// Minimum geometry includes borders, one-space padding, and enough width in each column
+    /// for its widest complete grapheme. A wrapped grid does not count as a fallback.
     pub width: usize,
     /// Number of tables that could not use a grid within the configured cell limit.
     pub cell_limit: usize,

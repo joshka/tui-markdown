@@ -461,6 +461,11 @@ fn table_context_changes_recompute_canonical_geometry_and_fallbacks() {
     assert_eq!(update.reason, ChangeReason::Layout);
     assert_eq!(stream.current(), &from_str_with_options(input, &narrow));
     assert!(stream.counters().parsed_events > before.parsed_events);
+    assert_eq!(stream.resource_usage().table_fallbacks.width, 0);
+    assert!(stream.current().to_string().starts_with('┌'));
+
+    stream.set_width(Some(8));
+    assert_matches_batch(&stream, input, 8);
     assert_eq!(stream.resource_usage().table_fallbacks.width, 1);
 }
 

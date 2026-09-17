@@ -13,7 +13,10 @@ All notable changes to this project will be documented in this file.
   and mouse clicks.
 - Add optional body width and table limits to `Options`, shared by batch and streaming rendering.
   Set a width to wrap long lines without splitting displayed characters such as joined emoji.
-  If a table grid is too wide or needs too much buffering, show its cells vertically instead.
+  Keep bordered table grids when possible by wrapping wide cells and separating logical rows.
+  Preserve styles, alignment, and complete graphemes inside each column.
+  Show cells vertically only when minimum grid geometry cannot fit or buffering exceeds a limit.
+  Width `None` keeps the original table layout.
   Without tables, `StreamingMarkdown::set_width` rearranges cached output without parsing again.
 - Keep code-block and HTML lines, including blank lines, when input uses LF (`\n`) or CRLF (`\r\n`).
   Avoid adding empty `Span` values when rendering metadata.

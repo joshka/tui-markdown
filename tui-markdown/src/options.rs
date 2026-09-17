@@ -116,6 +116,12 @@ impl<S: StyleSheet> Options<S> {
     /// The package does not read the terminal size. To resize an existing streaming document,
     /// use [`crate::StreamingMarkdown::set_width`] rather than replacing all options.
     ///
+    /// Tables keep bordered grids when possible. Wide cells wrap, with horizontal separators
+    /// between logical rows. Columns keep enough space for complete graphemes, plus one space
+    /// of padding on each side. Short columns keep their natural widths when possible.
+    /// If minimum grid geometry or [`Self::table_limits`] prevents a grid, cells are listed
+    /// vertically with numbers instead. Width `None` keeps the original table layout.
+    ///
     /// # Example
     ///
     /// ```

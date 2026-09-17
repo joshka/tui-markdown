@@ -13,10 +13,11 @@ use std::mem::{size_of, take};
 use pulldown_cmark::Alignment;
 use ratatui_core::style::Style;
 use ratatui_core::text::{Line, Span};
+use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 use super::TextWriter;
-use crate::layout::LayoutOptions;
+use crate::layout::{wrap_spans, LayoutOptions};
 use crate::{StyleSheet, TableLimits};
 
 const HORIZONTAL_BORDER: char = '─';
@@ -111,9 +112,25 @@ where
         let table_starts_on_marker = marker_line_is_last && marker_has_no_content;
         if table_starts_on_marker {
             if let Some(first_line) = lines.next() {
-                self.text.lines[list_item.marker_line]
-                    .spans
-                    .extend(first_line.spans);
+                let marker_line = &mut self.text.lines[list_item.marker_line];
+                let prefix_spans =
+                    self.line_prefixes.len() + usize::from(!self.line_prefixes.is_empty());
+                if self.context.width().is_some() && marker_line.spans.len() != prefix_spans + 1 {
+                    // A quote can start after the list marker was written. Width-aware grids need
+                    // the same prefix on the top border as on all following physical rows.
+                    let marker = marker_line
+                        .spans
+                        .pop()
+                        .expect("empty list item has a marker");
+                    marker_line.spans.clear();
+                    marker_line.spans.extend(self.line_prefixes.iter().cloned());
+                    if !self.line_prefixes.is_empty() {
+                        marker_line.spans.push(Span::raw(" "));
+                    }
+                    marker_line.spans.push(marker);
+                    marker_line.style = self.line_styles.last().copied().unwrap_or_default();
+                }
+                marker_line.spans.extend(first_line.spans);
             }
         }
 
@@ -381,41 +398,12 @@ impl<'a> TableBuilder<'a> {
             return (Vec::new(), self.fallback);
         }
 
+        if self.layout.is_some() {
+            return self.render_wrapped(styles, column_count);
+        }
         let measurement_scratch_bytes = self.measurement_scratch_bytes();
-        let scratch_fits = self.layout.as_ref().is_none_or(|layout| {
-            measurement_scratch_bytes
-                <= layout
-                    .limits
-                    .max_buffer_bytes
-                    .saturating_sub(layout.buffer_bytes)
-        });
-        if !scratch_fits {
-            self.start_stacked(TableFallback::BufferLimit);
-            return (
-                self.stacked_lines.take().expect("stacked table output"),
-                self.fallback,
-            );
-        }
-        if let Some(layout) = &mut self.layout {
-            let charged = layout.charge(measurement_scratch_bytes);
-            debug_assert!(charged, "measurement scratch was preflighted");
-        }
         let mut measurement_scratch = String::with_capacity(measurement_scratch_bytes);
         let column_widths = self.column_widths(column_count, &mut measurement_scratch);
-        if self.layout.as_ref().is_some_and(|layout| {
-            column_widths
-                .iter()
-                .sum::<usize>()
-                .saturating_add(column_count.saturating_mul(3))
-                .saturating_add(1)
-                > layout.width
-        }) {
-            self.start_stacked(TableFallback::Width);
-            return (
-                self.stacked_lines.take().expect("stacked table output"),
-                self.fallback,
-            );
-        }
         let border_style = styles.table_border();
 
         let top_border = TOP_BORDER.render(&column_widths, border_style);
@@ -438,6 +426,83 @@ impl<'a> TableBuilder<'a> {
             ));
         }
         lines.push(bottom_border);
+        (lines, self.fallback)
+    }
+
+    fn render_wrapped<S: StyleSheet>(
+        mut self,
+        styles: &S,
+        column_count: usize,
+    ) -> (Vec<Line<'a>>, Option<TableFallback>) {
+        let scratch_bytes = self.measurement_scratch_bytes();
+        let layout_bytes = column_count
+            .saturating_mul(2 * size_of::<usize>())
+            .saturating_add(scratch_bytes);
+        let layout = self.layout.as_mut().expect("width-aware table layout");
+        if !layout.charge(layout_bytes) {
+            self.start_stacked(TableFallback::BufferLimit);
+            return (
+                self.stacked_lines.take().expect("stacked table output"),
+                self.fallback,
+            );
+        }
+        let available = layout
+            .width
+            .saturating_sub(column_count.saturating_mul(3).saturating_add(1));
+        // These are the only layout scratch allocations. Wrapped spans are written straight into
+        // the returned output, rather than keeping a second grid of wrapped cells.
+        let mut scratch = String::with_capacity(scratch_bytes);
+        let mut widths = vec![1; column_count];
+        let mut minima = vec![1; column_count];
+        for cells in
+            std::iter::once(&self.header.cells).chain(self.rows.iter().map(|row| &row.cells))
+        {
+            for (column, cell) in cells.iter().enumerate() {
+                let content = cell.content_with_scratch(&mut scratch);
+                widths[column] = widths[column].max(content.width());
+                minima[column] = minima[column].max(
+                    content
+                        .graphemes(true)
+                        .map(UnicodeWidthStr::width)
+                        .max()
+                        .unwrap_or(0),
+                );
+            }
+        }
+        if !fit_columns(&mut widths, &minima, available) {
+            self.start_stacked(TableFallback::Width);
+            return (
+                self.stacked_lines.take().expect("stacked table output"),
+                self.fallback,
+            );
+        }
+        let border_style = styles.table_border();
+        let mut lines = vec![TOP_BORDER.render(&widths, border_style)];
+        render_wrapped_row(
+            &mut lines,
+            &self.header.cells,
+            &widths,
+            &self.alignments,
+            styles.table_header(),
+            border_style,
+            &mut scratch,
+        );
+        lines.push(HEADER_SEPARATOR.render(&widths, border_style));
+        for (index, row) in self.rows.iter().enumerate() {
+            if index > 0 {
+                lines.push(HEADER_SEPARATOR.render(&widths, border_style));
+            }
+            render_wrapped_row(
+                &mut lines,
+                &row.cells,
+                &widths,
+                &self.alignments,
+                styles.table_cell(),
+                border_style,
+                &mut scratch,
+            );
+        }
+        lines.push(BOTTOM_BORDER.render(&widths, border_style));
         (lines, self.fallback)
     }
 
@@ -636,14 +701,18 @@ impl<'a> TableCell<'a> {
     }
 
     fn width_with_scratch(&self, scratch: &mut String) -> usize {
+        self.content_with_scratch(scratch).width()
+    }
+
+    fn content_with_scratch<'s>(&'s self, scratch: &'s mut String) -> &'s str {
         if let [span] = self.spans.as_slice() {
-            return span.width();
+            return &span.content;
         }
         scratch.clear();
         for span in &self.spans {
             scratch.push_str(&span.content);
         }
-        scratch.width()
+        scratch
     }
 
     fn render_spans(
@@ -664,6 +733,163 @@ impl<'a> TableCell<'a> {
         spans.push(Span::styled(" ".repeat(pad_right + 1), style));
         spans
     }
+}
+
+/// Water-fill toward natural widths: keep short columns, cap wider ones, and give any remaining
+/// cells to columns from left to right. A column never becomes narrower than a complete grapheme.
+fn fit_columns(widths: &mut [usize], minima: &[usize], available: usize) -> bool {
+    if minima.iter().sum::<usize>() > available {
+        return false;
+    }
+    if widths.iter().sum::<usize>() <= available {
+        return true;
+    }
+    let mut low = 0;
+    let mut high = widths.iter().copied().max().unwrap_or(0);
+    while low < high {
+        let cap = low + (high - low).div_ceil(2);
+        let total = widths
+            .iter()
+            .zip(minima)
+            .map(|(&width, &minimum)| width.min(cap).max(minimum))
+            .sum::<usize>();
+        if total <= available {
+            low = cap;
+        } else {
+            high = cap - 1;
+        }
+    }
+    let used = widths
+        .iter()
+        .zip(minima)
+        .map(|(&width, &minimum)| width.min(low).max(minimum))
+        .sum::<usize>();
+    let mut remaining = available - used;
+    for (width, &minimum) in widths.iter_mut().zip(minima) {
+        let fitted = (*width).min(low).max(minimum);
+        let extra = usize::from(remaining > 0 && fitted == low && fitted < *width);
+        *width = fitted + extra;
+        remaining -= extra;
+    }
+    true
+}
+
+fn render_wrapped_row<'a>(
+    lines: &mut Vec<Line<'a>>,
+    cells: &[TableCell<'a>],
+    widths: &[usize],
+    alignments: &[Alignment],
+    content_style: Style,
+    border_style: Style,
+    scratch: &mut String,
+) {
+    let start = lines.len();
+    let empty = TableCell::default();
+    for (column, &width) in widths.iter().enumerate() {
+        let cell = cells.get(column).unwrap_or(&empty);
+        let alignment = alignments.get(column).copied().unwrap_or(Alignment::None);
+        let mut row = start;
+        let mut padding_index =
+            start_wrapped_cell(lines, row, &widths[..column], content_style, border_style);
+        // Column minima guarantee that the shared wrapper never needs a replacement here.
+        wrap_spans(
+            &cell.spans,
+            cell.content_with_scratch(scratch),
+            width,
+            '-',
+            |display, style, new_line| {
+                if new_line {
+                    finish_wrapped_cell(
+                        &mut lines[row],
+                        padding_index,
+                        width,
+                        alignment,
+                        content_style,
+                        border_style,
+                    );
+                    row += 1;
+                    padding_index = start_wrapped_cell(
+                        lines,
+                        row,
+                        &widths[..column],
+                        content_style,
+                        border_style,
+                    );
+                }
+                let spans = &mut lines[row].spans;
+                let style = style.patch(content_style);
+                if spans.len() > padding_index + 1
+                    && spans.last().is_some_and(|span| span.style == style)
+                {
+                    spans
+                        .last_mut()
+                        .expect("content span")
+                        .content
+                        .to_mut()
+                        .push_str(display);
+                } else {
+                    spans.push(Span::styled(display.to_owned(), style));
+                }
+            },
+        );
+        finish_wrapped_cell(
+            &mut lines[row],
+            padding_index,
+            width,
+            alignment,
+            content_style,
+            border_style,
+        );
+        for line in &mut lines[row + 1..] {
+            push_empty_cell(line, width, content_style, border_style);
+        }
+    }
+}
+
+fn start_wrapped_cell(
+    lines: &mut Vec<Line<'_>>,
+    row: usize,
+    preceding_widths: &[usize],
+    content_style: Style,
+    border_style: Style,
+) -> usize {
+    if row == lines.len() {
+        let mut line = Line::from(Span::styled(VERTICAL_BORDER, border_style));
+        for &width in preceding_widths {
+            push_empty_cell(&mut line, width, content_style, border_style);
+        }
+        lines.push(line);
+    }
+    let spans = &mut lines[row].spans;
+    let index = spans.len();
+    spans.push(Span::styled("", content_style));
+    index
+}
+
+fn finish_wrapped_cell(
+    line: &mut Line<'_>,
+    padding_index: usize,
+    width: usize,
+    alignment: Alignment,
+    content_style: Style,
+    border_style: Style,
+) {
+    // Some sequences, such as Arabic Lam-Alef, occupy fewer cells after adjacent graphemes join.
+    let content_width = line.spans[padding_index + 1..]
+        .iter()
+        .map(Span::width)
+        .sum();
+    let (left, right) = padding(width, content_width, alignment);
+    line.spans[padding_index].content = " ".repeat(left + 1).into();
+    line.spans
+        .push(Span::styled(" ".repeat(right + 1), content_style));
+    line.spans.push(Span::styled(VERTICAL_BORDER, border_style));
+}
+
+fn push_empty_cell(line: &mut Line<'_>, width: usize, content_style: Style, border_style: Style) {
+    line.spans
+        .push(Span::styled(" ".repeat(width + 2), content_style));
+    line.spans.push(Span::styled(VERTICAL_BORDER, border_style));
 }
 
 #[derive(Clone, Copy)]
@@ -851,6 +1077,66 @@ mod tests {
         let (_, fallback) = builder.render_with_fallback(&DefaultStyleSheet);
 
         assert_eq!(fallback, Some(TableFallback::BufferLimit));
+    }
+
+    #[test]
+    fn responsive_scratch_preflight_counts_both_column_vectors_and_reuses_joined_content() {
+        for styled in [false, true] {
+            for short_by in [0, 1] {
+                let mut builder = TableBuilder::new(vec![Alignment::None; 2]);
+                builder.configure(
+                    LayoutOptions::default().with_width(Some(12)),
+                    12,
+                    &DefaultStyleSheet,
+                );
+                for _ in 0..2 {
+                    builder.start_cell();
+                    if styled {
+                        builder.push_span(Span::styled("abc", Style::new().bold()));
+                        builder.push_span(Span::raw("def"));
+                    } else {
+                        builder.push_span(Span::raw("abcdef"));
+                    }
+                    builder.finish_cell();
+                }
+                builder.finish_header();
+                let scratch_bytes = if styled { 6 } else { 0 };
+                assert_eq!(builder.measurement_scratch_bytes(), scratch_bytes);
+                let layout = builder.layout.as_mut().unwrap();
+                layout.limits.max_buffer_bytes =
+                    layout.buffer_bytes + 2 * 2 * size_of::<usize>() + scratch_bytes - short_by;
+
+                let (lines, fallback) = builder.render_with_fallback(&DefaultStyleSheet);
+                if short_by == 0 {
+                    assert_eq!(fallback, None);
+                    assert!(lines.iter().all(|line| line.width() == 12));
+                    assert!(lines[0].to_string().starts_with('┌'));
+                } else {
+                    assert_eq!(fallback, Some(TableFallback::BufferLimit));
+                    assert_eq!(
+                        lines.iter().map(ToString::to_string).collect_vec(),
+                        ["Header", "[1] abcdef", "[2] abcdef"]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn responsive_columns_preserve_short_columns_and_distribute_remainders_left_to_right() {
+        for (natural, minima, available, expected) in [
+            (vec![1, 20, 1], vec![1, 1, 1], 6, vec![1, 4, 1]),
+            (vec![20, 1, 1], vec![1, 1, 1], 6, vec![4, 1, 1]),
+            (vec![10, 10, 10], vec![1, 1, 1], 11, vec![4, 4, 3]),
+            (vec![10, 10, 10], vec![2, 1, 1], 5, vec![2, 2, 1]),
+            (vec![2, 10, 10], vec![2, 1, 1], 4, vec![2, 1, 1]),
+            (vec![2, 3, 4], vec![1, 1, 1], 40, vec![2, 3, 4]),
+        ] {
+            let mut widths = natural;
+            assert!(fit_columns(&mut widths, &minima, available));
+            assert_eq!(widths, expected);
+        }
+        assert!(!fit_columns(&mut [2, 10, 10], &[2, 1, 1], 3));
     }
 
     #[test]
