@@ -1,4 +1,4 @@
-//! Opt-in terminal-width layout shared by batch and streaming consumers.
+//! Wrap text and fit tables to a supplied width for both batch and streaming output.
 
 use std::fmt;
 
@@ -6,12 +6,18 @@ use ratatui_core::text::{Line, Span, Text};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-/// Bounds on buffered grid-table presentation, not on Markdown source or returned text.
+/// Limit the buffers used to build table grids with [`crate::Options::table_limits`].
+///
+/// If a table grid exceeds a limit, the renderer lists cells vertically with numbers instead.
+/// Cell content is kept. Defaults are 8,192 logical cells and 4 MiB of tracked buffer capacity.
+///
+/// These limits apply only when [`crate::Options::width`] is set. They do not cap source storage,
+/// rendered output, parser allocations, or total memory use.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TableLimits {
-    /// Maximum buffered cells, including header and empty cells.
+    /// Maximum number of buffered grid cells, including header cells and implicit empty cells.
     pub max_cells: usize,
-    /// Maximum accounted table-presentation allocation bytes.
+    /// Maximum tracked capacity in bytes for grid-presentation buffers.
     pub max_buffer_bytes: usize,
 }
 
@@ -76,7 +82,9 @@ impl LayoutOptions {
     }
 }
 
-/// The requested replacement is not a printable, single-cell ASCII character.
+/// A replacement character was rejected because it was not printable ASCII.
+///
+/// Use a character from `U+0020` through `U+007E`, such as `-` or `*`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct InvalidReplacementCharacter;
 

@@ -62,8 +62,14 @@ pub fn from_str(input: &str) -> Text<'_> {
 ///
 /// The returned text may borrow from `input`. The options control styles, image fallback content,
 /// and, with the `highlight-code` feature, fenced-code syntax highlighting.
-/// With [`Options::width`] set, output is wrapped to that terminal body width. With no width,
-/// the original unwrapped behavior is preserved. Width zero returns no rows without parsing.
+///
+/// Use [`Options::width`] to wrap output to your text area's width:
+/// - `None` keeps the original behavior without width wrapping.
+/// - `Some(width)` wraps long lines and fits tables to that many terminal cells.
+/// - `Some(0)` returns no rows without parsing.
+///
+/// This function renders the complete string on each call. Use [`crate::StreamingMarkdown`]
+/// to reuse earlier work when text arrives in pieces.
 ///
 /// # Example
 ///

@@ -5,16 +5,18 @@ All notable changes to this project will be documented in this file.
 ## [unreleased]
 
 - Add `StreamingMarkdown` to parse and render Markdown incrementally as text arrives.
-  Callers can read the current rendered output and see which rows changed after each update.
+  Callers can read the current rendered output and find the first changed row after each update.
   Call `finish()` when input ends.
   Its `prepare_rows` method lets callers read a chosen range of already rendered rows.
   It does not reprocess the Markdown or copy the rows.
   The UI can use the same rows to display text, calculate sizes, and handle text selection
   and mouse clicks.
 - Add optional body width and table limits to `Options`, shared by batch and streaming rendering.
-  Wrap Unicode text and use content-preserving stacked tables when grid presentation exceeds
-  the width or buffering limits. Width-only streaming updates reuse cached output where possible.
-- Preserve literal code/HTML lines and metadata span structure across LF and CRLF parser events.
+  Set a width to wrap long lines without splitting displayed characters such as joined emoji.
+  If a table grid is too wide or needs too much buffering, show its cells vertically instead.
+  Without tables, `StreamingMarkdown::set_width` rearranges cached output without parsing again.
+- Keep code-block and HTML lines, including blank lines, when input uses LF (`\n`) or CRLF (`\r\n`).
+  Avoid adding empty `Span` values when rendering metadata.
 
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
 

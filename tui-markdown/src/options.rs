@@ -1,8 +1,8 @@
-//! Rendering configuration for tui-markdown.
+//! Choose how batch and streaming Markdown output is displayed.
 //!
-//! Options control the renderer's style sheet, image fallback content, and syntax-highlighting
-//! theme, and optional terminal-width layout. [`Options`] is non-exhaustive, allowing new choices without
-//! breaking existing code.
+//! [`Options`] controls styles, the text shown for images, code-highlighting themes, and optional
+//! width wrapping. Default options do not wrap long lines to a width.
+//! The type is non-exhaustive so new choices can be added without breaking existing code.
 
 use crate::layout::LayoutOptions;
 #[cfg(feature = "highlight-code")]
@@ -40,7 +40,11 @@ pub enum ImageFallback {
     AltTextAndUrl,
 }
 
-/// Shared rendering options for batch and [`crate::StreamingMarkdown`] output.
+/// Choose how Markdown looks when rendering a complete string or receiving text in pieces.
+///
+/// Pass the same options to [`crate::from_str_with_options`] or [`crate::StreamingMarkdown::new`].
+/// Use [`Self::width`] to wrap text to your UI's available width. By default, long lines are not
+/// wrapped to a width; existing batch callers keep their original behavior.
 ///
 /// `S` is the style sheet consulted while Markdown events are rendered. [`Options::default`] uses
 /// [`DefaultStyleSheet`]. Use [`Options::new`] to supply another [`StyleSheet`].
@@ -89,7 +93,7 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
 impl<S: StyleSheet> Options<S> {
     /// Creates rendering options that use `styles`.
     ///
-    /// Image fallback and syntax-highlighting settings retain their defaults.
+    /// Other settings keep their defaults, including no width wrapping.
     pub fn new(styles: S) -> Self {
         Self {
             layout: LayoutOptions::default(),
@@ -100,31 +104,54 @@ impl<S: StyleSheet> Options<S> {
         }
     }
 
-    /// Selects the optional terminal body width in cells, excluding application-owned chrome.
+    /// Sets the space available for Markdown text, measured in terminal cells (columns).
     ///
-    /// The default `None` keeps output unwrapped and leaves table presentation unrestricted.
-    /// `Some(0)` produces no display rows. For example, `Some(80)` allows 80 cells per row;
-    /// the caller must supply the actual available width, rather than a fixed example value.
+    /// - `None` is the default. Markdown is still rendered, but long lines are not wrapped to a
+    ///   width. Table buffer limits and the overwide-character replacement do not affect output.
+    /// - `Some(0)` produces no display rows. It does not mean unlimited width.
+    /// - `Some(80)`, for example, allows 80 cells per row. Most ASCII characters use one cell;
+    ///   many CJK characters and emoji use two.
+    ///
+    /// Supply the actual text area width, excluding your UI's reply markers and borders.
+    /// The package does not read the terminal size. To resize an existing streaming document,
+    /// use [`crate::StreamingMarkdown::set_width`] rather than replacing all options.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tui_markdown::{from_str_with_options, Options};
+    ///
+    /// let options = Options::default().width(Some(4));
+    /// assert_eq!(from_str_with_options("abcdefghij", &options).to_string(), "abcd\nefgh\nij");
+    /// ```
     #[must_use]
     pub fn width(mut self, width: Option<u16>) -> Self {
         self.layout = self.layout.with_width(width);
         self
     }
 
-    /// Selects grid-table buffer limits, used only when a width is specified.
+    /// Sets how much data the renderer buffers while building a table grid.
     ///
-    /// Either limit at zero requests stacked presentation for every table. These limits do not
-    /// cap source storage or the complete rendered output.
+    /// These limits apply only when [`Self::width`] is `Some`. If a grid exceeds either limit,
+    /// the renderer lists the table's cells vertically with numbers and keeps their content.
+    /// Set either limit to zero to request this presentation for every table.
+    ///
+    /// See [`TableLimits`] for defaults. These limits do not cap source storage, rendered output,
+    /// or total process memory. With width `None`, the values are stored but do not change output.
     #[must_use]
     pub fn table_limits(mut self, limits: TableLimits) -> Self {
         self.layout = self.layout.table_limits(limits);
         self
     }
 
-    /// Selects the replacement for a grapheme wider than the entire specified body width.
+    /// Chooses the character shown when one grapheme is wider than the entire available row.
     ///
-    /// The default is `-`. Ordinary line-end overflow wraps without changing the grapheme.
-    /// This affects display only, so widening or disabling wrapping restores the original text.
+    /// A grapheme is one displayed character, such as a letter with an accent or a joined emoji.
+    /// If it fits the row but not the remaining space, it wraps unchanged to the next row.
+    /// If it cannot fit anywhere in the row, the renderer uses this replacement, defaulting to `-`.
+    ///
+    /// The replacement keeps the original style. Source text is never changed, so widening or
+    /// disabling wrapping restores the original character. Width `None` does not use replacements.
     ///
     /// # Errors
     ///

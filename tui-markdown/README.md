@@ -28,54 +28,77 @@ text.render(area, &mut buf);
 
 ### Width-aware rendering
 
-Set `Options::width` when calling `from_str_with_options` to prepare rows for the body width. Exclude
-application-owned reply markers and other surrounding UI from this width.
-
-Width is measured in terminal cells (columns), not bytes, Unicode characters, or pixels. For
-example, `Options::default().width(Some(80))` gives the Markdown body 80 cells per row; most ASCII characters
-occupy one cell and many CJK characters or emoji occupy two. Use the actual available body width
-and call the streaming object's `set_width` when it changes rather than hard-coding the example value.
+Use `Options::width` to fit rendered text into the space available in your UI.
+Pass the options to `from_str_with_options` when rendering a complete string,
+or to `StreamingMarkdown::new` when receiving text in pieces.
 
 ```rust
 use tui_markdown::{from_str_with_options, Options};
 
-let options = Options::default().width(Some(1))
+let options = Options::default().width(Some(4));
+let text = from_str_with_options("abcdefghij", &options);
+assert_eq!(text.to_string(), "abcd\nefgh\nij");
+```
+
+- Width is measured in terminal cells (columns), not pixels or bytes.
+  Most ASCII characters occupy one cell; many CJK characters and emoji occupy two.
+- Supply the width available for Markdown text. Exclude your UI's reply markers and borders.
+  For example, `Some(80)` allows 80 cells per row; it is not a default or a required width.
+- `None` is the default. The package still renders Markdown, but it does not wrap long lines
+  to a width. Your UI decides how to display them.
+- `Some(0)` returns no display rows. It does not mean unlimited width.
+- The package does not read the terminal size. Call `StreamingMarkdown::set_width` when it changes.
+
+#### Characters that do not fit
+
+Text that does not fit at the end of a row moves to the next row. Wrapping keeps each grapheme
+together: a grapheme is one displayed character, such as a letter with an accent or a joined emoji.
+
+If a grapheme is wider than the **entire** available row, the renderer shows `-` instead.
+Use `Options::with_wide_grapheme_replacement` to choose another printable ASCII character:
+
+```rust
+use tui_markdown::{from_str_with_options, Options};
+
+let options = Options::default()
+    .width(Some(1))
     .with_wide_grapheme_replacement('*')
     .expect("a printable ASCII character");
 let text = from_str_with_options("\u{754c}", &options);
 assert_eq!(text.to_string(), "*");
 ```
 
-Normal line-end overflow wraps to another row without changing the text. Only a whole grapheme
-that is wider than the entire body width uses a replacement, which defaults to `-`. The replacement
-retains the text style and must be one printable ASCII character (`U+0020` through `U+007E`);
-non-ASCII and control characters return `InvalidReplacementCharacter`. Source remains unchanged,
-so rendering at a wider width restores the original grapheme. `Some(0)` returns no rows.
-The default width, `None`, keeps output unwrapped. Neither batch nor streaming invents a width
-or reads the terminal size.
+The replacement keeps the original style. Non-ASCII characters and control characters return
+`InvalidReplacementCharacter`; printable ASCII means `U+0020` through `U+007E`.
+The original source is never changed. Rendering at a wider width restores the original character.
 
-Tables use stacked rows and numbered cells when their grid cannot fit or its configurable
-`TableLimits` are exceeded. These limits cover grid-presentation buffers, not all parser or output
-allocations. Joined cell text used only for cross-style grapheme measurement is charged to that
-table buffer as one reusable per-table scratch allocation; an over-budget table switches to stacked
-presentation before allocating the scratch. The complete current snapshot is accounted separately
-by `ResourceUsage`. With no width, table limits and the replacement character are stored but
-do not alter presentation. Existing calls to `from_str` and `from_str_with_options` remain
-unwrapped unless a width is explicitly selected.
+#### Tables and buffer limits
+
+When a table grid is too wide, the renderer lists each row's cells vertically with numbers.
+It keeps every cell's content instead of cutting it off.
+
+- `Options::table_limits` controls how much data the renderer buffers while building a table grid.
+  Defaults are 8,192 logical cells and 4 MiB of tracked buffer capacity.
+  Headers and empty cells count toward the cell limit.
+- If a limit prevents building the grid, the renderer uses the same vertical presentation.
+  Setting either limit to zero requests this presentation for every table.
+- These limits apply only when a width is set. With `width(None)`, the original table behavior
+  remains in effect, even if you supplied custom limits.
+- The limits do not cap total memory use. The source, rendered output, and parser also use memory.
+
+The renderer sometimes joins styled cell fragments to measure a grapheme that crosses between them.
+It counts this temporary buffer against the byte limit, checks the limit before allocating,
+and reuses the buffer across cells. `ResourceUsage` separately reports the stored rendered output.
 
 ### Streaming rendering
 
-`StreamingMarkdown` owns one document's exact source and current styled snapshot. Pass only new,
-ordered UTF-8 fragments to `append(&str)`; do not resubmit the accumulated source. A fragment may
-end inside Markdown syntax or a grapheme cluster, but it must be valid UTF-8. The application owns
-transport decoding, event ordering, reveal scheduling, and document/session boundaries.
+Use `StreamingMarkdown` when Markdown arrives in pieces, such as an agent's reply.
+The object stores the source and updates its rendered output as you append text.
 
-After a mutation returns, `current()` borrows the complete current rendering of all source
-submitted to this object, not just the latest fragment. The output is Ratatui `Text` containing
-styled `Line` and `Span` values, not HTML, an image, or an ANSI byte stream written to a terminal.
-`Update` separately reports the earliest changed display row, stable-prefix row count, replay
-byte offset, and change reason. Readable output is not necessarily final: later input may change
-earlier Markdown interpretation or layout.
+- Call `append(&str)` with each **new** fragment, in order. Do not send the accumulated source again.
+- Call `current()` after an update to read the complete current output, not just the latest fragment.
+- Call `finish()` when input ends.
+- Create a separate object for each independent document or response.
 
 ```rust
 use tui_markdown::{Options, StreamingMarkdown};
@@ -84,88 +107,124 @@ let mut markdown = StreamingMarkdown::new(Options::default().width(Some(80)));
 markdown.append("First paragraph.\n\n");
 let update = markdown.append("Second **paragraph**.");
 
-let complete_text = markdown.current();
-let earliest_replacement = update.first_changed_row;
-let irreversible_prefix = update.stable_rows;
+assert_eq!(markdown.current().to_string(), "First paragraph.\n\nSecond paragraph.");
+assert!(update.first_changed_row.is_some());
 assert_eq!(markdown.source(), "First paragraph.\n\nSecond **paragraph**.");
-
 markdown.finish();
 ```
 
-Batch and streaming accept the same `Options`. Use the streaming setters `set_width`,
-`set_table_limits`, and `set_wide_grapheme_replacement` for layout-only updates. Identical
-values do no work. Changed values reflow cached output without parsing when there are no tables;
-documents with tables use a full pass. An invalid replacement returns an error without changing
-the document. Replacing the complete options with `set_options` remains a full-input operation,
-because custom style sheets need not support equality comparison.
+Each fragment must be valid UTF-8. It may end inside Markdown syntax or between code points
+of a grapheme. The caller handles network decoding, input order, and when text becomes visible.
+
+Updates finish before the method returns. The result is Ratatui `Text`, containing `Line` and
+styled `Span` values. It is not HTML, an image, or terminal escape codes. Your UI draws the result.
+Later input can still change earlier output, for example when it closes unfinished emphasis.
+
+#### Changing settings
+
+Batch and streaming accept the same `Options`.
+
+- Use `set_width`, `set_table_limits`, or `set_wide_grapheme_replacement` to change layout
+  without replacing your styles. Passing the same value does no work.
+- Without tables, a layout change rearranges the cached output without parsing the source again.
+  With tables, the renderer processes the full source to rebuild their layout.
+- An invalid replacement character returns an error and leaves the document unchanged.
+- Use `set_options` to replace the complete options. This always processes the full source.
+  Custom style sheets need not support equality checks, so the method does not assume they match.
+- Use `replace` to supply a different complete source, or `clear` to reuse the object for new text.
 
 #### Reading a display-row range
 
-Retained UIs can borrow visible rows plus overscan without cloning or walking the rest of the
-snapshot. `prepare_rows(first_row, row_count)` takes a **zero-based start and a count**, not an end
-index. These are visual rows after wrapping, not Markdown source lines. For example, human-numbered
-rows 10 through 20 inclusive use `prepare_rows(9, 11)`. A request extending past the snapshot is
-clamped; a start at or beyond its end returns an empty slice.
+Use `prepare_rows(first_row, row_count)` when your UI needs only part of the rendered output.
+It returns a read-only view of the stored rows without reprocessing Markdown or copying rows.
+
+- `first_row` is zero-based. `row_count` is a count, not an end index.
+- Rows refer to the output, including any width wrapping, not to source lines.
+  Human-numbered rows 10 through 20 use `prepare_rows(9, 11)`.
+- A range past the end returns only available rows. A start at or beyond the end returns no rows.
+- The method does not know which rows are visible in your window. Your UI chooses the range.
 
 ```rust
-# use tui_markdown::{Options, StreamingMarkdown};
-# let mut markdown = StreamingMarkdown::new(Options::default().width(Some(80)));
-# markdown.append("one\n\ntwo\n\nthree");
+use tui_markdown::{Options, StreamingMarkdown};
+
+let mut markdown = StreamingMarkdown::new(Options::default().width(Some(80)));
+markdown.append("one\n\ntwo\n\nthree");
 let viewport = markdown.prepare_rows(1, 2);
 assert_eq!(viewport.first_row(), 1);
 assert_eq!(viewport.rows(), &markdown.current().lines[1..3]);
-for row in viewport.rows() {
-    // Draw, measure, select, and hit-test this same prepared row.
-    let _ = row;
-}
+assert!(markdown.prepare_rows(100, 2).is_empty());
 ```
 
-Repeated `current()` and viewport requests reuse existing storage and perform no parsing,
-rendering, cloning, or allocation. Borrowing prevents mutation while the output is still being used; the
-`'static` span content is owned by the document, not a promise that the snapshot borrow outlives it.
-Width changes and later input can move text to different row numbers, so compute hit testing and
-selection from the same snapshot being drawn.
+Both `current()` and `prepare_rows()` reuse stored output. Reading it does not parse, render,
+allocate, or clone. The UI still draws those rows and handles text selection and mouse clicks.
+Using the same rows for these tasks keeps mouse positions aligned with displayed text.
 
-Row access is a view of an already prepared complete snapshot; it is not lazy parsing or initial
-rendering of only the requested rows. Applications remain responsible for retaining only bounded
-active/history objects.
+Rust prevents document updates while borrowed rows are still in use.
+The `'static` in `Text<'static>` describes the owned text content, not the lifetime of your reference.
+The full output is prepared before you read it; selecting a range does not limit initial rendering
+to that range. Your application decides how many document objects and past replies to keep.
 
-#### Incremental work and full recomputation
+#### How incremental updates work
 
-The object maintains its own parser-derived replay checkpoint, including the original UTF-8 byte
-offset and corresponding output boundaries. Ordinary append reuses unaffected prefix results and
-parses/renders the affected suffix. An open paragraph, enclosing list, table, or code block may
-remain in that suffix and be processed again; the algorithm does not promise work only on newly
-received characters. If the replay offset is zero, even ordinary suffix replay covers the whole
-current document.
+The object tracks where parsing needs to resume. This position is its **replay checkpoint**.
+You do not maintain it yourself.
 
-**`finish()` is not the only operation that can process the whole document.** The current
-implementation has these paths:
+- Ordinary `append` reuses output before the checkpoint. It parses and renders the affected
+  suffix: the source from that position onward.
+- An unfinished paragraph, list, table, or code block may need to be processed again.
+  Incremental rendering does not mean processing only the latest fragment.
+- If the checkpoint is still at byte zero, the suffix is the whole current document.
+- References and footnotes can affect text outside that suffix. These use the full-source
+  processing paths below.
+
+Every current result must match rendering the same received source from scratch with the same
+options. `finish()` does not repair otherwise incorrect intermediate results.
+
+#### When the renderer processes the full source
+
+**`finish()` is not the only full-source operation.** The current behavior is:
 
 | Operation or condition | Parsing and rendering work |
 | --- | --- |
-| Ordinary nonempty `append` | Reuse the prefix and replay the mutable suffix, possibly from byte zero |
-| A reference, footnote, unresolved reference, or other global dependency is discovered | Explicit whole-document recomputation may be required |
-| Further nonempty appends after entering global-dependency mode | Conservatively reprocess the whole document until a different source replaces it or it is cleared |
-| `replace` with different, nonempty source | Discard the old projection and perform a full-input pass |
-| `set_options` | Perform a full-input pass, even if the supplied options would produce identical output |
-| Changed layout-only setter, no tables in the current document | Reflow the retained unwrapped output without reparsing |
-| Changed layout-only setter, with tables in the current document | Perform a full-input pass to rebuild table presentation |
-| `finish` | Perform one fresh canonical full-input pass for the current source/options version |
-| Nonempty append after completion | Explicitly reopen a mutable lineage, perform a full-input pass, and report `ChangeReason::Reopen` |
-| `current`, `prepare_rows`, empty `append`, identical-source `replace`, unchanged layout-only setters, or repeated `finish` with no intervening mutation | No parser or renderer work |
-| `clear` or replacement with empty source | Discard source/projection and return empty output; already empty is a no-op |
+| Ordinary nonempty `append` | Start at the replay checkpoint, which may be zero |
+| A reference, footnote, or other document-wide dependency is found | A full-source pass may be needed, including for unresolved references |
+| Later nonempty appends after a document-wide dependency was found | Keep processing the full source until `replace` supplies different source or `clear` removes it |
+| `replace` with different, nonempty source | Parse and render the new source in full |
+| `set_options` | Parse and render the full source, even if the new options would give the same output |
+| A changed layout-only setter, without tables | Rearrange cached output without parsing again |
+| A changed layout-only setter, with tables | Parse and render the full source to rebuild table layout |
+| `finish` | Parse and render the full source once for the current source and options |
+| Nonempty `append` after `finish` | Start accepting text again, process the full source, and report `ChangeReason::Reopen` |
 
-The replay offset is internal implementation state, not a caller-maintained pointer or a promise
-that rendered rows are permanently stable. Only the reported stable prefix can be committed to
-irreversible output in the current append lineage. Replacement, reflow, option changes, and
-explicit reopening must be treated as invalidation boundaries, not continuations of that promise.
-Finish must not hide intermediate errors: every submitted prefix must already match fresh batch
-rendering with the same options.
+The following do no parser or renderer work:
 
-`WorkCounters` exposes source-free processing counts, including `layout_reflows`. Use processed bytes/events to measure actual
-work: `ChangeReason::Append` does not imply less than a whole document was processed.
-`ResourceUsage` accounts for source and owned snapshots without claiming a total-memory cap.
+- `current()` and `prepare_rows()`.
+- Empty `append`, `replace` with the same source, or a layout-only setter with the same value.
+- Repeated `finish` with no source or options change.
+- `clear` or `replace("")`. They remove source and stored output; an already empty document is unchanged.
+
+#### Using update information
+
+Document updates report `Update` information:
+
+- `first_changed_row` gives the first output row that differs, or `None` if the output is unchanged.
+  A UI can use it to decide where redrawing must start.
+- `stable_rows` counts the initial rows that later ordinary appends will not change.
+  Use this count if you write to output that cannot be revised.
+- `replay_start` gives the original UTF-8 byte offset where processing began.
+- `reason` tells you which operation or dependency caused the update.
+
+Already rendered rows are not necessarily stable. The stability promise applies only while
+appending to the same document with unchanged options. Replacement, clearing, layout changes,
+and `ChangeReason::Reopen` start a new period; do not carry the old promise across them.
+
+Use `counters()` to measure parser and renderer work without recording the source.
+The returned `WorkCounters` includes processed bytes, events, and `layout_reflows`.
+`full_recomputations` counts explicit full-source operations; ordinary replay from byte zero is
+not counted there. Use byte and event counts to measure total work.
+
+Use `resource_usage()` to inspect the source and output buffers the object keeps.
+`ResourceUsage` reports tracked storage, not a total-memory limit.
 
 ### Syntax highlighting themes
 

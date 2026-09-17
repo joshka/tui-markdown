@@ -1,10 +1,12 @@
 //! Convert Markdown into Ratatui [`Text`](ratatui_core::text::Text).
 //!
-//! [`from_str`] renders with the default styles and options. [`from_str_with_options`] accepts an
-//! [`Options`] value for custom [`StyleSheet`] styles and symbols, image fallback mode, and, when
-//! the `highlight-code` feature is enabled, syntax-highlighting theme. [`Options::width`] enables
-//! terminal-width layout; default options remain unwrapped. [`StreamingMarkdown`] accepts the same
-//! options and incrementally updates a cached text snapshot.
+//! - Use [`from_str`] to render a complete string with default settings.
+//! - Use [`from_str_with_options`] to choose styles, image text, code-highlighting themes, and width.
+//! - Use [`StreamingMarkdown`] when text arrives in pieces. Append new text, read the current
+//!   rendered output, and call [`StreamingMarkdown::finish`] when input ends.
+//!
+//! Batch and streaming accept the same [`Options`]. Set [`Options::width`] to wrap long lines
+//! to your text area's width. The default does not wrap lines to a width.
 //!
 //! The returned text may borrow from the Markdown input. It contains terminal text and styles only;
 //! image syntax produces a configurable text fallback and does not read or render image resources.
