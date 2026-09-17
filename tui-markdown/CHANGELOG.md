@@ -4,8 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
-- Add `StreamingMarkdown` for incremental parsing and rendering as Markdown fragments arrive, with
-  complete styled snapshots, change metadata, and explicit finalization for streaming terminal UIs.
+- Add `StreamingMarkdown` to parse and render Markdown incrementally as text arrives.
+  Callers can read the current rendered output and see which rows changed after each update.
+  Call `finish()` when input ends.
   Its `prepare_rows` method borrows visible display rows without reparsing, rendering, or cloning,
   so retained UIs can draw, measure, select, and hit-test the same snapshot.
 - Add optional body width and table limits to `Options`, shared by batch and streaming rendering.
