@@ -106,7 +106,7 @@ Wrapping writes directly into the rendered rows without a second buffer of wrapp
 
 ### Streaming rendering
 
-Use `StreamingMarkdown` when Markdown arrives in pieces, such as an agent's reply.
+Use `StreamingMarkdown` when a Markdown document arrives in pieces.
 The object stores the source and updates its rendered output as you append text.
 
 - Call `append(&str)` with each **new** fragment, in order. Do not send the accumulated source again.

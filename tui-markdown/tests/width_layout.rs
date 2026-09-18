@@ -86,10 +86,10 @@ fn width_shortage_at_line_end_wraps_instead_of_replacing() {
 #[test]
 fn width_rows_move_a_fitting_token_instead_of_splitting_it() {
     let prefix = "1234567890123456789012345678901";
-    let input = format!("{prefix} LIVE_WRAP_BOTTOM");
+    let input = format!("{prefix} WRAPPED_WORD_END");
     let text = from_str_with_options(&input, &Options::new(PaneStyles).width(Some(36)));
 
-    assert_eq!(text.to_string(), format!("{prefix} \nLIVE_WRAP_BOTTOM"));
+    assert_eq!(text.to_string(), format!("{prefix} \nWRAPPED_WORD_END"));
     assert!(text.lines.iter().all(|line| line.width() <= 36));
     assert_eq!(
         text.lines
@@ -103,10 +103,10 @@ fn width_rows_move_a_fitting_token_instead_of_splitting_it() {
 #[test]
 fn width_rows_keep_a_fitting_ascii_token_after_cjk_punctuation_contiguous() {
     let prefix = format!("{}；", "最".repeat(21));
-    let input = format!("{prefix}LATEST_AGENT_TAIL");
+    let input = format!("{prefix}LONG_ASCII_SUFFIX");
     let text = from_str_with_options(&input, &Options::new(PaneStyles).width(Some(52)));
 
-    assert_eq!(text.to_string(), format!("{prefix}\nLATEST_AGENT_TAIL"));
+    assert_eq!(text.to_string(), format!("{prefix}\nLONG_ASCII_SUFFIX"));
     assert!(text.lines.iter().all(|line| line.width() <= 52));
     assert_eq!(
         text.lines

@@ -44,7 +44,7 @@ fn append_reuses_completed_blocks_and_reports_work() {
 }
 
 #[test]
-fn configuration_refactor_preserves_incremental_work_profile() {
+fn incremental_work_profile_is_preserved_across_layout_changes() {
     let mut stream = StreamingMarkdown::new(Options::default().width(Some(40)));
     for index in 0..100 {
         stream.append(&format!("Paragraph {index} has **styled** text.\n\n"));
@@ -73,7 +73,7 @@ fn configuration_refactor_preserves_incremental_work_profile() {
     eprintln!(
         "API_WORK_PROFILE append={after_append:?}; resize={after_resize:?}; tail={after_tail:?}; finish={after_finish:?}"
     );
-    // Characterized before the API refactor for this fixed workload, not a document-size budget.
+    // These counts describe this fixed workload, not a production document-size limit.
     assert_eq!(
         [after_append, after_resize, after_tail, after_finish].map(|work| (
             work.processed_source_bytes,

@@ -75,13 +75,13 @@ fn short_keys_stay_intact_with_words_long_tokens_and_unicode_after_resizing() {
     let token = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let unicode = "界界 café e\u{301} 👩‍💻";
     let source = format!(
-        "| Key | Description |\n| - | - |\n| MDCOPY | {words} |\n| MDLONG | {token} |\n| MDWIDE | {unicode} |"
+        "| Key | Description |\n| - | - |\n| Item01 | {words} |\n| Item02 | {token} |\n| Item03 | {unicode} |"
     );
     let expected = [
         vec!["Key", "Description"],
-        vec!["MDCOPY", words],
-        vec!["MDLONG", token],
-        vec!["MDWIDE", unicode],
+        vec!["Item01", words],
+        vec!["Item02", token],
+        vec!["Item03", unicode],
     ];
     let mut stream = StreamingMarkdown::new(Options::default().width(Some(80)));
     stream.append(&source);
