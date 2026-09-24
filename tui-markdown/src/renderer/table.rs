@@ -477,38 +477,64 @@ mod tests {
     use super::*;
     use crate::{from_str, from_str_with_options, DefaultStyleSheet, Options, StyleSheet};
 
+    // Layout-only tests use exact equality: display snapshots normalize trailing whitespace.
     #[test]
     fn wide_table_wraps_without_losing_content() {
         let options = Options::default().table_width(40);
 
-        insta::assert_snapshot!(from_str_with_options(
+        let text = from_str_with_options(
             indoc! {"
                 | iOS concept | Android reality |
                 | --- | --- |
                 | productCatalog.createWithoutStore branch | No v0 equivalent. The store is created up front, so there's no deferred path. |
                 | recommendedActions non-empty | No such field on the engine response. |
             "},
-            &options
-        ));
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───────────────────┬──────────────────┐
+                │ iOS concept       │ Android reality  │
+                ├───────────────────┼──────────────────┤
+                │ productCatalog.cr │ No v0            │
+                │ eateWithoutStore  │ equivalent. The  │
+                │ branch            │ store is created │
+                │                   │ up front, so     │
+                │                   │ there's no       │
+                │                   │ deferred path.   │
+                │ recommendedAction │ No such field on │
+                │ s non-empty       │ the engine       │
+                │                   │ response.        │
+                └───────────────────┴──────────────────┘"}
+        );
     }
 
     #[test]
     fn wrapped_rows_keep_alignment_and_padding() {
         let options = Options::default().table_width(19);
 
-        insta::assert_snapshot!(from_str_with_options(indoc! {"
-            | L | R | C |
-            | :-- | --: | :-: |
-            | a bb ccc | a bb ccc | a bb ccc |
-        "}, &options), @"
-        ┌─────┬─────┬─────┐
-        │ L   │   R │  C  │
-        ├─────┼─────┼─────┤
-        │ a   │   a │  a  │
-        │ bb  │  bb │ bb  │
-        │ ccc │ ccc │ ccc │
-        └─────┴─────┴─────┘
-        ");
+        let text = from_str_with_options(
+            indoc! {"
+                | L | R | C |
+                | :-- | --: | :-: |
+                | a bb ccc | a bb ccc | a bb ccc |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌─────┬─────┬─────┐
+                │ L   │   R │  C  │
+                ├─────┼─────┼─────┤
+                │ a   │   a │  a  │
+                │ bb  │  bb │ bb  │
+                │ ccc │ ccc │ ccc │
+                └─────┴─────┴─────┘"}
+        );
     }
 
     #[test]
@@ -538,95 +564,130 @@ mod tests {
     fn wrapping_preserves_graphemes() {
         let options = Options::default().table_width(6);
 
-        insta::assert_snapshot!(from_str_with_options(indoc! {"
-            | H |
-            | --- |
-            | 👩‍💻é界 |
-        "}, &options), @"
-        ┌────┐
-        │ H  │
-        ├────┤
-        │ 👩‍💻 │
-        │ é  │
-        │ 界 │
-        └────┘
-        ");
+        let text = from_str_with_options(
+            indoc! {"
+                | H |
+                | --- |
+                | 👩‍💻é界 |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌────┐
+                │ H  │
+                ├────┤
+                │ 👩‍💻 │
+                │ é  │
+                │ 界 │
+                └────┘"}
+        );
     }
 
     #[test]
     fn wrapped_table_in_blockquote() {
         let options = Options::default().table_width(24);
 
-        insta::assert_snapshot!(from_str_with_options(indoc! {"
-            > | Header | Value |
-            > | --- | --- |
-            > | long words here | more content here |
-        "}, &options), @"
-        > ┌──────────┬─────────┐
-        > │ Header   │ Value   │
-        > ├──────────┼─────────┤
-        > │ long     │ more    │
-        > │ words    │ content │
-        > │ here     │ here    │
-        > └──────────┴─────────┘
-        ");
+        let text = from_str_with_options(
+            indoc! {"
+                > | Header | Value |
+                > | --- | --- |
+                > | long words here | more content here |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                > ┌──────────┬─────────┐
+                > │ Header   │ Value   │
+                > ├──────────┼─────────┤
+                > │ long     │ more    │
+                > │ words    │ content │
+                > │ here     │ here    │
+                > └──────────┴─────────┘"}
+        );
     }
 
     #[test]
     fn wrapped_table_in_list() {
         let options = Options::default().table_width(24);
 
-        insta::assert_snapshot!(from_str_with_options(indoc! {"
-            - | Header | Value |
-              | --- | --- |
-              | long words here | more content here |
-        "}, &options), @"
-        - ┌──────────┬─────────┐
-          │ Header   │ Value   │
-          ├──────────┼─────────┤
-          │ long     │ more    │
-          │ words    │ content │
-          │ here     │ here    │
-          └──────────┴─────────┘
-        ");
+        let text = from_str_with_options(
+            indoc! {"
+                - | Header | Value |
+                  | --- | --- |
+                  | long words here | more content here |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                - ┌──────────┬─────────┐
+                  │ Header   │ Value   │
+                  ├──────────┼─────────┤
+                  │ long     │ more    │
+                  │ words    │ content │
+                  │ here     │ here    │
+                  └──────────┴─────────┘"}
+        );
     }
 
     #[test]
     fn wrapped_table_in_ordered_list() {
         let options = Options::default().table_width(24);
 
-        insta::assert_snapshot!(from_str_with_options(indoc! {"
-            10. | Header | Value |
-                | --- | --- |
-                | long words here | more lengthy text |
-        "}, &options), @"
-        10. ┌─────────┬────────┐
-            │ Header  │ Value  │
-            ├─────────┼────────┤
-            │ long    │ more   │
-            │ words   │ length │
-            │ here    │ y text │
-            └─────────┴────────┘
-        ");
+        let text = from_str_with_options(
+            indoc! {"
+                10. | Header | Value |
+                    | --- | --- |
+                    | long words here | more lengthy text |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                10. ┌─────────┬────────┐
+                    │ Header  │ Value  │
+                    ├─────────┼────────┤
+                    │ long    │ more   │
+                    │ words   │ length │
+                    │ here    │ y text │
+                    └─────────┴────────┘"}
+        );
     }
 
     #[test]
     fn wrapped_table_in_quoted_list() {
         let options = Options::default().table_width(24);
 
-        insta::assert_snapshot!(from_str_with_options(indoc! {"
-            > - | Header | Value |
-            >   | --- | --- |
-            >   | long words here | more lengthy text |
-        "}, &options), @"
-        > - ┌─────────┬────────┐
-        >   │ Header  │ Value  │
-        >   ├─────────┼────────┤
-        >   │ long    │ more   │
-        >   │ words   │ length │
-        >   │ here    │ y text │
-        >   └─────────┴────────┘
-        ");
+        let text = from_str_with_options(
+            indoc! {"
+                > - | Header | Value |
+                >   | --- | --- |
+                >   | long words here | more lengthy text |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                > - ┌─────────┬────────┐
+                >   │ Header  │ Value  │
+                >   ├─────────┼────────┤
+                >   │ long    │ more   │
+                >   │ words   │ length │
+                >   │ here    │ y text │
+                >   └─────────┴────────┘"}
+        );
     }
 
     #[rstest]
@@ -637,38 +698,50 @@ mod tests {
     fn narrow_table_preserves_content(#[case] width: u16) {
         let options = Options::default().table_width(width);
 
-        insta::allow_duplicates! {
-            insta::assert_snapshot!(from_str_with_options(indoc! {"
+        let text = from_str_with_options(
+            indoc! {"
                 | 界 | x |
                 | --- | --- |
                 | 中文 | abc |
-            "}, &options), @"
-            ┌────┬───┐
-            │ 界 │ x │
-            ├────┼───┤
-            │ 中 │ a │
-            │ 文 │ b │
-            │    │ c │
-            └────┴───┘
-            ");
-        }
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌────┬───┐
+                │ 界 │ x │
+                ├────┼───┤
+                │ 中 │ a │
+                │ 文 │ b │
+                │    │ c │
+                └────┴───┘"}
+        );
     }
 
     #[test]
     fn sufficient_width_keeps_natural_column_widths() {
         let options = Options::default().table_width(80);
 
-        insta::assert_snapshot!(from_str_with_options(indoc! {"
-            | Header | Value |
-            | --- | --- |
-            | short | x |
-        "}, &options), @"
-        ┌────────┬───────┐
-        │ Header │ Value │
-        ├────────┼───────┤
-        │ short  │ x     │
-        └────────┴───────┘
-        ");
+        let text = from_str_with_options(
+            indoc! {"
+                | Header | Value |
+                | --- | --- |
+                | short | x |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌────────┬───────┐
+                │ Header │ Value │
+                ├────────┼───────┤
+                │ short  │ x     │
+                └────────┴───────┘"}
+        );
     }
 
     #[test]
@@ -756,47 +829,59 @@ mod tests {
 
     #[test]
     fn table_with_alignment() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             | Left | Center | Right |
             |:-----|:------:|------:|
             | a    | b      | c     |
-        "}), @"
-        ┌──────┬────────┬───────┐
-        │ Left │ Center │ Right │
-        ├──────┼────────┼───────┤
-        │ a    │   b    │     c │
-        └──────┴────────┴───────┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌──────┬────────┬───────┐
+                │ Left │ Center │ Right │
+                ├──────┼────────┼───────┤
+                │ a    │   b    │     c │
+                └──────┴────────┴───────┘"}
+        );
     }
 
     #[test]
     fn table_without_outer_pipes() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             A | B
             ---|---
             a | b
-        "}), @"
-        ┌───┬───┐
-        │ A │ B │
-        ├───┼───┤
-        │ a │ b │
-        └───┴───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───┬───┐
+                │ A │ B │
+                ├───┼───┤
+                │ a │ b │
+                └───┴───┘"}
+        );
     }
 
     #[test]
     fn escaped_pipe_stays_inside_its_cell() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             | Value |
             |-------|
             | a \\| b |
-        "}), @"
-        ┌───────┐
-        │ Value │
-        ├───────┤
-        │ a | b │
-        └───────┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───────┐
+                │ Value │
+                ├───────┤
+                │ a | b │
+                └───────┘"}
+        );
     }
 
     #[test]
@@ -807,13 +892,15 @@ mod tests {
             | a     | 日本 |
         "});
 
-        insta::assert_snapshot!(text, @"
-        ┌───────┬──────┐
-        │ Latin │ CJK  │
-        ├───────┼──────┤
-        │ a     │ 日本 │
-        └───────┴──────┘
-        ");
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───────┬──────┐
+                │ Latin │ CJK  │
+                ├───────┼──────┤
+                │ a     │ 日本 │
+                └───────┴──────┘"}
+        );
         assert!(text.lines.iter().all(|line| line.width() == 16));
     }
 
@@ -933,7 +1020,7 @@ mod tests {
 
     #[test]
     fn table_preserves_surrounding_paragraph_spacing() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             Before
 
             | A |
@@ -941,22 +1028,26 @@ mod tests {
             | a |
 
             After
-        "}), @"
-        Before
+        "});
 
-        ┌───┐
-        │ A │
-        ├───┤
-        │ a │
-        └───┘
-
-        After
-        ");
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                Before
+                
+                ┌───┐
+                │ A │
+                ├───┤
+                │ a │
+                └───┘
+                
+                After"}
+        );
     }
 
     #[test]
     fn consecutive_tables_keep_separate_layout_state() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             | Long |
             |------|
             | value |
@@ -964,64 +1055,80 @@ mod tests {
             | A |
             |---|
             | b |
-        "}), @"
-        ┌───────┐
-        │ Long  │
-        ├───────┤
-        │ value │
-        └───────┘
+        "});
 
-        ┌───┐
-        │ A │
-        ├───┤
-        │ b │
-        └───┘
-        ");
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───────┐
+                │ Long  │
+                ├───────┤
+                │ value │
+                └───────┘
+                
+                ┌───┐
+                │ A │
+                ├───┤
+                │ b │
+                └───┘"}
+        );
     }
 
     #[test]
     fn empty_cells_keep_minimum_column_width() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             | A | B |
             |---|---|
             |   |   |
-        "}), @"
-        ┌───┬───┐
-        │ A │ B │
-        ├───┼───┤
-        │   │   │
-        └───┴───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───┬───┐
+                │ A │ B │
+                ├───┼───┤
+                │   │   │
+                └───┴───┘"}
+        );
     }
 
     #[test]
     fn header_only_table_has_a_complete_frame() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             | A |
             |---|
-        "}), @"
-        ┌───┐
-        │ A │
-        ├───┤
-        └───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───┐
+                │ A │
+                ├───┤
+                └───┘"}
+        );
     }
 
     #[test]
     fn short_rows_are_padded_and_extra_cells_are_ignored() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             | A | B |
             |---|---|
             | one |
             | x | y | ignored |
-        "}), @"
-        ┌─────┬───┐
-        │ A   │ B │
-        ├─────┼───┤
-        │ one │   │
-        │ x   │ y │
-        └─────┴───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌─────┬───┐
+                │ A   │ B │
+                ├─────┼───┤
+                │ one │   │
+                │ x   │ y │
+                └─────┴───┘"}
+        );
     }
 
     #[test]
@@ -1126,56 +1233,68 @@ mod tests {
 
     #[test]
     fn block_markers_inside_cells_remain_inline_text() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             | Value |
             |-------|
             | # heading |
             | > quote |
             | - list |
-        "}), @"
-        ┌───────────┐
-        │ Value     │
-        ├───────────┤
-        │ # heading │
-        │ > quote   │
-        │ - list    │
-        └───────────┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───────────┐
+                │ Value     │
+                ├───────────┤
+                │ # heading │
+                │ > quote   │
+                │ - list    │
+                └───────────┘"}
+        );
     }
 
     #[test]
     fn table_in_blockquote_keeps_quote_prefix() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             > | A |
             > |---|
             > | a |
-        "}), @"
-        > ┌───┐
-        > │ A │
-        > ├───┤
-        > │ a │
-        > └───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                > ┌───┐
+                > │ A │
+                > ├───┤
+                > │ a │
+                > └───┘"}
+        );
     }
 
     #[test]
     fn table_list_item_keeps_marker_and_continuation_indent() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             - | A |
               |---|
               | a |
-        "}), @"
-        - ┌───┐
-          │ A │
-          ├───┤
-          │ a │
-          └───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                - ┌───┐
+                  │ A │
+                  ├───┤
+                  │ a │
+                  └───┘"}
+        );
     }
 
     #[test]
     fn later_table_in_list_uses_continuation_indent() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             - | A |
               |---|
               | a |
@@ -1183,51 +1302,63 @@ mod tests {
               | B |
               |---|
               | b |
-        "}), @"
-        - ┌───┐
-          │ A │
-          ├───┤
-          │ a │
-          └───┘
+        "});
 
-          ┌───┐
-          │ B │
-          ├───┤
-          │ b │
-          └───┘
-        ");
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                - ┌───┐
+                  │ A │
+                  ├───┤
+                  │ a │
+                  └───┘
+                
+                  ┌───┐
+                  │ B │
+                  ├───┤
+                  │ b │
+                  └───┘"}
+        );
     }
 
     #[test]
     fn ordered_table_list_item_uses_full_marker_width() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             10. | A |
                 |---|
                 | a |
-        "}), @"
-        10. ┌───┐
-            │ A │
-            ├───┤
-            │ a │
-            └───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                10. ┌───┐
+                    │ A │
+                    ├───┤
+                    │ a │
+                    └───┘"}
+        );
     }
 
     #[test]
     fn nested_table_list_item_uses_nested_marker_width() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        let text = from_str(indoc! {"
             - Parent
               - | A |
                 |---|
                 | a |
-        "}), @"
-        - Parent
-            - ┌───┐
-              │ A │
-              ├───┤
-              │ a │
-              └───┘
-        ");
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                - Parent
+                    - ┌───┐
+                      │ A │
+                      ├───┤
+                      │ a │
+                      └───┘"}
+        );
     }
 
     #[test]
