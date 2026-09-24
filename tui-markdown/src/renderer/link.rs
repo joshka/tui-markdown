@@ -37,25 +37,22 @@ where
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
-    use ratatui_core::{
-        style::Style,
-        text::{Line, Text},
-    };
+    use ratatui_core::style::Stylize;
+    use ratatui_core::text::{Line, Span, Text};
+
     use rstest::rstest;
 
-    use super::*;
     use crate::from_str;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
 
     #[rstest]
     fn link_uses_default_style(_with_tracing: DefaultGuard) {
-        let link_style = Style::new().blue().underlined();
         assert_eq!(
             from_str("[Link](https://example.com)"),
             Text::from(Line::from_iter([
-                Span::styled("Link", link_style),
+                Span::from("Link").blue().underlined(),
                 Span::from(" ("),
-                Span::styled("https://example.com", link_style),
+                Span::from("https://example.com").blue().underlined(),
                 Span::from(")")
             ]))
         );
@@ -63,35 +60,22 @@ mod tests {
 
     #[rstest]
     fn link_combines_with_bold_style(_with_tracing: DefaultGuard) {
-        let link_style = Style::new().blue().underlined();
         assert_eq!(
             from_str("[**Bold link**](https://example.com)"),
             Text::from(Line::from_iter([
-                Span::styled("Bold link", link_style.bold()),
+                Span::from("Bold link").blue().bold().underlined(),
                 Span::from(" ("),
-                Span::styled("https://example.com", link_style),
-                Span::from(")"),
+                Span::from("https://example.com").blue().underlined(),
+                Span::from(")")
             ]))
         );
     }
 
     #[rstest]
     fn consecutive_links_restore_surrounding_style(_with_tracing: DefaultGuard) {
-        let link_style = Style::new().blue().underlined();
-        assert_eq!(
-            from_str("[One](one) and [Two](two) after"),
-            Text::from(Line::from_iter([
-                Span::styled("One", link_style),
-                Span::raw(" ("),
-                Span::styled("one", link_style),
-                Span::raw(")"),
-                Span::raw(" and "),
-                Span::styled("Two", link_style),
-                Span::raw(" ("),
-                Span::styled("two", link_style),
-                Span::raw(")"),
-                Span::raw(" after"),
-            ]))
+        insta::assert_debug_snapshot!(
+            "consecutive_links_restore_surrounding_style",
+            from_str("[One](one) and [Two](two) after")
         );
     }
 }

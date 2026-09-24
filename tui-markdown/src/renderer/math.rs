@@ -39,7 +39,9 @@ where
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use ratatui_core::{style::Style, text::Text};
+    use ratatui_core::style::Style;
+    use ratatui_core::style::Stylize;
+    use ratatui_core::text::{Line, Span, Text};
     use rstest::rstest;
 
     use super::*;
@@ -47,35 +49,32 @@ mod tests {
     use crate::{from_str, from_str_with_options, Options};
 
     mod math {
-        use pretty_assertions::assert_eq;
-        use ratatui_core::style::Color;
-
         use super::*;
+        use pretty_assertions::assert_eq;
 
         #[rstest]
         fn inline_math_has_exact_output_and_style(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("The formula $E=mc^2$ is famous."),
                 Text::from(Line::from_iter([
-                    Span::raw("The formula "),
-                    Span::styled("$E=mc^2$", Style::new().italic().fg(Color::Magenta)),
-                    Span::raw(" is famous."),
+                    Span::from("The formula "),
+                    Span::from("$E=mc^2$").magenta().italic(),
+                    Span::from(" is famous.")
                 ]))
             );
         }
 
         #[rstest]
         fn inline_math_combines_with_enclosing_style(_with_tracing: DefaultGuard) {
-            let style = Style::new().bold().italic().fg(Color::Magenta);
-            assert_eq!(
+            insta::assert_debug_snapshot!(
                 from_str("**$x$**"),
-                Text::from(Line::from(Span::styled("$x$", style)))
+                @r#"Text::from(Line::from(Span::from("$x$").magenta().bold().italic()))"#
             );
         }
 
         #[rstest]
         fn multiline_display_math_styles_every_line(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 Before
 
                 $$
@@ -84,22 +83,18 @@ mod tests {
                 $$
 
                 After
-            "};
-            let style = Style::new().fg(Color::Magenta);
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from("Before"),
-                    Line::default(),
-                    Line::from(Span::styled("$$", style)),
-                    Line::from(Span::styled("x = y", style)),
-                    Line::from(Span::styled("y = z", style)),
-                    Line::from(Span::styled("$$", style)),
-                    Line::default(),
-                    Line::from("After"),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from("Before"),
+                Line::default(),
+                Line::from(Span::from("$$").magenta()),
+                Line::from(Span::from("x = y").magenta()),
+                Line::from(Span::from("y = z").magenta()),
+                Line::from(Span::from("$$").magenta()),
+                Line::default(),
+                Line::from("After"),
+            ])
+            "#);
         }
 
         #[rstest]
@@ -113,24 +108,21 @@ mod tests {
                 }
             }
 
-            let markdown = indoc! {"
+            let options = Options::new(CustomMathStyle);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 $$
                 x = y
                 y = z
                 $$
-            "};
-            let options = Options::new(CustomMathStyle);
-            let style = Style::new().red().bold();
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from(Span::styled("$$", style)),
-                    Line::from(Span::styled("x = y", style)),
-                    Line::from(Span::styled("y = z", style)),
-                    Line::from(Span::styled("$$", style)),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from(Span::from("$$").red().bold()),
+                Line::from(Span::from("x = y").red().bold()),
+                Line::from(Span::from("y = z").red().bold()),
+                Line::from(Span::from("$$").red().bold()),
+            ])
+            "#);
         }
     }
 }

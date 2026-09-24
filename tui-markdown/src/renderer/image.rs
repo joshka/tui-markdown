@@ -118,19 +118,18 @@ where
 mod tests {
     use indoc::indoc;
     use itertools::Itertools;
-    use ratatui_core::text::{Line, Text};
+    use ratatui_core::style::Stylize;
+    use ratatui_core::text::{Line, Span, Text};
+
     use rstest::rstest;
 
     use super::*;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
-    use crate::{from_str, from_str_with_options, DefaultStyleSheet, Options};
+    use crate::{from_str, from_str_with_options, Options};
 
     mod image {
-        use pretty_assertions::assert_eq;
-
         use super::*;
-
-        const IMAGE_STYLE: Style = Style::new().dim().italic();
+        use pretty_assertions::assert_eq;
 
         #[derive(Clone)]
         struct UnstyledImageStyleSheet;
@@ -170,8 +169,8 @@ mod tests {
             assert_eq!(
                 from_str("![Alt text](https://example.com/image.png)"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("Alt text", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("Alt text").dim().italic()
                 ]))
             );
         }
@@ -181,8 +180,8 @@ mod tests {
             assert_eq!(
                 from_str("![](https://example.com/image.png)"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("https://example.com/image.png", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("https://example.com/image.png").dim().italic()
                 ]))
             );
         }
@@ -192,8 +191,8 @@ mod tests {
             assert_eq!(
                 from_str("![Alt](https://example.com/img.png \"My Title\")"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("Alt", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("Alt").dim().italic()
                 ]))
             );
         }
@@ -204,18 +203,18 @@ mod tests {
                 from_str("Before ![photo](url.png) after"),
                 Text::from(Line::from_iter([
                     Span::from("Before "),
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("photo", IMAGE_STYLE),
-                    Span::from(" after"),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("photo").dim().italic(),
+                    Span::from(" after")
                 ]))
             );
         }
 
         #[rstest]
         fn multiple_images_in_paragraph(_with_tracing: DefaultGuard) {
-            assert_eq!(
-                from_str("![first](first.png) and ![second](second.png)").to_string(),
-                "[img] first and [img] second"
+            insta::assert_snapshot!(
+                from_str("![first](first.png) and ![second](second.png)"),
+                @"[img] first and [img] second"
             );
         }
 
@@ -224,56 +223,52 @@ mod tests {
             assert_eq!(
                 from_str("![**bold**](image.png)"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("bold", IMAGE_STYLE.bold()),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("bold").bold().dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn inline_code_counts_as_alt_text(_with_tracing: DefaultGuard) {
-            let code_style = IMAGE_STYLE.patch(DefaultStyleSheet.code());
             assert_eq!(
                 from_str("![`code`](image.png)"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("code", code_style),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("code").white().on_black().dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn marker_and_alt_compose_with_enclosing_style(_with_tracing: DefaultGuard) {
-            let style = IMAGE_STYLE.bold();
             assert_eq!(
                 from_str("**![diagram](diagram.png)**"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", style),
-                    Span::styled("diagram", style),
+                    Span::from("[img] ").bold().dim().italic(),
+                    Span::from("diagram").bold().dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn marker_and_url_compose_with_enclosing_style(_with_tracing: DefaultGuard) {
-            let style = IMAGE_STYLE.bold();
             assert_eq!(
                 from_str("**![](diagram.png)**"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", style),
-                    Span::styled("diagram.png", style),
+                    Span::from("[img] ").bold().dim().italic(),
+                    Span::from("diagram.png").bold().dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn inline_math_counts_as_alt_text(_with_tracing: DefaultGuard) {
-            let math_style = IMAGE_STYLE.magenta();
             assert_eq!(
                 from_str("![$x$](equation.png)"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("$x$", math_style),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("$x$").magenta().dim().italic()
                 ]))
             );
         }
@@ -283,24 +278,23 @@ mod tests {
             assert_eq!(
                 from_str("![<br>](break.png)"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("<br>", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("<br>").dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn nested_image_description_preserves_order_and_style(_with_tracing: DefaultGuard) {
-            let code_style = IMAGE_STYLE.patch(DefaultStyleSheet.code());
             assert_eq!(
                 from_str("![outer ![inner](inner.png) `code`](outer.png)"),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("outer ", IMAGE_STYLE),
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("inner", IMAGE_STYLE),
-                    Span::styled(" ", IMAGE_STYLE),
-                    Span::styled("code", code_style),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("outer ").dim().italic(),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("inner").dim().italic(),
+                    Span::from(" ").dim().italic(),
+                    Span::from("code").white().on_black().dim().italic()
                 ]))
             );
         }
@@ -310,69 +304,65 @@ mod tests {
             assert_eq!(
                 from_str("Before ![]() after"),
                 Text::from(Line::from_iter([
-                    Span::raw("Before "),
-                    Span::styled("[img]", IMAGE_STYLE),
-                    Span::raw(" after"),
+                    Span::from("Before "),
+                    Span::from("[img]").dim().italic(),
+                    Span::from(" after")
                 ]))
             );
         }
 
         #[rstest]
         fn multiline_description_renders_as_styled_inline_text(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                ![first line
-                second line](image.png)
-            "};
             assert_eq!(
-                from_str(markdown),
+                from_str(indoc! {"
+                    ![first line
+                    second line](image.png)
+                "}),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("first line", IMAGE_STYLE),
-                    Span::styled(" ", IMAGE_STYLE),
-                    Span::styled("second line", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("first line").dim().italic(),
+                    Span::from(" ").dim().italic(),
+                    Span::from("second line").dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn hard_break_in_description_stays_inline(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                ![first line  
-                second line](image.png)
-            "};
             assert_eq!(
-                from_str(markdown),
+                from_str(indoc! {"
+                    ![first line  
+                    second line](image.png)
+                "}),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("first line", IMAGE_STYLE),
-                    Span::styled(" ", IMAGE_STYLE),
-                    Span::styled("second line", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("first line").dim().italic(),
+                    Span::from(" ").dim().italic(),
+                    Span::from("second line").dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn image_fallback_stays_inside_table_cell(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let rendered = from_str(indoc! {"
                 | Image |
                 |-------|
                 | ![photo](photo.png) |
-            "};
-            let rendered = from_str(markdown)
-                .lines
-                .iter()
-                .map(ToString::to_string)
-                .collect_vec();
-            assert_eq!(
-                rendered,
-                [
-                    "┌─────────────┐",
-                    "│ Image       │",
-                    "├─────────────┤",
-                    "│ [img] photo │",
-                    "└─────────────┘",
-                ]
-            );
+            "})
+            .lines
+            .iter()
+            .map(ToString::to_string)
+            .collect_vec();
+            insta::assert_debug_snapshot!(rendered, @r#"
+            [
+                "┌─────────────┐",
+                "│ Image       │",
+                "├─────────────┤",
+                "│ [img] photo │",
+                "└─────────────┘",
+            ]
+            "#);
         }
 
         #[rstest]
@@ -381,8 +371,8 @@ mod tests {
             assert_eq!(
                 from_str_with_options("![diagram](diagram.png)", &options),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("diagram.png", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("diagram.png").dim().italic()
                 ]))
             );
         }
@@ -390,11 +380,10 @@ mod tests {
         #[rstest]
         fn url_fallback_discards_complete_formatted_description(_with_tracing: DefaultGuard) {
             let options = Options::default().image_fallback(ImageFallback::Url);
-            assert_eq!(
-                from_str_with_options("![**bold** $x$ <br> `code`](diagram.png)", &options)
-                    .to_string(),
-                "[img] diagram.png"
-            );
+            insta::assert_snapshot!(from_str_with_options(
+                "![**bold** $x$ <br> `code`](diagram.png)",
+                &options
+            ), @"[img] diagram.png");
         }
 
         #[rstest]
@@ -403,9 +392,9 @@ mod tests {
             assert_eq!(
                 from_str_with_options("![**diagram**](diagram.png)", &options),
                 Text::from(Line::from_iter([
-                    Span::styled("[img] ", IMAGE_STYLE),
-                    Span::styled("diagram", IMAGE_STYLE.bold()),
-                    Span::styled(" (diagram.png)", IMAGE_STYLE),
+                    Span::from("[img] ").dim().italic(),
+                    Span::from("diagram").bold().dim().italic(),
+                    Span::from(" (diagram.png)").dim().italic()
                 ]))
             );
         }
@@ -415,10 +404,8 @@ mod tests {
             _with_tracing: DefaultGuard,
         ) {
             let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
-            assert_eq!(
-                from_str_with_options("![](diagram.png)", &options).to_string(),
-                "[img] diagram.png"
-            );
+            let text = from_str_with_options("![](diagram.png)", &options);
+            insta::assert_snapshot!(text, @"[img] diagram.png");
         }
 
         #[rstest]
@@ -427,9 +414,9 @@ mod tests {
             _with_tracing: DefaultGuard,
         ) {
             let options = Options::default().image_fallback(fallback);
-            assert_eq!(
-                from_str_with_options("![]()", &options),
-                Text::from(Line::from(Span::styled("[img]", IMAGE_STYLE)))
+            insta::assert_debug_snapshot!(
+                format!("empty_destination_{fallback:?}"),
+                from_str_with_options("![]()", &options)
             );
         }
 
@@ -439,10 +426,10 @@ mod tests {
             assert_eq!(
                 from_str_with_options("Before ![photo](photo.png) after", &options),
                 Text::from(Line::from_iter([
-                    Span::raw("Before "),
-                    Span::raw("[img] "),
-                    Span::raw("photo"),
-                    Span::raw(" after"),
+                    Span::from("Before "),
+                    Span::from("[img] "),
+                    Span::from("photo"),
+                    Span::from(" after")
                 ]))
             );
         }

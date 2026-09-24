@@ -96,7 +96,8 @@ where
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
-    use ratatui_core::{style::Style, text::Text};
+    use ratatui_core::style::Stylize;
+    use ratatui_core::text::{Line, Span, Text};
     use rstest::rstest;
 
     use super::*;
@@ -117,14 +118,8 @@ mod tests {
 
     #[rstest]
     fn headings(_with_tracing: DefaultGuard) {
-        let h1 = Style::new().on_cyan().bold().underlined();
-        let h2 = Style::new().cyan().bold();
-        let h3 = Style::new().cyan().bold().italic();
-        let h4 = Style::new().light_cyan().italic();
-        let h5 = Style::new().light_cyan().italic();
-        let h6 = Style::new().light_cyan().italic();
-
-        assert_eq!(
+        insta::assert_debug_snapshot!(
+            "headings",
             from_str(indoc! {"
                 # Heading 1
                 ## Heading 2
@@ -132,94 +127,75 @@ mod tests {
                 #### Heading 4
                 ##### Heading 5
                 ###### Heading 6
-            "}),
-            Text::from_iter([
-                Line::from_iter(["# ", "Heading 1"]).style(h1),
-                Line::default(),
-                Line::from_iter(["## ", "Heading 2"]).style(h2),
-                Line::default(),
-                Line::from_iter(["### ", "Heading 3"]).style(h3),
-                Line::default(),
-                Line::from_iter(["#### ", "Heading 4"]).style(h4),
-                Line::default(),
-                Line::from_iter(["##### ", "Heading 5"]).style(h5),
-                Line::default(),
-                Line::from_iter(["###### ", "Heading 6"]).style(h6),
-            ])
+            "})
         );
     }
 
     #[rstest]
     fn heading_attributes(_with_tracing: DefaultGuard) {
-        let h1 = Style::new().on_cyan().bold().underlined();
-        let meta = Style::new().dim();
-
         assert_eq!(
             from_str("# Heading {#title .primary data-kind=doc}"),
             Text::from(
                 Line::from_iter([
                     Span::from("# "),
                     Span::from("Heading"),
-                    Span::styled(" {#title .primary data-kind=doc}", meta),
+                    Span::from(" {#title .primary data-kind=doc}").dim()
                 ])
-                .style(h1)
+                .on_cyan()
+                .bold()
+                .underlined()
             )
         );
     }
 
     #[rstest]
     fn heading_attributes_do_not_carry_to_next_heading(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc! {"
             # First {#first}
             # Second
-        "};
-        let h1 = Style::new().on_cyan().bold().underlined();
-        let meta = Style::new().dim();
-
-        assert_eq!(
-            from_str(markdown),
-            Text::from_iter([
-                Line::from_iter([
-                    Span::raw("# "),
-                    Span::raw("First"),
-                    Span::styled(" {#first}", meta),
-                ])
-                .style(h1),
-                Line::default(),
-                Line::from_iter([Span::raw("# "), Span::raw("Second")]).style(h1),
-            ])
-        );
+        "}), @r##"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("# "),
+                Span::from("First"),
+                Span::from(" {#first}").dim(),
+            ]).on_cyan().bold().underlined(),
+            Line::default(),
+            Line::from_iter([
+                Span::from("# "),
+                Span::from("Second"),
+            ]).on_cyan().bold().underlined(),
+        ])
+        "##);
     }
 
     #[rstest]
     fn custom_and_empty_heading_markers(_with_tracing: DefaultGuard) {
         let options = Options::new(CustomHeadingMarker);
-        let h1 = Style::new().on_cyan().bold().underlined();
-        let h2 = Style::new().cyan().bold();
 
-        assert_eq!(
-            from_str_with_options("# Hidden\n\n## Custom", &options),
-            Text::from_iter([
-                Line::from("Hidden").style(h1),
-                Line::default(),
-                Line::from_iter(["§ ", "Custom"]).style(h2),
-            ])
-        );
+        insta::assert_debug_snapshot!(from_str_with_options("# Hidden\n\n## Custom", &options), @r#"
+        Text::from_iter([
+            Line::from("Hidden").on_cyan().bold().underlined(),
+            Line::default(),
+            Line::from_iter([
+                Span::from("§ "),
+                Span::from("Custom"),
+            ]).cyan().bold(),
+        ])
+        "#);
     }
 
     #[rstest]
     fn empty_heading_marker_preserves_attributes(_with_tracing: DefaultGuard) {
         let options = Options::new(CustomHeadingMarker);
-        let h1 = Style::new().on_cyan().bold().underlined();
 
         assert_eq!(
             from_str_with_options("# Heading {#title}", &options),
             Text::from(
-                Line::from_iter([
-                    Span::raw("Heading"),
-                    Span::styled(" {#title}", Style::new().dim()),
-                ])
-                .style(h1)
+                Line::from_iter([Span::from("Heading"), Span::from(" {#title}").dim()])
+                    .on_cyan()
+                    .bold()
+                    .underlined()
             )
         );
     }

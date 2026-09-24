@@ -1,0 +1,25 @@
+---
+source: tui-markdown/src/renderer/table.rs
+expression: |-
+  from_str_with_options(indoc!
+  {"
+                  | iOS concept | Android reality |
+                  | --- | --- |
+                  | productCatalog.createWithoutStore branch | No v0 equivalent. The store is created up front, so there's no deferred path. |
+                  | recommendedActions non-empty | No such field on the engine response. |
+              "},
+  &options)
+---
+┌───────────────────┬──────────────────┐
+│ iOS concept       │ Android reality  │
+├───────────────────┼──────────────────┤
+│ productCatalog.cr │ No v0            │
+│ eateWithoutStore  │ equivalent. The  │
+│ branch            │ store is created │
+│                   │ up front, so     │
+│                   │ there's no       │
+│                   │ deferred path.   │
+│ recommendedAction │ No such field on │
+│ s non-empty       │ the engine       │
+│                   │ response.        │
+└───────────────────┴──────────────────┘

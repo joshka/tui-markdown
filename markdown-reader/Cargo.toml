@@ -29,6 +29,7 @@ tui-markdown.workspace = true
 
 [dev-dependencies]
 insta = "1"
+rstest = "0.27"
 
 [[bin]]
 name = "mdr"

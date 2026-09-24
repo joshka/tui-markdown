@@ -46,7 +46,7 @@ where
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use ratatui_core::{style::Style, text::Text};
+    use ratatui_core::style::Style;
     use rstest::rstest;
 
     use super::*;
@@ -54,158 +54,83 @@ mod tests {
     use crate::{from_str, from_str_with_options, Options};
 
     mod footnotes {
-        use pretty_assertions::assert_eq;
-
         use super::*;
 
         #[rstest]
         fn multiline_definition_has_exact_layout(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                Text[^one]
+            insta::assert_debug_snapshot!(
+                "multiline_definition_has_exact_layout",
+                from_str(indoc! {"
+                    Text[^one]
 
-                [^one]: First line
-                    continued line.
-            "};
-            let reference_style = Style::new().dim().italic();
-            let definition_style = Style::new().dim();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([Span::raw("Text"), Span::styled("[one]", reference_style),]),
-                    Line::default(),
-                    Line::from_iter([
-                        Span::styled("[one]: ", definition_style),
-                        Span::raw("First line"),
-                        Span::raw(" "),
-                        Span::raw("continued line."),
-                    ])
-                    .style(definition_style),
-                ])
+                    [^one]: First line
+                        continued line.
+                "})
             );
         }
 
         #[rstest]
         fn multiple_definitions_have_exact_layout(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                First[^a] second[^b].
+            insta::assert_debug_snapshot!(
+                "multiple_definitions_have_exact_layout",
+                from_str(indoc! {"
+                    First[^a] second[^b].
 
-                [^a]: Alpha.
+                    [^a]: Alpha.
 
-                [^b]: Beta.
-            "};
-            let reference_style = Style::new().dim().italic();
-            let definition_style = Style::new().dim();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw("First"),
-                        Span::styled("[a]", reference_style),
-                        Span::raw(" second"),
-                        Span::styled("[b]", reference_style),
-                        Span::raw("."),
-                    ]),
-                    Line::default(),
-                    Line::from_iter(
-                        [Span::styled("[a]: ", definition_style), Span::raw("Alpha."),]
-                    )
-                    .style(definition_style),
-                    Line::default(),
-                    Line::from_iter([Span::styled("[b]: ", definition_style), Span::raw("Beta."),])
-                        .style(definition_style),
-                ])
+                    [^b]: Beta.
+                "})
             );
         }
 
         #[rstest]
         fn reference_combines_with_enclosing_style(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 **Text[^one]**
 
                 [^one]: Note.
-            "};
-            let reference_style = Style::new().bold().dim().italic();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::styled("Text", Style::new().bold()),
-                        Span::styled("[one]", reference_style),
-                    ]),
-                    Line::default(),
-                    Line::from_iter([
-                        Span::styled("[one]: ", Style::new().dim()),
-                        Span::raw("Note."),
-                    ])
-                    .style(Style::new().dim()),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from("Text").bold(),
+                    Span::from("[one]").bold().dim().italic(),
+                ]),
+                Line::default(),
+                Line::from_iter([
+                    Span::from("[one]: ").dim(),
+                    Span::from("Note."),
+                ]).dim(),
+            ])
+            "#);
         }
 
         #[rstest]
         fn multiple_definition_paragraphs_keep_blank_line(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                Text[^one]
+            insta::assert_debug_snapshot!(
+                "multiple_definition_paragraphs_keep_blank_line",
+                from_str(indoc! {"
+                    Text[^one]
 
-                [^one]: First paragraph.
+                    [^one]: First paragraph.
 
-                    Second paragraph.
-            "};
-            let definition_style = Style::new().dim();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw("Text"),
-                        Span::styled("[one]", definition_style.italic()),
-                    ]),
-                    Line::default(),
-                    Line::from_iter([
-                        Span::styled("[one]: ", definition_style),
-                        Span::raw("First paragraph."),
-                    ])
-                    .style(definition_style),
-                    Line::default().style(definition_style),
-                    Line::from("Second paragraph.").style(definition_style),
-                ])
+                        Second paragraph.
+                "})
             );
         }
 
         #[rstest]
         fn definition_style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                Text[^one]
+            insta::assert_debug_snapshot!(
+                "definition_style_does_not_leak_into_following_paragraph",
+                from_str(indoc! {"
+                    Text[^one]
 
-                [^one]: First paragraph.
+                    [^one]: First paragraph.
 
-                    Second paragraph.
+                        Second paragraph.
 
-                After.
-            "};
-            let definition_style = Style::new().dim();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw("Text"),
-                        Span::styled("[one]", definition_style.italic()),
-                    ]),
-                    Line::default(),
-                    Line::from_iter([
-                        Span::styled("[one]: ", definition_style),
-                        Span::raw("First paragraph."),
-                    ])
-                    .style(definition_style),
-                    Line::default().style(definition_style),
-                    Line::from("Second paragraph.").style(definition_style),
-                    Line::default(),
-                    Line::from("After."),
-                ])
+                    After.
+                "})
             );
         }
 
@@ -224,30 +149,25 @@ mod tests {
                 }
             }
 
-            let markdown = indoc! {"
+            let options = Options::new(CustomFootnoteStyle);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 **Text[^one]**
 
                 [^one]: Note.
-            "};
-            let options = Options::new(CustomFootnoteStyle);
-            let reference_style = Style::new().red().bold().underlined();
-            let definition_style = Style::new().blue().underlined();
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::styled("Text", Style::new().bold()),
-                        Span::styled("[one]", reference_style),
-                    ]),
-                    Line::default(),
-                    Line::from_iter([
-                        Span::styled("[one]: ", definition_style),
-                        Span::raw("Note."),
-                    ])
-                    .style(definition_style),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from("Text").bold(),
+                    Span::from("[one]").red().bold().underlined(),
+                ]),
+                Line::default(),
+                Line::from_iter([
+                    Span::from("[one]: ").blue().underlined(),
+                    Span::from("Note."),
+                ]).blue().underlined(),
+            ])
+            "#);
         }
     }
 }

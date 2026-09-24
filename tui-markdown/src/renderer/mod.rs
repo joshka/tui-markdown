@@ -440,7 +440,6 @@ where
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use pretty_assertions::assert_eq;
     use rstest::rstest;
 
     use super::test_support::{with_tracing, DefaultGuard};
@@ -448,12 +447,15 @@ mod tests {
 
     #[rstest]
     fn empty(_with_tracing: DefaultGuard) {
-        assert_eq!(from_str(""), Text::default());
+        insta::assert_debug_snapshot!(from_str(""), @"Text::default()");
     }
 
     #[rstest]
     fn paragraph_single(_with_tracing: DefaultGuard) {
-        assert_eq!(from_str("Hello, world!"), Text::from("Hello, world!"));
+        insta::assert_debug_snapshot!(
+            from_str("Hello, world!"),
+            @r#"Text::from(Line::from("Hello, world!"))"#
+        );
     }
 
     #[rstest]
@@ -466,64 +468,74 @@ mod tests {
             Text::from(Line::from_iter([
                 Span::from("Hello"),
                 Span::from(" "),
-                Span::from("World"),
+                Span::from("World")
             ]))
         );
     }
 
     #[rstest]
     fn paragraph_hard_break(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {r"
+        insta::assert_debug_snapshot!(from_str(indoc! {r"
             Hello\
             World
-        "};
-
-        assert_eq!(from_str(markdown), Text::from_iter(["Hello", "World"]));
+        "}), @r#"
+        Text::from_iter([
+            Line::from("Hello"),
+            Line::from("World"),
+        ])
+        "#);
     }
 
     #[rstest]
     fn paragraph_multiple(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                Paragraph 1
-                
-                Paragraph 2
-            "}),
-            Text::from_iter(["Paragraph 1", "", "Paragraph 2",])
-        );
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            Paragraph 1
+            
+            Paragraph 2
+        "}), @r#"
+        Text::from_iter([
+            Line::from("Paragraph 1"),
+            Line::default(),
+            Line::from("Paragraph 2"),
+        ])
+        "#);
     }
 
     #[rstest]
     fn rule(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                Paragraph 1
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            Paragraph 1
 
-                ---
+            ---
 
-                Paragraph 2
-            "}),
-            Text::from_iter(["Paragraph 1", "", "---", "", "Paragraph 2"])
-        );
+            Paragraph 2
+        "}), @r#"
+        Text::from_iter([
+            Line::from("Paragraph 1"),
+            Line::default(),
+            Line::from("---"),
+            Line::default(),
+            Line::from("Paragraph 2"),
+        ])
+        "#);
     }
 
     #[rstest]
     fn metadata_block(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                ---
-                title: Demo
-                ---
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            ---
+            title: Demo
+            ---
 
-                Body
-            "}),
-            Text::from_iter([
-                Line::from("---").style(Style::new().light_yellow()),
-                Line::from("title: Demo").style(Style::new().light_yellow()),
-                Line::from("---").style(Style::new().light_yellow()),
-                Line::default(),
-                Line::from("Body"),
-            ])
-        );
+            Body
+        "}), @r#"
+        Text::from_iter([
+            Line::from("---").light_yellow(),
+            Line::from("title: Demo").light_yellow(),
+            Line::from("---").light_yellow(),
+            Line::default(),
+            Line::from("Body"),
+        ])
+        "#);
     }
 }

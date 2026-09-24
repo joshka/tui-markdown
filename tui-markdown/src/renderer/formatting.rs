@@ -37,78 +37,34 @@ mod tests {
     use ratatui_core::text::{Line, Span, Text};
     use rstest::rstest;
 
-    use super::*;
     use crate::from_str;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
 
     #[rstest]
-    fn superscript(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("H ^2^ O"),
-            Text::from(Line::from_iter([
-                Span::from("H "),
-                Span::styled("2", Style::new().dim().italic()),
-                Span::from(" O"),
-            ]))
-        );
-    }
-
-    #[rstest]
-    fn subscript(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("H ~2~ O"),
-            Text::from(Line::from_iter([
-                Span::from("H "),
-                Span::styled("2", Style::new().dim().italic()),
-                Span::from(" O"),
-            ]))
-        );
-    }
-
-    #[rstest]
-    fn strong(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("**Strong**"),
-            Text::from(Line::from("Strong".bold()))
-        );
-    }
-
-    #[rstest]
-    fn emphasis(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("*Emphasis*"),
-            Text::from(Line::from("Emphasis".italic()))
-        );
-    }
-
-    #[rstest]
-    fn strikethrough(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("~~Strikethrough~~"),
-            Text::from(Line::from("Strikethrough".crossed_out()))
-        );
-    }
-
-    #[rstest]
-    fn strong_emphasis(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("**Strong *emphasis***"),
-            Text::from(Line::from_iter([
-                "Strong ".bold(),
-                "emphasis".bold().italic()
-            ]))
-        );
-    }
-
-    #[rstest]
-    fn formatting_does_not_leak_into_following_text(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("Before **strong** after"),
-            Text::from(Line::from_iter([
-                Span::raw("Before "),
-                Span::raw("strong").bold(),
-                Span::raw(" after"),
-            ]))
-        );
+    #[case::superscript(
+        "H ^2^ O",
+        Line::from_iter([Span::raw("H "), "2".dim().italic(), Span::raw(" O")])
+    )]
+    #[case::subscript(
+        "H ~2~ O",
+        Line::from_iter([Span::raw("H "), "2".dim().italic(), Span::raw(" O")])
+    )]
+    #[case::strong("**Strong**", Line::from("Strong".bold()))]
+    #[case::emphasis("*Emphasis*", Line::from("Emphasis".italic()))]
+    #[case::strikethrough("~~Strikethrough~~", Line::from("Strikethrough".crossed_out()))]
+    #[case::strong_emphasis(
+        "**Strong *emphasis***",
+        Line::from_iter(["Strong ".bold(), "emphasis".bold().italic()])
+    )]
+    #[case::style_scope(
+        "Before **strong** after",
+        Line::from_iter([Span::raw("Before "), "strong".bold(), Span::raw(" after")])
+    )]
+    fn inline_formatting(
+        _with_tracing: DefaultGuard,
+        #[case] markdown: &str,
+        #[case] expected: Line<'static>,
+    ) {
+        assert_eq!(from_str(markdown), Text::from(expected));
     }
 }
