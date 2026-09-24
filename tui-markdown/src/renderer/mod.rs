@@ -475,10 +475,10 @@ mod tests {
 
     #[rstest]
     fn paragraph_hard_break(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {r"
+        insta::assert_debug_snapshot!(from_str(indoc!(r"
             Hello\
             World
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from("Hello"),
             Line::from("World"),
@@ -488,11 +488,11 @@ mod tests {
 
     #[rstest]
     fn paragraph_multiple(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             Paragraph 1
             
             Paragraph 2
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from("Paragraph 1"),
             Line::default(),
@@ -503,13 +503,13 @@ mod tests {
 
     #[rstest]
     fn rule(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             Paragraph 1
 
             ---
 
             Paragraph 2
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from("Paragraph 1"),
             Line::default(),
@@ -522,13 +522,13 @@ mod tests {
 
     #[rstest]
     fn metadata_block(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             ---
             title: Demo
             ---
 
             Body
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from("---").light_yellow(),
             Line::from("title: Demo").light_yellow(),

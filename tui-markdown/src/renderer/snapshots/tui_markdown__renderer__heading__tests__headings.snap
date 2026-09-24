@@ -1,15 +1,14 @@
 ---
 source: tui-markdown/src/renderer/heading.rs
 expression: |-
-  from_str(indoc!
-  {"
+  from_str(indoc!("
                   # Heading 1
                   ## Heading 2
                   ### Heading 3
                   #### Heading 4
                   ##### Heading 5
                   ###### Heading 6
-              "})
+              "))
 ---
 Text::from_iter([
     Line::from_iter([

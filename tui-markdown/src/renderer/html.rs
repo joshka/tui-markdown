@@ -89,7 +89,7 @@ mod tests {
 
         #[rstest]
         fn html_block_preserves_paragraph_spacing(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 Before
 
                 <div>
@@ -97,7 +97,7 @@ mod tests {
                 </div>
 
                 After
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from("Before"),
                 Line::default(),

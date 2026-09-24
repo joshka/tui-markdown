@@ -1,14 +1,13 @@
 ---
 source: tui-markdown/src/renderer/list.rs
 expression: |-
-  from_str(indoc!
-  {"
+  from_str(indoc!("
                   - *Emphasis* and **strong**
                   - Before **strong *emphasis*** after
   
                   1. **Strong**
                   2. Before *emphasis* after
-              "})
+              "))
 ---
 Text::from_iter([
     Line::from_iter([

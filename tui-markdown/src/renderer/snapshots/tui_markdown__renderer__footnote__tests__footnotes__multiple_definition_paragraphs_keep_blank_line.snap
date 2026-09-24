@@ -1,14 +1,13 @@
 ---
 source: tui-markdown/src/renderer/footnote.rs
 expression: |-
-  from_str(indoc!
-  {"
+  from_str(indoc!("
                       Text[^one]
   
                       [^one]: First paragraph.
   
                           Second paragraph.
-                  "})
+                  "))
 ---
 Text::from_iter([
     Line::from_iter([

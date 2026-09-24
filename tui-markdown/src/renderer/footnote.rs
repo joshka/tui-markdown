@@ -60,12 +60,14 @@ mod tests {
         fn multiline_definition_has_exact_layout(_with_tracing: DefaultGuard) {
             insta::assert_debug_snapshot!(
                 "multiline_definition_has_exact_layout",
-                from_str(indoc! {"
+                from_str(indoc!(
+                    "
                     Text[^one]
 
                     [^one]: First line
                         continued line.
-                "})
+                "
+                ))
             );
         }
 
@@ -73,23 +75,25 @@ mod tests {
         fn multiple_definitions_have_exact_layout(_with_tracing: DefaultGuard) {
             insta::assert_debug_snapshot!(
                 "multiple_definitions_have_exact_layout",
-                from_str(indoc! {"
+                from_str(indoc!(
+                    "
                     First[^a] second[^b].
 
                     [^a]: Alpha.
 
                     [^b]: Beta.
-                "})
+                "
+                ))
             );
         }
 
         #[rstest]
         fn reference_combines_with_enclosing_style(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 **Text[^one]**
 
                 [^one]: Note.
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from("Text").bold(),
@@ -108,13 +112,15 @@ mod tests {
         fn multiple_definition_paragraphs_keep_blank_line(_with_tracing: DefaultGuard) {
             insta::assert_debug_snapshot!(
                 "multiple_definition_paragraphs_keep_blank_line",
-                from_str(indoc! {"
+                from_str(indoc!(
+                    "
                     Text[^one]
 
                     [^one]: First paragraph.
 
                         Second paragraph.
-                "})
+                "
+                ))
             );
         }
 
@@ -122,7 +128,8 @@ mod tests {
         fn definition_style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
             insta::assert_debug_snapshot!(
                 "definition_style_does_not_leak_into_following_paragraph",
-                from_str(indoc! {"
+                from_str(indoc!(
+                    "
                     Text[^one]
 
                     [^one]: First paragraph.
@@ -130,7 +137,8 @@ mod tests {
                         Second paragraph.
 
                     After.
-                "})
+                "
+                ))
             );
         }
 
@@ -151,11 +159,11 @@ mod tests {
 
             let options = Options::new(CustomFootnoteStyle);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 **Text[^one]**
 
                 [^one]: Note.
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from("Text").bold(),

@@ -1,11 +1,10 @@
 ---
 source: tui-markdown/src/renderer/blockquote.rs
 expression: |-
-  from_str(indoc!
-  {"
+  from_str(indoc!("
                   > Blockquote 1
                   >> Nested Blockquote
-              "})
+              "))
 ---
 Text::from_iter([
     Line::from_iter([

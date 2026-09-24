@@ -120,14 +120,16 @@ mod tests {
     fn headings(_with_tracing: DefaultGuard) {
         insta::assert_debug_snapshot!(
             "headings",
-            from_str(indoc! {"
+            from_str(indoc!(
+                "
                 # Heading 1
                 ## Heading 2
                 ### Heading 3
                 #### Heading 4
                 ##### Heading 5
                 ###### Heading 6
-            "})
+            "
+            ))
         );
     }
 
@@ -150,10 +152,10 @@ mod tests {
 
     #[rstest]
     fn heading_attributes_do_not_carry_to_next_heading(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             # First {#first}
             # Second
-        "}), @r##"
+        ")), @r##"
         Text::from_iter([
             Line::from_iter([
                 Span::from("# "),
