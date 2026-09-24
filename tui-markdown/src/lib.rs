@@ -10,7 +10,9 @@
 //! # Markdown output
 //!
 //! Tables use Unicode box-drawing borders, terminal display widths, and the alignment declared by
-//! the Markdown delimiter row. Raw HTML stays visible as literal text. Math retains its delimiters,
+//! the Markdown delimiter row. Set [`Options::table_width`] to the pane width to wrap cells, and
+//! render again when that width changes. Without a width, tables use their natural content width.
+//! Raw HTML stays visible as literal text. Math retains its delimiters,
 //! and images render as `[img]` followed by their description or destination.
 //!
 //! # Syntax highlighting

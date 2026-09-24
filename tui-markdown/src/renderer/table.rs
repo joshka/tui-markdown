@@ -9,7 +9,7 @@
 
 use pulldown_cmark::Alignment;
 use ratatui_core::style::Style;
-use ratatui_core::text::{Line, Span};
+use ratatui_core::text::{Line, Span, StyledGrapheme};
 
 use super::TextWriter;
 use crate::StyleSheet;
@@ -59,7 +59,18 @@ where
 
     pub fn end_table(&mut self) {
         if let Some(builder) = self.table_builder.take() {
-            let lines = builder.render(&self.styles);
+            // Reserve the enclosing prefixes, their shared trailing space, and list indentation
+            // before laying out the table. The remaining width includes its borders and padding.
+            let prefix_width = self.line_prefixes.iter().map(Span::width).sum::<usize>()
+                + usize::from(!self.line_prefixes.is_empty());
+            let indent = self
+                .list_items
+                .last()
+                .map_or(0, |item| item.continuation_width);
+            let width = self
+                .table_width
+                .map(|width| usize::from(width).saturating_sub(prefix_width + indent));
+            let lines = builder.render(&self.styles, width);
             self.push_table_lines(lines);
             self.needs_newline = true;
         }
@@ -149,13 +160,16 @@ impl<'a> TableBuilder<'a> {
         self.rows.push(std::mem::take(&mut self.current_row));
     }
 
-    pub fn render<S: StyleSheet>(self, styles: &S) -> Vec<Line<'a>> {
+    pub fn render<S: StyleSheet>(self, styles: &S, width: Option<usize>) -> Vec<Line<'a>> {
         let column_count = self.column_count();
         if column_count == 0 {
             return Vec::new();
         }
 
-        let column_widths = self.column_widths(column_count);
+        let mut column_widths = self.column_widths(column_count);
+        if let Some(width) = width {
+            self.fit_columns(&mut column_widths, width);
+        }
         let border_style = styles.table_border();
 
         let top_border = TOP_BORDER.render(&column_widths, border_style);
@@ -164,13 +178,44 @@ impl<'a> TableBuilder<'a> {
         let body = self
             .rows
             .iter()
-            .map(|row| row.render(&column_widths, &self.alignments, styles));
+            .flat_map(|row| row.render(&column_widths, &self.alignments, styles));
         let bottom_border = BOTTOM_BORDER.render(&column_widths, border_style);
 
-        let mut lines = vec![top_border, header, header_separator];
+        let mut lines = vec![top_border];
+        lines.extend(header);
+        lines.push(header_separator);
         lines.extend(body);
         lines.push(bottom_border);
         lines
+    }
+
+    /// Share available space between columns, stopping each at its natural width.
+    fn fit_columns(&self, widths: &mut [usize], width: usize) {
+        // Each column needs two padding spaces and a right border, plus the table's left border.
+        let budget = width.saturating_sub(3 * widths.len() + 1);
+        if widths.iter().sum::<usize>() <= budget {
+            return;
+        }
+        let natural_widths = widths.to_vec();
+        widths.fill(1);
+        for cells in
+            std::iter::once(&self.header.cells).chain(self.rows.iter().map(|row| &row.cells))
+        {
+            for (column, cell) in cells.iter().enumerate() {
+                widths[column] = widths[column].max(cell.minimum_width());
+            }
+        }
+
+        // Start at the indivisible grapheme minimums, even if those exceed the pane width.
+        // Grow the narrowest unfinished column, giving equal-width ties to the leftmost column.
+        let remaining = budget.saturating_sub(widths.iter().sum());
+        for _ in 0..remaining {
+            let column = (0..widths.len())
+                .filter(|&column| widths[column] < natural_widths[column])
+                .min_by_key(|&column| widths[column]);
+            let Some(column) = column else { break };
+            widths[column] += 1;
+        }
     }
 
     fn column_count(&self) -> usize {
@@ -211,8 +256,8 @@ impl<'a> TableHeader<'a> {
         column_widths: &[usize],
         alignments: &[Alignment],
         styles: &S,
-    ) -> Line<'a> {
-        render_line(
+    ) -> Vec<Line<'a>> {
+        render_lines(
             &self.cells,
             column_widths,
             alignments,
@@ -233,8 +278,8 @@ impl<'a> TableRow<'a> {
         column_widths: &[usize],
         alignments: &[Alignment],
         styles: &S,
-    ) -> Line<'a> {
-        render_line(
+    ) -> Vec<Line<'a>> {
+        render_lines(
             &self.cells,
             column_widths,
             alignments,
@@ -258,6 +303,57 @@ impl<'a> TableCell<'a> {
         self.spans.iter().map(Span::width).sum()
     }
 
+    /// Wrap at whitespace when possible, splitting long words only at grapheme boundaries.
+    fn wrap(&self, width: usize) -> Vec<Self> {
+        if self.width() <= width {
+            return vec![Self {
+                spans: self.spans.clone(),
+            }];
+        }
+        let graphemes: Vec<_> = self
+            .spans
+            .iter()
+            .flat_map(|span| span.styled_graphemes(Style::default()))
+            .collect();
+        let mut remaining = graphemes.as_slice();
+        let mut lines = Vec::new();
+        while !remaining.is_empty() {
+            let end = cell_line_end(remaining, width);
+            let (line, rest) = remaining.split_at(end);
+            lines.push(Self::from_graphemes(line));
+            // Whitespace at a wrap boundary separates words; it is not next-line indentation.
+            let next_word = rest
+                .iter()
+                .position(|grapheme| !grapheme.symbol.chars().all(char::is_whitespace))
+                .unwrap_or(rest.len());
+            remaining = &rest[next_word..];
+        }
+        lines
+    }
+
+    /// The widest indivisible grapheme determines how narrow a column can be.
+    fn minimum_width(&self) -> usize {
+        self.spans
+            .iter()
+            .flat_map(|span| span.styled_graphemes(Style::default()))
+            .map(|grapheme| Span::raw(grapheme.symbol).width())
+            .max()
+            .unwrap_or(1)
+    }
+
+    fn from_graphemes(graphemes: &[StyledGrapheme<'_>]) -> Self {
+        // Recombine equal styles so wrapping does not create one span per character.
+        let mut spans: Vec<Span<'a>> = Vec::new();
+        for grapheme in graphemes {
+            if let Some(span) = spans.last_mut().filter(|span| span.style == grapheme.style) {
+                span.content.to_mut().push_str(grapheme.symbol);
+            } else {
+                spans.push(Span::styled(grapheme.symbol.to_owned(), grapheme.style));
+            }
+        }
+        Self { spans }
+    }
+
     fn render_spans(
         &self,
         column_width: usize,
@@ -275,6 +371,23 @@ impl<'a> TableCell<'a> {
         spans.push(Span::styled(" ".repeat(pad_right + 1), style));
         spans
     }
+}
+
+/// Prefer the last word boundary that fits; split an oversized word at a grapheme boundary.
+fn cell_line_end(graphemes: &[StyledGrapheme<'_>], width: usize) -> usize {
+    let mut used = 0;
+    let mut word_boundary = None;
+    for (index, grapheme) in graphemes.iter().enumerate() {
+        let is_space = grapheme.symbol.chars().all(char::is_whitespace);
+        if is_space && index > 0 {
+            word_boundary = Some(index);
+        }
+        used += Span::raw(grapheme.symbol).width();
+        if used > width && index > 0 {
+            return word_boundary.unwrap_or(index);
+        }
+    }
+    graphemes.len()
 }
 
 #[derive(Clone, Copy)]
@@ -309,25 +422,33 @@ impl BorderGlyphs {
     }
 }
 
-fn render_line<'a>(
+fn render_lines<'a>(
     cells: &[TableCell<'a>],
     column_widths: &[usize],
     alignments: &[Alignment],
     content_style: Style,
     border_style: Style,
-) -> Line<'a> {
-    let mut spans = vec![Span::styled(VERTICAL_BORDER, border_style)];
+) -> Vec<Line<'a>> {
     let empty_cell = TableCell::default();
-    for (column_index, &column_width) in column_widths.iter().enumerate() {
-        let cell = cells.get(column_index).unwrap_or(&empty_cell);
-        let alignment = alignments
-            .get(column_index)
-            .copied()
-            .unwrap_or(Alignment::None);
-        spans.extend(cell.render_spans(column_width, alignment, content_style));
-        spans.push(Span::styled(VERTICAL_BORDER, border_style));
-    }
-    Line::from(spans)
+    let wrapped: Vec<_> = column_widths
+        .iter()
+        .enumerate()
+        .map(|(index, &width)| cells.get(index).unwrap_or(&empty_cell).wrap(width))
+        .collect();
+    // All cells share the tallest cell's row height; shorter cells render styled blank padding.
+    let height = wrapped.iter().map(Vec::len).max().unwrap_or(1);
+    (0..height)
+        .map(|row| {
+            let mut spans = vec![Span::styled(VERTICAL_BORDER, border_style)];
+            for (column, &width) in column_widths.iter().enumerate() {
+                let cell = wrapped[column].get(row).unwrap_or(&empty_cell);
+                let alignment = alignments.get(column).copied().unwrap_or(Alignment::None);
+                spans.extend(cell.render_spans(width, alignment, content_style));
+                spans.push(Span::styled(VERTICAL_BORDER, border_style));
+            }
+            Line::from(spans)
+        })
+        .collect()
 }
 
 fn padding(column_width: usize, content_width: usize, alignment: Alignment) -> (usize, usize) {
@@ -357,9 +478,305 @@ mod tests {
     use crate::{from_str, from_str_with_options, DefaultStyleSheet, Options, StyleSheet};
 
     #[test]
+    fn wide_table_wraps_without_losing_content() {
+        let markdown = indoc! {"
+            | iOS concept | Android reality |
+            | --- | --- |
+            | productCatalog.createWithoutStore branch | No v0 equivalent. The store is created up front, so there's no deferred path. |
+            | recommendedActions non-empty | No such field on the engine response. |
+        "};
+        let options = Options::default().table_width(40);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌───────────────────┬──────────────────┐
+            │ iOS concept       │ Android reality  │
+            ├───────────────────┼──────────────────┤
+            │ productCatalog.cr │ No v0            │
+            │ eateWithoutStore  │ equivalent. The  │
+            │ branch            │ store is created │
+            │                   │ up front, so     │
+            │                   │ there's no       │
+            │                   │ deferred path.   │
+            │ recommendedAction │ No such field on │
+            │ s non-empty       │ the engine       │
+            │                   │ response.        │
+            └───────────────────┴──────────────────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn wrapped_rows_keep_alignment_and_padding() {
+        let markdown = indoc! {"
+            | L | R | C |
+            | :-- | --: | :-: |
+            | a bb ccc | a bb ccc | a bb ccc |
+        "};
+        let options = Options::default().table_width(19);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌─────┬─────┬─────┐
+            │ L   │   R │  C  │
+            ├─────┼─────┼─────┤
+            │ a   │   a │  a  │
+            │ bb  │  bb │ bb  │
+            │ ccc │ ccc │ ccc │
+            └─────┴─────┴─────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn wrapping_preserves_inline_styles() {
+        let markdown = indoc! {"
+            | H |
+            | --- |
+            | **ab***cd* |
+        "};
+        let options = Options::default().table_width(6);
+        let text = from_str_with_options(markdown, &options);
+        let expected = Text::from(vec![
+            Line::from(Span::raw("┌────┐").dark_gray()),
+            Line::from(vec![
+                Span::raw("│").dark_gray(),
+                Span::raw(" ").bold().cyan(),
+                Span::raw("H").bold().cyan(),
+                Span::raw("  ").bold().cyan(),
+                Span::raw("│").dark_gray(),
+            ]),
+            Line::from(Span::raw("├────┤").dark_gray()),
+            Line::from(vec![
+                Span::raw("│").dark_gray(),
+                Span::raw(" "),
+                Span::raw("ab").bold(),
+                Span::raw(" "),
+                Span::raw("│").dark_gray(),
+            ]),
+            Line::from(vec![
+                Span::raw("│").dark_gray(),
+                Span::raw(" "),
+                Span::raw("cd").italic(),
+                Span::raw(" "),
+                Span::raw("│").dark_gray(),
+            ]),
+            Line::from(Span::raw("└────┘").dark_gray()),
+        ]);
+
+        assert_eq!(text, expected);
+    }
+
+    #[test]
+    fn wrapping_preserves_graphemes() {
+        let markdown = indoc! {"
+            | H |
+            | --- |
+            | 👩‍💻é界 |
+        "};
+        let options = Options::default().table_width(6);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌────┐
+            │ H  │
+            ├────┤
+            │ 👩‍💻 │
+            │ é  │
+            │ 界 │
+            └────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn wrapped_table_in_blockquote() {
+        let markdown = indoc! {"
+            > | Header | Value |
+            > | --- | --- |
+            > | long words here | more content here |
+        "};
+        let options = Options::default().table_width(24);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            > ┌──────────┬─────────┐
+            > │ Header   │ Value   │
+            > ├──────────┼─────────┤
+            > │ long     │ more    │
+            > │ words    │ content │
+            > │ here     │ here    │
+            > └──────────┴─────────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn wrapped_table_in_list() {
+        let markdown = indoc! {"
+            - | Header | Value |
+              | --- | --- |
+              | long words here | more content here |
+        "};
+        let options = Options::default().table_width(24);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            - ┌──────────┬─────────┐
+              │ Header   │ Value   │
+              ├──────────┼─────────┤
+              │ long     │ more    │
+              │ words    │ content │
+              │ here     │ here    │
+              └──────────┴─────────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn wrapped_table_in_ordered_list() {
+        let markdown = indoc! {"
+            10. | Header | Value |
+                | --- | --- |
+                | long words here | more lengthy text |
+        "};
+        let options = Options::default().table_width(24);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            10. ┌─────────┬────────┐
+                │ Header  │ Value  │
+                ├─────────┼────────┤
+                │ long    │ more   │
+                │ words   │ length │
+                │ here    │ y text │
+                └─────────┴────────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn wrapped_table_in_quoted_list() {
+        let markdown = indoc! {"
+            > - | Header | Value |
+            >   | --- | --- |
+            >   | long words here | more lengthy text |
+        "};
+        let options = Options::default().table_width(24);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            > - ┌─────────┬────────┐
+            >   │ Header  │ Value  │
+            >   ├─────────┼────────┤
+            >   │ long    │ more   │
+            >   │ words   │ length │
+            >   │ here    │ y text │
+            >   └─────────┴────────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn zero_width_preserves_content() {
+        let markdown = indoc! {"
+            | 界 | x |
+            | --- | --- |
+            | 中文 | abc |
+        "};
+        let options = Options::default().table_width(0);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌────┬───┐
+            │ 界 │ x │
+            ├────┼───┤
+            │ 中 │ a │
+            │ 文 │ b │
+            │    │ c │
+            └────┴───┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn one_column_pane_preserves_content() {
+        let markdown = indoc! {"
+            | 界 | x |
+            | --- | --- |
+            | 中文 | abc |
+        "};
+        let options = Options::default().table_width(1);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌────┬───┐
+            │ 界 │ x │
+            ├────┼───┤
+            │ 中 │ a │
+            │ 文 │ b │
+            │    │ c │
+            └────┴───┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn width_smaller_than_borders_preserves_content() {
+        let markdown = indoc! {"
+            | 界 | x |
+            | --- | --- |
+            | 中文 | abc |
+        "};
+        let options = Options::default().table_width(5);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌────┬───┐
+            │ 界 │ x │
+            ├────┼───┤
+            │ 中 │ a │
+            │ 文 │ b │
+            │    │ c │
+            └────┴───┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn width_below_grapheme_minimum_preserves_content() {
+        let markdown = indoc! {"
+            | 界 | x |
+            | --- | --- |
+            | 中文 | abc |
+        "};
+        let options = Options::default().table_width(9);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌────┬───┐
+            │ 界 │ x │
+            ├────┼───┤
+            │ 中 │ a │
+            │ 文 │ b │
+            │    │ c │
+            └────┴───┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
+    fn sufficient_width_keeps_natural_column_widths() {
+        let markdown = indoc! {"
+            | Header | Value |
+            | --- | --- |
+            | short | x |
+        "};
+        let options = Options::default().table_width(80);
+        let text = from_str_with_options(markdown, &options);
+        let expected = indoc! {"
+            ┌────────┬───────┐
+            │ Header │ Value │
+            ├────────┼───────┤
+            │ short  │ x     │
+            └────────┴───────┘"};
+
+        assert_eq!(text.to_string(), expected);
+    }
+
+    #[test]
     fn empty_table() {
         let builder = TableBuilder::new(vec![]);
-        assert!(builder.render(&DefaultStyleSheet).is_empty());
+        assert!(builder.render(&DefaultStyleSheet, None).is_empty());
     }
 
     #[test]
@@ -369,7 +786,7 @@ mod tests {
         builder.push_span(Span::raw("hi"));
         builder.finish_cell();
         builder.finish_header();
-        assert_eq!(builder.render(&DefaultStyleSheet).len(), 4);
+        assert_eq!(builder.render(&DefaultStyleSheet, None).len(), 4);
     }
 
     #[test]

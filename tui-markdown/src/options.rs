@@ -77,6 +77,8 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     pub(crate) styles: S,
     /// The content to render in place of images.
     pub(crate) image_fallback: ImageFallback,
+    /// Available terminal columns, including table borders and enclosing prefixes.
+    pub(crate) table_width: Option<u16>,
     /// Explicit syntax-highlighting theme for fenced code blocks.
     ///
     /// When absent, the renderer uses the shared built-in default.
@@ -92,9 +94,33 @@ impl<S: StyleSheet> Options<S> {
         Self {
             styles,
             image_fallback: ImageFallback::default(),
+            table_width: None,
             #[cfg(feature = "highlight-code")]
             code_theme: None,
         }
+    }
+
+    /// Wraps table cells to fit within `width` terminal columns.
+    ///
+    /// The budget includes borders, cell padding, and enclosing list or blockquote prefixes.
+    /// By default tables use their natural content width. Render again with the new width when
+    /// the pane resizes; the returned text does not reflow tables automatically. Other Markdown
+    /// blocks are unaffected and can be wrapped by the consuming widget.
+    ///
+    /// If the budget cannot fit the borders, padding, and one grapheme per column, the table uses
+    /// that minimum width instead. Content is never truncated, including at width zero.
+    ///
+    /// ```
+    /// use tui_markdown::{from_str_with_options, Options};
+    ///
+    /// let options = Options::default().table_width(20);
+    /// let text = from_str_with_options("| Heading |\n| --- |\n| A long cell that wraps |", &options);
+    /// assert!(text.lines.iter().all(|line| line.width() <= 20));
+    /// ```
+    #[must_use]
+    pub fn table_width(mut self, width: u16) -> Self {
+        self.table_width = Some(width);
+        self
     }
 
     /// Selects the text used to represent Markdown images.
@@ -179,6 +205,7 @@ mod tests {
         let options = Options {
             styles: CustomStyleSheet,
             image_fallback: ImageFallback::default(),
+            table_width: None,
             #[cfg(feature = "highlight-code")]
             code_theme: None,
         };
