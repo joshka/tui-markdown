@@ -28,15 +28,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 ansi-to-tui = { version = "8", optional = true }
 document-features = { version = "0.2.11", optional = true }
 itertools = "0.15"
-pretty_assertions = "1"
 pulldown-cmark = "0.13"
 ratatui-core.workspace = true
-rstest = "0.27"
 syntect = { version = "5", optional = true }
 tracing = "0.1.37"
 
 [dev-dependencies]
 indoc = "2"
 insta = "1"
+pretty_assertions = "1"
 ratatui.workspace = true
+rstest = "0.27"
 tracing-subscriber = "0.3"
