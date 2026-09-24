@@ -140,7 +140,8 @@ where
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
-    use ratatui_core::style::Style;
+    use ratatui_core::style::Stylize;
+    use ratatui_core::text::{Line, Span, Text};
     use rstest::rstest;
 
     use super::*;
@@ -167,8 +168,14 @@ mod tests {
             }
             ```"});
 
-        insta::assert_snapshot!(highlighted_code);
-        insta::assert_debug_snapshot!(highlighted_code);
+        insta::assert_snapshot!(highlighted_code, @r#"
+        ```rust
+        fn main() {
+            println!("Hello, highlighted code!");
+        }
+        ```
+        "#);
+        insta::assert_debug_snapshot!("highlighted_code-2", highlighted_code);
     }
 
     #[cfg_attr(not(feature = "highlight-code"), ignore)]
@@ -187,52 +194,78 @@ mod tests {
             }
             ```"});
 
-        insta::assert_snapshot!(highlighted_code_indented);
-        insta::assert_debug_snapshot!(highlighted_code_indented);
+        insta::assert_snapshot!(highlighted_code_indented, @r#"
+        ```rust
+        fn main() {
+            // This is a comment
+            HelloWorldBuilder::new()
+                .with_text("Hello, highlighted code!")
+                .build()
+                .show();
+                        
+        }
+        ```
+        "#);
+        insta::assert_debug_snapshot!(
+            "highlighted_code_with_indentation-2",
+            highlighted_code_indented
+        );
     }
 
     #[cfg_attr(feature = "highlight-code", ignore)]
     #[rstest]
     fn unhighlighted_code(_with_tracing: DefaultGuard) {
         // Assert no extra newlines are added
-        let unhiglighted_code = from_str(indoc! {"
+        let unhighlighted_code = from_str(indoc! {"
             ```rust
             fn main() {
                 println!(\"Hello, unhighlighted code!\");
             }
             ```"});
 
-        insta::assert_snapshot!(unhiglighted_code);
+        insta::assert_snapshot!(unhighlighted_code, @r#"
+        ```rust
+        fn main() {
+            println!("Hello, unhighlighted code!");
+        }
+        ```
+        "#);
 
-        // Code highlighting is complex, assert on on the debug snapshot
-        insta::assert_debug_snapshot!(unhiglighted_code);
+        // Also verify line and span styles.
+        insta::assert_debug_snapshot!(unhighlighted_code, @r#"
+        Text::from_iter([
+            Line::from("```rust").white().on_black(),
+            Line::from("fn main() {").white().on_black(),
+            Line::from("    println!("Hello, unhighlighted code!");").white().on_black(),
+            Line::from("}").white().on_black(),
+            Line::from("```").white().on_black(),
+        ])
+        "#);
     }
 
     #[rstest]
     fn inline_code(_with_tracing: DefaultGuard) {
         let text = from_str("Example of `Inline code`");
-        insta::assert_snapshot!(text);
+        insta::assert_snapshot!(text, @"Example of Inline code");
 
         assert_eq!(
             text,
-            Line::from_iter([
+            Text::from(Line::from_iter([
                 Span::from("Example of "),
-                Span::styled("Inline code", Style::new().white().on_black())
-            ])
-            .into()
+                Span::from("Inline code").white().on_black()
+            ]))
         );
     }
 
     #[rstest]
     fn fenced_code_style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {"
-            ```rust
-            fn main() {}
-            ```
+        let text = from_str(indoc! {"
+                    ```rust
+                    fn main() {}
+                    ```
 
-            After
-        "};
-        let text = from_str(markdown);
+                    After
+        "});
 
         assert_eq!(text.lines.last(), Some(&Line::from("After")));
     }
@@ -240,41 +273,34 @@ mod tests {
     #[rstest]
     fn custom_code_block_fence(_with_tracing: DefaultGuard) {
         let options = Options::new(CustomCodeBlockFence("~~~"));
-        let markdown = "```not-a-language\ncode\n```";
 
-        assert_eq!(
-            from_str_with_options(markdown, &options).to_string(),
-            "~~~not-a-language\ncode\n~~~"
-        );
+        let text = from_str_with_options("```not-a-language\ncode\n```", &options);
+        assert_eq!(text.to_string(), "~~~not-a-language\ncode\n~~~");
     }
 
     #[rstest]
     fn empty_code_block_fence_preserves_spacing(_with_tracing: DefaultGuard) {
         let options = Options::new(CustomCodeBlockFence(""));
-        let markdown = "Before\n\n```not-a-language\ncode\n```\n\nAfter";
 
-        assert_eq!(
-            from_str_with_options(markdown, &options).to_string(),
-            "Before\n\ncode\n\nAfter"
-        );
+        let text =
+            from_str_with_options("Before\n\n```not-a-language\ncode\n```\n\nAfter", &options);
+        assert_eq!(text.to_string(), "Before\n\ncode\n\nAfter");
     }
 
     #[rstest]
     fn empty_code_block_fence_applies_to_indented_code(_with_tracing: DefaultGuard) {
         let options = Options::new(CustomCodeBlockFence(""));
 
-        assert_eq!(
-            from_str_with_options("    indented code", &options).to_string(),
-            "indented code"
-        );
+        let text = from_str_with_options("    indented code", &options);
+        assert_eq!(text.to_string(), "indented code");
     }
 
     #[cfg(feature = "highlight-code")]
     #[rstest]
     fn empty_code_block_fence_applies_to_highlighted_code(_with_tracing: DefaultGuard) {
         let options = Options::new(CustomCodeBlockFence(""));
-        let markdown = "```rust\nfn main() {}\n```";
-        let text = from_str_with_options(markdown, &options);
+
+        let text = from_str_with_options("```rust\nfn main() {}\n```", &options);
 
         assert_eq!(text.to_string(), "fn main() {}");
     }

@@ -50,17 +50,16 @@ where
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use ratatui_core::{style::Style, text::Text};
+    use ratatui_core::style::Stylize;
+    use ratatui_core::text::{Line, Span, Text};
     use rstest::rstest;
 
-    use super::*;
     use crate::from_str;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
 
     mod html {
-        use pretty_assertions::assert_eq;
-
         use super::*;
+        use pretty_assertions::assert_eq;
 
         #[rstest]
         fn inline_html_tag(_with_tracing: DefaultGuard) {
@@ -68,31 +67,29 @@ mod tests {
                 from_str("Hello <em>world</em>"),
                 Text::from(Line::from_iter([
                     Span::from("Hello "),
-                    Span::styled("<em>", Style::new().dim()),
+                    Span::from("<em>").dim(),
                     Span::from("world"),
-                    Span::styled("</em>", Style::new().dim()),
+                    Span::from("</em>").dim()
                 ]))
             );
         }
 
         #[rstest]
         fn inline_html_combines_with_emphasis(_with_tracing: DefaultGuard) {
-            let italic = Style::new().italic();
-            let html = italic.dim();
             assert_eq!(
                 from_str("*Hello <em>world</em>*"),
                 Text::from(Line::from_iter([
-                    Span::styled("Hello ", italic),
-                    Span::styled("<em>", html),
-                    Span::styled("world", italic),
-                    Span::styled("</em>", html),
+                    Span::from("Hello ").italic(),
+                    Span::from("<em>").dim().italic(),
+                    Span::from("world").italic(),
+                    Span::from("</em>").dim().italic()
                 ]))
             );
         }
 
         #[rstest]
         fn html_block_preserves_paragraph_spacing(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 Before
 
                 <div>
@@ -100,22 +97,17 @@ mod tests {
                 </div>
 
                 After
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from("Before"),
-                    Line::default(),
-                    Line::from(Span::styled("<div>", Style::new().dim())),
-                    Line::from(Span::styled("Custom HTML", Style::new().dim()))
-                        .style(Style::new().dim()),
-                    Line::from(Span::styled("</div>", Style::new().dim()))
-                        .style(Style::new().dim()),
-                    Line::default(),
-                    Line::from("After"),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from("Before"),
+                Line::default(),
+                Line::from(Span::from("<div>").dim()),
+                Line::from(Span::from("Custom HTML").dim()).dim(),
+                Line::from(Span::from("</div>").dim()).dim(),
+                Line::default(),
+                Line::from("After"),
+            ])
+            "#);
         }
     }
 }

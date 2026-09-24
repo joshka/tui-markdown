@@ -943,6 +943,7 @@ dependencies = [
  "insta",
  "itertools 0.15.0",
  "ratatui",
+ "rstest",
  "time",
  "tracing",
  "tracing-error",

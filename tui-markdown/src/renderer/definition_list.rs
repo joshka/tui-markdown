@@ -59,7 +59,7 @@ where
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use ratatui_core::{style::Style, text::Text};
+    use ratatui_core::style::Style;
     use rstest::rstest;
 
     use super::*;
@@ -67,8 +67,6 @@ mod tests {
     use crate::{from_str, from_str_with_options, Options};
 
     mod definition_list {
-        use pretty_assertions::assert_eq;
-
         use super::*;
 
         #[derive(Clone)]
@@ -86,147 +84,129 @@ mod tests {
 
         #[rstest]
         fn exact_output_and_default_styles(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 Term
                 : Definition
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from(Span::styled("Term", Style::new().bold())),
-                    Line::from_iter([Span::raw(": "), Span::raw("Definition")]),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from(Span::from("Term").bold()),
+                Line::from_iter([
+                    Span::from(": "),
+                    Span::from("Definition"),
+                ]),
+            ])
+            "#);
         }
 
         #[rstest]
         fn custom_styles_apply_to_terms_and_definitions(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let options = Options::new(CustomDefinitionStyleSheet);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 Term
                 : Definition
-            "};
-            let options = Options::new(CustomDefinitionStyleSheet);
-            let title_style = Style::new().red().underlined();
-            let description_style = Style::new().blue().italic();
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from(Span::styled("Term", title_style)),
-                    Line::from_iter([
-                        Span::styled(": ", description_style),
-                        Span::styled("Definition", description_style),
-                    ]),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from(Span::from("Term").red().underlined()),
+                Line::from_iter([
+                    Span::from(": ").blue().italic(),
+                    Span::from("Definition").blue().italic(),
+                ]),
+            ])
+            "#);
         }
 
         #[rstest]
         fn inline_formatting_combines_with_definition_styles(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let options = Options::new(CustomDefinitionStyleSheet);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 *Term*
                 : **Description**
-            "};
-            let options = Options::new(CustomDefinitionStyleSheet);
-            let term_style = Style::new().red().underlined().italic();
-            let description_style = Style::new().blue().italic();
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from(Span::styled("Term", term_style)),
-                    Line::from_iter([
-                        Span::styled(": ", description_style),
-                        Span::styled("Description", description_style.bold()),
-                    ]),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from(Span::from("Term").red().italic().underlined()),
+                Line::from_iter([
+                    Span::from(": ").blue().italic(),
+                    Span::from("Description").blue().bold().italic(),
+                ]),
+            ])
+            "#);
         }
 
         #[rstest]
         fn multiline_definition(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 Term
                 : First line
                   second line
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from(Span::styled("Term", Style::new().bold())),
-                    Line::from_iter([
-                        Span::raw(": "),
-                        Span::raw("First line"),
-                        Span::raw(" "),
-                        Span::raw("second line"),
-                    ]),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from(Span::from("Term").bold()),
+                Line::from_iter([
+                    Span::from(": "),
+                    Span::from("First line"),
+                    Span::from(" "),
+                    Span::from("second line"),
+                ]),
+            ])
+            "#);
         }
 
         #[rstest]
         fn multiple_descriptions(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 Term
                 : First description
                 : Second description
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from(Span::styled("Term", Style::new().bold())),
-                    Line::from_iter([Span::raw(": "), Span::raw("First description")]),
-                    Line::from_iter([Span::raw(": "), Span::raw("Second description")]),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from(Span::from("Term").bold()),
+                Line::from_iter([
+                    Span::from(": "),
+                    Span::from("First description"),
+                ]),
+                Line::from_iter([
+                    Span::from(": "),
+                    Span::from("Second description"),
+                ]),
+            ])
+            "#);
         }
 
         #[rstest]
         fn multiple_description_paragraphs_keep_prefix_and_blank_line(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 Term
                 : First paragraph.
 
                   Second paragraph.
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from(Span::styled("Term", Style::new().bold())),
-                    Line::from_iter([Span::raw(": "), Span::raw("First paragraph.")]),
-                    Line::default(),
-                    Line::from("Second paragraph."),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from(Span::from("Term").bold()),
+                Line::from_iter([
+                    Span::from(": "),
+                    Span::from("First paragraph."),
+                ]),
+                Line::default(),
+                Line::from("Second paragraph."),
+            ])
+            "#);
         }
 
         #[rstest]
         fn repeated_items_do_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                Term one
-                : First description.
+            insta::assert_debug_snapshot!(
+                "repeated_items_do_not_leak_into_following_paragraph",
+                from_str(indoc! {"
+                    Term one
+                    : First description.
 
-                Term two
-                : Second description.
+                    Term two
+                    : Second description.
 
-                After.
-            "};
-            let term_style = Style::new().bold();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from(Span::styled("Term one", term_style)),
-                    Line::from_iter([Span::raw(": "), Span::raw("First description.")]),
-                    Line::from(Span::styled("Term two", term_style)),
-                    Line::from_iter([Span::raw(": "), Span::raw("Second description.")]),
-                    Line::default(),
-                    Line::from("After."),
-                ])
+                    After.
+                "})
             );
         }
     }

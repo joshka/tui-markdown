@@ -152,13 +152,13 @@ impl From<CodeThemeArg> for CodeTheme {
 #[cfg(test)]
 mod tests {
     use clap::CommandFactory;
+    use rstest::rstest;
 
     use super::*;
 
     #[test]
     fn feature_showcase() {
-        let markdown = include_str!("../TEST.md");
-        let text = tui_markdown::from_str(markdown);
+        let text = tui_markdown::from_str(include_str!("../TEST.md"));
 
         // The text snapshot makes whitespace and construct transitions easy to review. The debug
         // snapshot also records every line and span style, which catches formatting that leaks
@@ -167,39 +167,36 @@ mod tests {
         insta::assert_debug_snapshot!("feature_showcase_styles", text);
     }
 
-    #[test]
-    fn image_fallback_modes_select_rendered_content() {
-        let cases = [
-            ("alt-text", "[img] diagram"),
-            ("url", "[img] diagram.png"),
-            ("alt-text-and-url", "[img] diagram (diagram.png)"),
-        ];
+    #[rstest]
+    #[case::alt_text("alt-text", "[img] diagram")]
+    #[case::url("url", "[img] diagram.png")]
+    #[case::alt_text_and_url("alt-text-and-url", "[img] diagram (diagram.png)")]
+    fn image_fallback_modes_select_rendered_content(#[case] mode: &str, #[case] expected: &str) {
+        let cli = Cli::try_parse_from(["mdr", "--image-fallback", mode]).unwrap();
+        let options = cli.renderer_options().unwrap();
 
-        for (mode, expected) in cases {
-            let cli = Cli::try_parse_from(["mdr", "--image-fallback", mode]).unwrap();
-            let options = cli.renderer_options().unwrap();
-            let text = tui_markdown::from_str_with_options("![diagram](diagram.png)", &options);
-            assert_eq!(text.to_string(), expected);
-        }
+        assert_eq!(
+            tui_markdown::from_str_with_options("![diagram](diagram.png)", &options).to_string(),
+            expected
+        );
     }
 
-    #[test]
-    fn every_builtin_code_theme_is_accepted() {
-        let themes = [
+    #[rstest]
+    fn every_builtin_code_theme_is_accepted(
+        #[values(
             "base16-eighties-dark",
             "base16-mocha-dark",
             "base16-ocean-dark",
             "base16-ocean-light",
             "inspired-github",
             "solarized-dark",
-            "solarized-light",
-        ];
-
-        for theme in themes {
-            let cli = Cli::try_parse_from(["mdr", "--code-theme", theme]).unwrap();
-            let options = cli.renderer_options().unwrap();
-            assert!(options.selected_code_theme().is_some());
-        }
+            "solarized-light"
+        )]
+        theme: &str,
+    ) {
+        let cli = Cli::try_parse_from(["mdr", "--code-theme", theme]).unwrap();
+        let options = cli.renderer_options().unwrap();
+        assert!(options.selected_code_theme().is_some());
     }
 
     #[test]
@@ -227,6 +224,6 @@ mod tests {
 
     #[test]
     fn help() {
-        insta::assert_snapshot!("help", Cli::command().render_long_help());
+        insta::assert_snapshot!(Cli::command().render_long_help());
     }
 }

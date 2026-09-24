@@ -101,216 +101,199 @@ where
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use pretty_assertions::assert_eq;
-    use ratatui_core::style::Stylize;
     use rstest::rstest;
 
-    use super::*;
     use crate::renderer::test_support::{with_tracing, DefaultGuard};
     use crate::renderer::*;
 
     #[rstest]
     fn list_single(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                - List item 1
-            "}),
-            Text::from_iter([Line::from_iter(["- ", "List item 1"])])
-        );
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            - List item 1
+        "}), @r#"Text::from(Line::from_iter([Span::from("- "), Span::from("List item 1")]))"#);
     }
 
     #[rstest]
     fn list_multiple(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                - List item 1
-                - List item 2
-            "}),
-            Text::from_iter([
-                Line::from_iter(["- ", "List item 1"]),
-                Line::from_iter(["- ", "List item 2"]),
-            ])
-        );
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            - List item 1
+            - List item 2
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("- "),
+                Span::from("List item 1"),
+            ]),
+            Line::from_iter([
+                Span::from("- "),
+                Span::from("List item 2"),
+            ]),
+        ])
+        "#);
     }
 
     #[rstest]
     fn list_ordered(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                1. List item 1
-                2. List item 2
-            "}),
-            Text::from_iter([
-                Line::from_iter(["1. ".light_blue(), "List item 1".into()]),
-                Line::from_iter(["2. ".light_blue(), "List item 2".into()]),
-            ])
-        );
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            1. List item 1
+            2. List item 2
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("1. ").light_blue(),
+                Span::from("List item 1"),
+            ]),
+            Line::from_iter([
+                Span::from("2. ").light_blue(),
+                Span::from("List item 2"),
+            ]),
+        ])
+        "#);
     }
 
     #[rstest]
     fn styled_list_items_keep_content_on_marker_line(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {"
-            - *Emphasis* and **strong**
-            - Before **strong *emphasis*** after
+        insta::assert_debug_snapshot!(
+            "styled_list_items_keep_content_on_marker_line",
+            from_str(indoc! {"
+                - *Emphasis* and **strong**
+                - Before **strong *emphasis*** after
 
-            1. **Strong**
-            2. Before *emphasis* after
-        "};
-
-        assert_eq!(
-            from_str(markdown),
-            Text::from_iter([
-                Line::from_iter([
-                    Span::raw("- "),
-                    Span::raw("Emphasis").italic(),
-                    Span::raw(" and "),
-                    Span::raw("strong").bold(),
-                ]),
-                Line::from_iter([
-                    Span::raw("- "),
-                    Span::raw("Before "),
-                    Span::raw("strong ").bold(),
-                    Span::raw("emphasis").bold().italic(),
-                    Span::raw(" after"),
-                ]),
-                Line::default(),
-                Line::from_iter([Span::raw("1. ").light_blue(), Span::raw("Strong").bold()]),
-                Line::from_iter([
-                    Span::raw("2. ").light_blue(),
-                    Span::raw("Before "),
-                    Span::raw("emphasis").italic(),
-                    Span::raw(" after"),
-                ]),
-            ])
+                1. **Strong**
+                2. Before *emphasis* after
+            "})
         );
     }
 
     #[rstest]
     fn loose_styled_list_items_keep_first_paragraph_on_marker_line(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {"
-            - *Emphasized first item.*
-
-            - **Strong second item.**
-
-            1. **Strong first item.**
-
-            2. *Emphasized second item.*
-        "};
-
         // Regression: loose lists emit paragraph boundaries after their item markers.
-        assert_eq!(
-            from_str(markdown),
-            Text::from_iter([
-                Line::from_iter([
-                    Span::raw("- "),
-                    Span::raw("Emphasized first item.").italic(),
-                ]),
-                Line::from_iter([Span::raw("- "), Span::raw("Strong second item.").bold(),]),
-                Line::default(),
-                Line::from_iter([
-                    Span::raw("1. ").light_blue(),
-                    Span::raw("Strong first item.").bold(),
-                ]),
-                Line::from_iter([
-                    Span::raw("2. ").light_blue(),
-                    Span::raw("Emphasized second item.").italic(),
-                ]),
-            ])
+        insta::assert_debug_snapshot!(
+            "loose_styled_list_items_keep_first_paragraph_on_marker_line",
+            from_str(indoc! {"
+                - *Emphasized first item.*
+
+                - **Strong second item.**
+
+                1. **Strong first item.**
+
+                2. *Emphasized second item.*
+            "})
         );
     }
 
     #[rstest]
     fn later_styled_paragraph_in_list_stays_separate(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc! {"
             - **First paragraph.**
 
               *Second paragraph.*
-        "};
-
-        assert_eq!(
-            from_str(markdown),
-            Text::from_iter([
-                Line::from_iter([Span::raw("- "), Span::raw("First paragraph.").bold(),]),
-                Line::default(),
-                Line::from(Span::raw("Second paragraph.").italic()),
-            ])
-        );
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("- "),
+                Span::from("First paragraph.").bold(),
+            ]),
+            Line::default(),
+            Line::from(Span::from("Second paragraph.").italic()),
+        ])
+        "#);
     }
 
     #[rstest]
     fn ordered_list_respects_start_index(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc! {"
             10. Tenth
             11. Eleventh
-        "};
-
-        assert_eq!(
-            from_str(markdown),
-            Text::from_iter([
-                Line::from_iter(["10. ".light_blue(), "Tenth".into()]),
-                Line::from_iter(["11. ".light_blue(), "Eleventh".into()]),
-            ])
-        );
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("10. ").light_blue(),
+                Span::from("Tenth"),
+            ]),
+            Line::from_iter([
+                Span::from("11. ").light_blue(),
+                Span::from("Eleventh"),
+            ]),
+        ])
+        "#);
     }
 
     #[rstest]
     fn list_nested(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                - List item 1
-                  - Nested list item 1
-            "}),
-            Text::from_iter([
-                Line::from_iter(["- ", "List item 1"]),
-                Line::from_iter(["    - ", "Nested list item 1"]),
-            ])
-        );
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            - List item 1
+              - Nested list item 1
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("- "),
+                Span::from("List item 1"),
+            ]),
+            Line::from_iter([
+                Span::from("    - "),
+                Span::from("Nested list item 1"),
+            ]),
+        ])
+        "#);
     }
 
     #[rstest]
     fn list_task_items(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                - [ ] Incomplete
-                - [x] Complete
-            "}),
-            Text::from_iter([
-                Line::from_iter(["- [ ] ", "Incomplete"]),
-                Line::from_iter(["- [x] ", "Complete"]),
-            ])
-        );
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            - [ ] Incomplete
+            - [x] Complete
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("- [ ] "),
+                Span::from("Incomplete"),
+            ]),
+            Line::from_iter([
+                Span::from("- [x] "),
+                Span::from("Complete"),
+            ]),
+        ])
+        "#);
     }
 
     #[rstest]
     fn list_task_items_ordered(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
-                1. [ ] Incomplete
-                2. [x] Complete
-            "}),
-            Text::from_iter([
-                Line::from_iter(["1. ".light_blue(), "[ ] ".into(), "Incomplete".into(),]),
-                Line::from_iter(["2. ".light_blue(), "[x] ".into(), "Complete".into(),]),
-            ])
-        );
+        insta::assert_debug_snapshot!(from_str(indoc! {"
+            1. [ ] Incomplete
+            2. [x] Complete
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("1. ").light_blue(),
+                Span::from("[ ] "),
+                Span::from("Incomplete"),
+            ]),
+            Line::from_iter([
+                Span::from("2. ").light_blue(),
+                Span::from("[x] "),
+                Span::from("Complete"),
+            ]),
+        ])
+        "#);
     }
 
     #[rstest]
     fn list_does_not_indent_following_paragraph(_with_tracing: DefaultGuard) {
-        let markdown = indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc! {"
             - Item
 
             After
-        "};
-
-        assert_eq!(
-            from_str(markdown),
-            Text::from_iter([
-                Line::from_iter(["- ", "Item"]),
-                Line::default(),
-                Line::from("After"),
-            ])
-        );
+        "}), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("- "),
+                Span::from("Item"),
+            ]),
+            Line::default(),
+            Line::from("After"),
+        ])
+        "#);
     }
 
     #[rstest]
@@ -324,24 +307,22 @@ mod tests {
             }
         }
 
-        let markdown = indoc! {"
+        let options = Options::new(CustomListMarkerStyle);
+        insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
             1. List item 1
             2. List item 2
-        "};
-        let options = Options::new(CustomListMarkerStyle);
-        assert_eq!(
-            from_str_with_options(markdown, &options),
-            Text::from_iter([
-                Line::from_iter([
-                    Span::styled("1. ", Style::new().magenta().bold()),
-                    Span::raw("List item 1"),
-                ]),
-                Line::from_iter([
-                    Span::styled("2. ", Style::new().magenta().bold()),
-                    Span::raw("List item 2"),
-                ]),
-            ])
-        );
+        "}, &options), @r#"
+        Text::from_iter([
+            Line::from_iter([
+                Span::from("1. ").magenta().bold(),
+                Span::from("List item 1"),
+            ]),
+            Line::from_iter([
+                Span::from("2. ").magenta().bold(),
+                Span::from("List item 2"),
+            ]),
+        ])
+        "#);
     }
 
     #[rstest]
@@ -355,15 +336,13 @@ mod tests {
             }
         }
 
-        let markdown = indoc! {"
-            - List item 1
-        "};
         let options = Options::new(CustomListMarkerStyle);
-        assert_eq!(
-            from_str_with_options(markdown, &options),
-            Text::from_iter([Line::from_iter(
-                [Span::raw("- "), Span::raw("List item 1"),]
-            ),])
+
+        insta::assert_debug_snapshot!(
+            from_str_with_options(indoc! {"
+                - List item 1
+            "}, &options),
+            @r#"Text::from(Line::from_iter([Span::from("- "), Span::from("List item 1")]))"#
         );
     }
 }

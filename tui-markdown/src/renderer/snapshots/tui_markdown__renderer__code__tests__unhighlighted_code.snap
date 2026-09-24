@@ -1,9 +1,0 @@
----
-source: tui-markdown/src/renderer/code.rs
-expression: unhiglighted_code
----
-```rust
-fn main() {
-    println!("Hello, unhighlighted code!");
-}
-```

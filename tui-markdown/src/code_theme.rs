@@ -188,35 +188,34 @@ static THEMES: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 mod tests {
     use std::path::PathBuf;
 
-    use indoc::indoc;
-    use ratatui_core::style::Color;
+    use rstest::{fixture, rstest};
 
     use crate::{from_str_with_options, Options};
 
     use super::*;
 
-    fn fixture(name: &str) -> PathBuf {
+    #[fixture]
+    fn theme_path(#[default("custom.tmTheme")] name: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("src/code_theme/fixtures")
             .join(name)
     }
 
-    #[test]
-    fn every_builtin_theme_can_be_selected() {
-        let themes = [
+    #[rstest]
+    fn every_builtin_theme_can_be_selected(
+        #[values(
             BuiltinCodeTheme::Base16EightiesDark,
             BuiltinCodeTheme::Base16MochaDark,
             BuiltinCodeTheme::Base16OceanDark,
             BuiltinCodeTheme::Base16OceanLight,
             BuiltinCodeTheme::InspiredGitHub,
             BuiltinCodeTheme::SolarizedDark,
-            BuiltinCodeTheme::SolarizedLight,
-        ];
-
-        for built_in in themes {
-            let code_theme = CodeTheme::from(built_in);
-            let _ = theme(&code_theme);
-        }
+            BuiltinCodeTheme::SolarizedLight
+        )]
+        built_in: BuiltinCodeTheme,
+    ) {
+        let code_theme = CodeTheme::from(built_in);
+        let _ = theme(&code_theme);
     }
 
     #[test]
@@ -231,48 +230,34 @@ mod tests {
         assert!(std::ptr::eq(default(), default()));
     }
 
-    #[test]
-    fn loaded_theme_applies_its_foreground_color() {
-        let theme = CodeTheme::from_file(fixture("custom.tmTheme")).unwrap();
-
-        assert_eq!(
-            rendered_keyword_foreground(theme),
-            Some(Color::Rgb(255, 255, 255))
+    #[rstest]
+    fn loaded_theme_applies_its_foreground_color(theme_path: PathBuf) {
+        let loaded_theme = CodeTheme::from_file(theme_path).unwrap();
+        let options = Options::default().code_theme(loaded_theme);
+        let rendered = from_str_with_options("```rust\nfn main() {}\n```", &options);
+        insta::assert_debug_snapshot!(
+            rendered.lines[1].spans[0],
+            @r#"Span::from("fn").fg(Color::Rgb(255, 255, 255))"#
         );
     }
 
-    #[test]
+    #[rstest]
     fn embedded_theme_applies_its_foreground_color() {
         let source = include_str!("code_theme/fixtures/custom.tmTheme");
-        let theme = CodeTheme::from_textmate(source).unwrap();
-
-        assert_eq!(
-            rendered_keyword_foreground(theme),
-            Some(Color::Rgb(255, 255, 255))
+        let embedded_theme = CodeTheme::from_textmate(source).unwrap();
+        let options = Options::default().code_theme(embedded_theme);
+        let rendered = from_str_with_options("```rust\nfn main() {}\n```", &options);
+        insta::assert_debug_snapshot!(
+            rendered.lines[1].spans[0],
+            @r#"Span::from("fn").fg(Color::Rgb(255, 255, 255))"#
         );
     }
 
-    fn rendered_keyword_foreground(theme: CodeTheme) -> Option<Color> {
-        let input = indoc! {"
-            ```rust
-            fn main() {}
-            ```
-        "};
-        let options = Options::default().code_theme(theme);
-        let rendered = from_str_with_options(input, &options);
-        rendered
-            .lines
-            .iter()
-            .flat_map(|line| &line.spans)
-            .find(|span| span.content == "fn")
-            .expect("Rust highlighting should emit the `fn` keyword")
-            .style
-            .fg
-    }
-
-    #[test]
-    fn missing_theme_reports_its_path_and_read_error() {
-        let path = fixture("missing.tmTheme");
+    #[rstest]
+    fn missing_theme_reports_its_path_and_read_error(
+        #[with("missing.tmTheme")] theme_path: PathBuf,
+    ) {
+        let path = theme_path;
         let error = CodeTheme::from_file(&path).unwrap_err();
 
         let prefix = format!("failed to load code theme from `{}`:", path.display());
@@ -281,9 +266,11 @@ mod tests {
         assert!(error.source().is_some());
     }
 
-    #[test]
-    fn malformed_theme_reports_its_path_and_parse_error() {
-        let path = fixture("invalid.tmTheme");
+    #[rstest]
+    fn malformed_theme_reports_its_path_and_parse_error(
+        #[with("invalid.tmTheme")] theme_path: PathBuf,
+    ) {
+        let path = theme_path;
         let error = CodeTheme::from_file(&path).unwrap_err();
 
         let prefix = format!("failed to load code theme from `{}`:", path.display());

@@ -76,7 +76,8 @@ fn alert_kind(kind: BlockQuoteKind) -> AlertKind {
 #[cfg(test)]
 mod tests {
     use indoc::{formatdoc, indoc};
-    use ratatui_core::text::Text;
+    use ratatui_core::style::Stylize;
+    use ratatui_core::text::{Line, Span, Text};
     use rstest::rstest;
 
     use super::*;
@@ -84,8 +85,6 @@ mod tests {
     use crate::{from_str, from_str_with_options, DefaultStyleSheet, Options};
 
     mod gfm_alerts {
-        use pretty_assertions::assert_eq;
-
         use super::*;
 
         #[derive(Clone)]
@@ -122,338 +121,267 @@ mod tests {
         }
 
         #[rstest]
-        #[case("NOTE", "\u{2139}\u{FE0F} Note", Style::new().blue())]
-        #[case("TIP", "\u{1F4A1} Tip", Style::new().green())]
-        #[case("IMPORTANT", "\u{2757} Important", Style::new().magenta())]
-        #[case("WARNING", "\u{26A0}\u{FE0F} Warning", Style::new().yellow())]
-        #[case("CAUTION", "\u{1F534} Caution", Style::new().red())]
-        fn alert_kind_renders_exact_output(
-            _with_tracing: DefaultGuard,
-            #[case] marker: &str,
-            #[case] heading: &str,
-            #[case] style: Style,
-        ) {
-            let markdown = formatdoc! {"
-                > [!{marker}]
-                > Body
-            "};
-
-            assert_eq!(
-                from_str(&markdown),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::styled(heading.to_owned(), style.bold()),
-                    ])
-                    .style(style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
-                        .style(style),
-                ])
+        #[case("NOTE")]
+        #[case("TIP")]
+        #[case("IMPORTANT")]
+        #[case("WARNING")]
+        #[case("CAUTION")]
+        fn alert_kind_renders_exact_output(_with_tracing: DefaultGuard, #[case] marker: &str) {
+            insta::assert_debug_snapshot!(
+                format!("alert_{marker}"),
+                from_str(&formatdoc! {"
+                    > [!{marker}]
+                    > Body
+                "})
             );
         }
 
         #[rstest]
         fn custom_alert_style_applies_to_header_and_body(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let options = Options::new(CustomAlertStyleSheet);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 > [!NOTE]
                 > Body
-            "};
-            let options = Options::new(CustomAlertStyleSheet);
-            let style = Style::new().on_red();
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::styled("\u{2139}\u{FE0F} Note", style.bold()),
-                    ])
-                    .style(style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
-                        .style(style),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("ℹ\u{fe0f} Note").on_red().bold(),
+                ]).on_red(),
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Body"),
+                ]).on_red(),
+            ])
+            "#);
         }
 
         #[rstest]
         fn custom_alert_icon_replaces_default(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 > [!NOTE]
                 > Body
-            "};
-            let options = Options::new(CustomAlertHeadingStyleSheet);
-            let style = DefaultStyleSheet.alert(AlertKind::Note);
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::styled("!! Note", style.bold()),
-                    ])
-                    .style(style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
-                        .style(style),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("!! Note").blue().bold(),
+                ]).blue(),
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Body"),
+                ]).blue(),
+            ])
+            "#);
         }
 
         #[rstest]
         fn empty_alert_icon_suppresses_icon_and_separator(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 > [!CAUTION]
                 > Body
-            "};
-            let options = Options::new(CustomAlertHeadingStyleSheet);
-            let style = DefaultStyleSheet.alert(AlertKind::Caution);
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::styled("Caution", style.bold()),
-                    ])
-                    .style(style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
-                        .style(style),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Caution").red().bold(),
+                ]).red(),
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Body"),
+                ]).red(),
+            ])
+            "#);
         }
 
         #[rstest]
         fn custom_alert_label_replaces_default(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 > [!TIP]
                 > Body
-            "};
-            let options = Options::new(CustomAlertHeadingStyleSheet);
-            let style = DefaultStyleSheet.alert(AlertKind::Tip);
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::styled("💡 Hint", style.bold()),
-                    ])
-                    .style(style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
-                        .style(style),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("💡 Hint").green().bold(),
+                ]).green(),
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Body"),
+                ]).green(),
+            ])
+            "#);
         }
 
         #[rstest]
         fn empty_alert_label_suppresses_label_and_separator(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            let options = Options::new(CustomAlertHeadingStyleSheet);
+
+            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
                 > [!IMPORTANT]
                 > Body
-            "};
-            let options = Options::new(CustomAlertHeadingStyleSheet);
-            let style = DefaultStyleSheet.alert(AlertKind::Important);
-
-            assert_eq!(
-                from_str_with_options(markdown, &options),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::styled("❗", style.bold()),
-                    ])
-                    .style(style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Body")])
-                        .style(style),
-                ])
-            );
+            "}, &options), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("❗").magenta().bold(),
+                ]).magenta(),
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Body"),
+                ]).magenta(),
+            ])
+            "#);
         }
 
         #[rstest]
         fn ordinary_blockquote_keeps_standard_prefix(_with_tracing: DefaultGuard) {
-            let style = DefaultStyleSheet.blockquote();
             assert_eq!(
                 from_str("> Ordinary"),
-                Text::from(Line::from_iter([">", " ", "Ordinary"]).style(style))
+                Text::from(
+                    Line::from_iter([Span::from(">"), Span::from(" "), Span::from("Ordinary")])
+                        .green()
+                )
             );
         }
 
         #[rstest]
         fn nested_blockquote_keeps_each_standard_prefix(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                > Parent
-                >> Child
-            "};
-            let style = DefaultStyleSheet.blockquote();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([">", " ", "Parent"]).style(style),
-                    Line::from_iter([">", " "]).style(style),
-                    Line::from_iter([">", ">", " ", "Child"]).style(style),
-                ])
+            insta::assert_debug_snapshot!(
+                "nested_blockquote_keeps_each_standard_prefix",
+                from_str(indoc! {"
+                    > Parent
+                    >> Child
+                "})
             );
         }
 
         #[rstest]
         fn alert_preserves_nested_blockquote(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 > [!NOTE]
                 > Parent
                 >> Child
-            "};
-            let alert_style = Style::new().blue();
-            let blockquote_style = DefaultStyleSheet.blockquote();
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::styled("\u{2139}\u{FE0F} Note", alert_style.bold()),
-                    ])
-                    .style(alert_style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" "), Span::raw("Parent")])
-                        .style(alert_style),
-                    Line::from_iter([Span::raw(">"), Span::raw(" ")]).style(alert_style),
-                    Line::from_iter([
-                        Span::raw(">"),
-                        Span::raw(">"),
-                        Span::raw(" "),
-                        Span::raw("Child"),
-                    ])
-                    .style(blockquote_style),
-                ])
-            );
+            "}));
         }
     }
 
     mod blockquote {
-        use pretty_assertions::assert_eq;
-        use ratatui::style::Color;
-
         use super::*;
-
-        const STYLE: Style = Style::new().fg(Color::Green);
+        use pretty_assertions::assert_eq;
 
         /// I was having difficulty getting the right number of newlines between paragraphs, so this
         /// test is to help debug and ensure that.
         #[rstest]
         fn after_paragraph(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 Hello, world!
 
                 > Blockquote
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from("Hello, world!"),
-                    Line::default(),
-                    Line::from_iter([">", " ", "Blockquote"]).style(STYLE),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from("Hello, world!"),
+                Line::default(),
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Blockquote"),
+                ]).green(),
+            ])
+            "#);
         }
 
         #[rstest]
         fn style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 > Blockquote
 
                 After
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([">", " ", "Blockquote"]).style(STYLE),
-                    Line::default(),
-                    Line::from("After"),
-                ])
-            );
+            "}), @r#"
+            Text::from_iter([
+                Line::from_iter([
+                    Span::from(">"),
+                    Span::from(" "),
+                    Span::from("Blockquote"),
+                ]).green(),
+                Line::default(),
+                Line::from("After"),
+            ])
+            "#);
         }
 
         #[rstest]
         fn single(_with_tracing: DefaultGuard) {
             assert_eq!(
                 from_str("> Blockquote"),
-                Text::from(Line::from_iter([">", " ", "Blockquote"]).style(STYLE))
+                Text::from(
+                    Line::from_iter([Span::from(">"), Span::from(" "), Span::from("Blockquote")])
+                        .green()
+                )
             );
         }
 
         #[rstest]
         fn soft_break(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
-                > Blockquote 1
-                > Blockquote 2
-            "};
-
             assert_eq!(
-                from_str(markdown),
+                from_str(indoc! {"
+                    > Blockquote 1
+                    > Blockquote 2
+                "}),
                 Text::from(
-                    Line::from_iter([">", " ", "Blockquote 1", " ", "Blockquote 2"]).style(STYLE)
+                    Line::from_iter([
+                        Span::from(">"),
+                        Span::from(" "),
+                        Span::from("Blockquote 1"),
+                        Span::from(" "),
+                        Span::from("Blockquote 2")
+                    ])
+                    .green()
                 )
             );
         }
 
         #[rstest]
         fn multiple(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 > Blockquote 1
                 >
                 > Blockquote 2
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
-                    Line::from_iter([">", " "]).style(STYLE),
-                    Line::from_iter([">", " ", "Blockquote 2"]).style(STYLE),
-                ])
-            );
+            "}));
         }
 
         #[rstest]
         fn multiple_with_break(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 > Blockquote 1
 
                 > Blockquote 2
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
-                    Line::default(),
-                    Line::from_iter([">", " ", "Blockquote 2"]).style(STYLE),
-                ])
-            );
+            "}));
         }
 
         #[rstest]
         fn nested(_with_tracing: DefaultGuard) {
-            let markdown = indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc! {"
                 > Blockquote 1
                 >> Nested Blockquote
-            "};
-
-            assert_eq!(
-                from_str(markdown),
-                Text::from_iter([
-                    Line::from_iter([">", " ", "Blockquote 1"]).style(STYLE),
-                    Line::from_iter([">", " "]).style(STYLE),
-                    Line::from_iter([">", ">", " ", "Nested Blockquote"]).style(STYLE),
-                ])
-            );
+            "}));
         }
     }
 }

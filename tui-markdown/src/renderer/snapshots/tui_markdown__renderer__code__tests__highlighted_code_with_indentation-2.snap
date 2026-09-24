@@ -1,7 +1,6 @@
 ---
 source: tui-markdown/src/renderer/code.rs
 expression: highlighted_code_indented
-snapshot_kind: text
 ---
 Text::from_iter([
     Line::from("```rust"),
