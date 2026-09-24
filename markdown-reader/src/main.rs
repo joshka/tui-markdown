@@ -24,13 +24,12 @@ fn main() -> Result<()> {
     let log_events = logging::init_logger(Level::DEBUG)?;
     info!("Reading file {:?}", args.path);
     let markdown = read_file(&args.path)?;
-    let text = tui_markdown::from_str_with_options(&markdown, &options);
     let events = Events::new()?;
 
     // Keep startup errors out of the alternate screen and enter terminal mode only after every
     // fallible input and configuration step has completed.
     let terminal = ratatui::init();
-    let app = App::new(text, &args.path, events, log_events);
+    let app = App::new(&markdown, options, &args.path, events, log_events);
     let result = app.run(terminal);
     ratatui::restore();
     result

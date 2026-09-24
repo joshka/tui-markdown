@@ -87,7 +87,8 @@ where
     parse_opts.insert(ParseOptions::ENABLE_TABLES);
     let parser = Parser::new_ext(input, parse_opts);
 
-    let writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
+    let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
+    writer.table_width = options.table_width;
     #[cfg(feature = "highlight-code")]
     let writer = writer.with_code_theme(options.selected_code_theme());
     writer.run()
@@ -154,6 +155,8 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     // Table rendering state.
     /// Active table builder that accumulates cells during table parsing.
     table_builder: Option<table::TableBuilder<'a>>,
+    /// Available terminal columns for table layout.
+    table_width: Option<u16>,
 }
 
 impl<'a, 'theme, I, S> TextWriter<'a, 'theme, I, S>
@@ -186,6 +189,7 @@ where
             in_footnote_definition: false,
             in_definition_description: false,
             table_builder: None,
+            table_width: None,
         }
     }
 

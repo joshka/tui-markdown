@@ -11,6 +11,7 @@ use ratatui::widgets::{
     StatefulWidget, StatefulWidgetRef, Widget, Wrap,
 };
 use ratatui::DefaultTerminal;
+use tui_markdown::Options;
 
 use crate::events::{CrosstermEvent, Event, Events};
 use crate::logging::LogEvents;
@@ -18,6 +19,9 @@ use crate::logging::LogEvents;
 #[derive(Debug)]
 pub struct App<'a> {
     text: Text<'a>,
+    markdown: &'a str,
+    options: Options,
+    rendered_width: Option<u16>,
     path: &'a Path,
     events: Events,
     log_events: LogEvents,
@@ -25,9 +29,18 @@ pub struct App<'a> {
 }
 
 impl<'a> App<'a> {
-    pub fn new(text: Text<'a>, path: &'a Path, events: Events, log_events: LogEvents) -> App<'a> {
+    pub fn new(
+        markdown: &'a str,
+        options: Options,
+        path: &'a Path,
+        events: Events,
+        log_events: LogEvents,
+    ) -> App<'a> {
         App {
-            text,
+            text: Text::default(),
+            markdown,
+            options,
+            rendered_width: None,
             path,
             events,
             log_events,
@@ -75,9 +88,16 @@ impl<'a> App<'a> {
         }
     }
 
-    fn draw(&self, terminal: &mut DefaultTerminal, state: &mut ScrollState) -> Result<()> {
+    fn draw(&mut self, terminal: &mut DefaultTerminal, state: &mut ScrollState) -> Result<()> {
         terminal.draw(|frame| {
-            frame.render_stateful_widget_ref(self, frame.area(), state);
+            // The document pane reserves one column for its scrollbar.
+            let width = frame.area().width.saturating_sub(1);
+            if self.rendered_width != Some(width) {
+                let options = self.options.clone().table_width(width);
+                self.text = tui_markdown::from_str_with_options(self.markdown, &options);
+                self.rendered_width = Some(width);
+            }
+            frame.render_stateful_widget_ref(&*self, frame.area(), state);
         })?;
         Ok(())
     }
