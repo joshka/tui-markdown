@@ -26,6 +26,220 @@ let text = tui_markdown::from_str(input);
 text.render(area, &mut buf);
 ```
 
+### Width-aware rendering
+
+Use `Options::width` to fit rendered text into the space available in your UI.
+Pass the options to `from_str_with_options` when rendering a complete string,
+or to `StreamingMarkdown::new` when receiving text in pieces.
+
+```rust
+use tui_markdown::{from_str_with_options, Options};
+
+let options = Options::default().width(Some(4));
+let text = from_str_with_options("abcdefghij", &options);
+assert_eq!(text.to_string(), "abcd\nefgh\nij");
+```
+
+- Width is measured in terminal cells (columns), not pixels or bytes.
+  Most ASCII characters occupy one cell; many CJK characters and emoji occupy two.
+- Supply the width available for Markdown text. Exclude your UI's reply markers and borders.
+  For example, `Some(80)` allows 80 cells per row; it is not a default or a required width.
+- `None` is the default. The package still renders Markdown, but it does not wrap long lines
+  to a width. Your UI decides how to display them.
+- `Some(0)` returns no display rows. It does not mean unlimited width.
+- The package does not read the terminal size. Call `StreamingMarkdown::set_width` when it changes.
+
+#### Characters that do not fit
+
+Text that does not fit at the end of a row moves to the next row. Wrapping keeps each grapheme
+together: a grapheme is one displayed character, such as a letter with an accent or a joined emoji.
+
+If a grapheme is wider than the **entire** available row, the renderer shows `-` instead.
+Use `Options::with_wide_grapheme_replacement` to choose another printable ASCII character:
+
+```rust
+use tui_markdown::{from_str_with_options, Options};
+
+let options = Options::default()
+    .width(Some(1))
+    .with_wide_grapheme_replacement('*')
+    .expect("a printable ASCII character");
+let text = from_str_with_options("\u{754c}", &options);
+assert_eq!(text.to_string(), "*");
+```
+
+The replacement keeps the original style. Non-ASCII characters and control characters return
+`InvalidReplacementCharacter`; printable ASCII means `U+0020` through `U+007E`.
+The original source is never changed. Rendering at a wider width restores the original character.
+
+#### Tables and buffer limits
+
+With `Options::width(Some(...))`, tables stay as bordered grids when possible.
+Wide cells wrap into multiple physical lines. Horizontal rules separate logical rows.
+Each cell has one space of padding on each side. Shorter cells are padded to their row's height.
+Left, right, and center alignment apply to each physical cell line.
+
+The renderer keeps natural column widths when they fit. Otherwise, it caps wider columns
+while retaining shorter columns. Remaining space is assigned from left to right.
+Each column keeps at least one terminal cell and enough space for its widest complete grapheme.
+This prevents narrow columns from replacing CJK characters or emoji.
+List indentation and quote prefixes are subtracted before fitting the grid.
+
+If even these minimum column widths, padding, and borders cannot fit, the renderer lists
+each row's cells vertically with numbers. It keeps every cell's content instead of cutting it off.
+Widening a streaming document rebuilds the grid from the original source.
+
+- `Options::table_limits` controls how much data the renderer buffers while building a table grid.
+  Defaults are 8,192 logical cells and 4 MiB of tracked buffer capacity.
+  Headers and empty cells count toward the cell limit.
+- If a limit prevents building the grid, the renderer uses the same vertical presentation.
+  Setting either limit to zero requests this presentation for every table.
+- These limits apply only when a width is set. With `width(None)`, the original table behavior
+  remains in effect, even if you supplied custom limits.
+- The limits do not cap total memory use. The source, rendered output, and parser also use memory.
+
+The renderer sometimes joins styled cell fragments to measure and wrap graphemes that cross
+between them. It counts this shared buffer and both column-width vectors against the byte limit.
+It checks the limit before allocating and reuses the joined-content buffer across cells.
+Wrapping writes directly into the rendered rows without a second buffer of wrapped cells.
+`ResourceUsage` separately reports the stored rendered output.
+
+### Streaming rendering
+
+Use `StreamingMarkdown` when a Markdown document arrives in pieces.
+The object stores the source and updates its rendered output as you append text.
+
+- Call `append(&str)` with each **new** fragment, in order. Do not send the accumulated source again.
+- Call `current()` after an update to read the complete current output, not just the latest fragment.
+- Call `finish()` when input ends.
+- Create a separate object for each independent document or response.
+
+```rust
+use tui_markdown::{Options, StreamingMarkdown};
+
+let mut markdown = StreamingMarkdown::new(Options::default().width(Some(80)));
+markdown.append("First paragraph.\n\n");
+let update = markdown.append("Second **paragraph**.");
+
+assert_eq!(markdown.current().to_string(), "First paragraph.\n\nSecond paragraph.");
+assert!(update.first_changed_row.is_some());
+assert_eq!(markdown.source(), "First paragraph.\n\nSecond **paragraph**.");
+markdown.finish();
+```
+
+Each fragment must be valid UTF-8. It may end inside Markdown syntax or between code points
+of a grapheme. The caller handles network decoding, input order, and when text becomes visible.
+
+Updates finish before the method returns. The result is Ratatui `Text`, containing `Line` and
+styled `Span` values. It is not HTML, an image, or terminal escape codes. Your UI draws the result.
+Later input can still change earlier output, for example when it closes unfinished emphasis.
+
+#### Changing settings
+
+Batch and streaming accept the same `Options`.
+
+- Use `set_width`, `set_table_limits`, or `set_wide_grapheme_replacement` to change layout
+  without replacing your styles. Passing the same value does no work.
+- Without tables, a layout change rearranges the cached output without parsing the source again.
+  With tables, the renderer processes the full source to rebuild their layout.
+- An invalid replacement character returns an error and leaves the document unchanged.
+- Use `set_options` to replace the complete options. This always processes the full source.
+  Custom style sheets need not support equality checks, so the method does not assume they match.
+- Use `replace` to supply a different complete source, or `clear` to reuse the object for new text.
+
+#### Reading a display-row range
+
+Use `prepare_rows(first_row, row_count)` when your UI needs only part of the rendered output.
+It returns a read-only view of the stored rows without reprocessing Markdown or copying rows.
+
+- `first_row` is zero-based. `row_count` is a count, not an end index.
+- Rows refer to the output, including any width wrapping, not to source lines.
+  Human-numbered rows 10 through 20 use `prepare_rows(9, 11)`.
+- A range past the end returns only available rows. A start at or beyond the end returns no rows.
+- The method does not know which rows are visible in your window. Your UI chooses the range.
+
+```rust
+use tui_markdown::{Options, StreamingMarkdown};
+
+let mut markdown = StreamingMarkdown::new(Options::default().width(Some(80)));
+markdown.append("one\n\ntwo\n\nthree");
+let viewport = markdown.prepare_rows(1, 2);
+assert_eq!(viewport.first_row(), 1);
+assert_eq!(viewport.rows(), &markdown.current().lines[1..3]);
+assert!(markdown.prepare_rows(100, 2).is_empty());
+```
+
+Both `current()` and `prepare_rows()` reuse stored output. Reading it does not parse, render,
+allocate, or clone. The UI still draws those rows and handles text selection and mouse clicks.
+Using the same rows for these tasks keeps mouse positions aligned with displayed text.
+
+Rust prevents document updates while borrowed rows are still in use.
+The `'static` in `Text<'static>` describes the owned text content, not the lifetime of your reference.
+The full output is prepared before you read it; selecting a range does not limit initial rendering
+to that range. Your application decides how many document objects and past replies to keep.
+
+#### How incremental updates work
+
+The object tracks where parsing needs to resume. This position is its **replay checkpoint**.
+You do not maintain it yourself.
+
+- Ordinary `append` reuses output before the checkpoint. It parses and renders the affected
+  suffix: the source from that position onward.
+- An unfinished paragraph, list, table, or code block may need to be processed again.
+  Incremental rendering does not mean processing only the latest fragment.
+- If the checkpoint is still at byte zero, the suffix is the whole current document.
+- References and footnotes can affect text outside that suffix. These use the full-source
+  processing paths below.
+
+Every current result must match rendering the same received source from scratch with the same
+options. `finish()` does not repair otherwise incorrect intermediate results.
+
+#### When the renderer processes the full source
+
+**`finish()` is not the only full-source operation.** The current behavior is:
+
+| Operation or condition | Parsing and rendering work |
+| --- | --- |
+| Ordinary nonempty `append` | Start at the replay checkpoint, which may be zero |
+| A reference, footnote, or other document-wide dependency is found | A full-source pass may be needed, including for unresolved references |
+| Later nonempty appends after a document-wide dependency was found | Keep processing the full source until `replace` supplies different source or `clear` removes it |
+| `replace` with different, nonempty source | Parse and render the new source in full |
+| `set_options` | Parse and render the full source, even if the new options would give the same output |
+| A changed layout-only setter, without tables | Rearrange cached output without parsing again |
+| A changed layout-only setter, with tables | Parse and render the full source to rebuild table layout |
+| `finish` | Parse and render the full source once for the current source and options |
+| Nonempty `append` after `finish` | Start accepting text again, process the full source, and report `ChangeReason::Reopen` |
+
+The following do no parser or renderer work:
+
+- `current()` and `prepare_rows()`.
+- Empty `append`, `replace` with the same source, or a layout-only setter with the same value.
+- Repeated `finish` with no source or options change.
+- `clear` or `replace("")`. They remove source and stored output; an already empty document is unchanged.
+
+#### Using update information
+
+Document updates report `Update` information:
+
+- `first_changed_row` gives the first output row that differs, or `None` if the output is unchanged.
+  A UI can use it to decide where redrawing must start.
+- `stable_rows` counts the initial rows that later ordinary appends will not change.
+  Use this count if you write to output that cannot be revised.
+- `replay_start` gives the original UTF-8 byte offset where processing began.
+- `reason` tells you which operation or dependency caused the update.
+
+Already rendered rows are not necessarily stable. The stability promise applies only while
+appending to the same document with unchanged options. Replacement, clearing, layout changes,
+and `ChangeReason::Reopen` start a new period; do not carry the old promise across them.
+
+Use `counters()` to measure parser and renderer work without recording the source.
+The returned `WorkCounters` includes processed bytes, events, and `layout_reflows`.
+`full_recomputations` counts explicit full-source operations; ordinary replay from byte zero is
+not counted there. Use byte and event counts to measure total work.
+
+Use `resource_usage()` to inspect the source and output buffers the object keeps.
+`ResourceUsage` reports tracked storage, not a total-memory limit.
+
 ### Syntax highlighting themes
 
 With the default `highlight-code` feature enabled, fenced code blocks whose language is recognized

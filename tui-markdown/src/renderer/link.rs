@@ -16,14 +16,14 @@ where
     S: StyleSheet,
 {
     /// Stores the destination and applies the link style to the label.
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     pub fn push_link(&mut self, dest_url: CowStr<'a>) {
         self.link = Some(dest_url);
         self.push_inline_style(self.styles.link());
     }
 
     /// Restores the enclosing style and appends the destination.
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     pub fn pop_link(&mut self) {
         self.pop_inline_style();
         if let Some(link) = self.link.take() {

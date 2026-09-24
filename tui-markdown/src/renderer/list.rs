@@ -89,7 +89,9 @@ where
                     return;
                 }
             }
-            line.spans.insert(1, marker_span);
+            // A hidden setext heading marker can leave this line without a prefix span.
+            let index = usize::from(!line.spans.is_empty());
+            line.spans.insert(index, marker_span);
         } else {
             self.push_span(marker_span);
         }

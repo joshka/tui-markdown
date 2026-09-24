@@ -30,13 +30,24 @@ where
 
     pub fn html_block(&mut self, html: CowStr<'a>) {
         let style = self.styles.html();
-        for line in html.lines() {
+        for part in html.split_inclusive('\n') {
             if self.needs_newline {
                 self.push_line(Line::default());
                 self.needs_newline = false;
             }
-            self.push_span(Span::styled(line.to_owned(), style));
-            self.needs_newline = true;
+            let content = part.strip_suffix('\n').unwrap_or(part);
+            let content = content.strip_suffix('\r').unwrap_or(content);
+            // A newline-only event can finish a line from the previous parser event.
+            if !content.is_empty()
+                || self
+                    .text
+                    .lines
+                    .last()
+                    .is_none_or(|line| line.spans.is_empty())
+            {
+                self.push_span(Span::styled(content.to_owned(), style));
+            }
+            self.needs_newline = part.ends_with('\n');
         }
     }
 
@@ -88,6 +99,21 @@ mod tests {
                     Span::styled("</em>", html),
                 ]))
             );
+        }
+
+        #[rstest]
+        #[case::lf("\n")]
+        #[case::crlf("\r\n")]
+        fn html_block_preserves_lines_across_parser_events(#[case] newline: &str) {
+            let source = [
+                "Before", "", "<pre>", "first", "", "last", "</pre>", "", "After",
+            ];
+            let markdown = source.join(newline);
+            let text = from_str(&markdown);
+            let canonical = source.join("\n");
+
+            assert_eq!(text, from_str(&canonical));
+            assert_eq!(text.to_string(), canonical);
         }
 
         #[rstest]

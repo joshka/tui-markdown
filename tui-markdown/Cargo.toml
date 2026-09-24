@@ -32,6 +32,8 @@ pulldown-cmark = "0.13"
 ratatui-core.workspace = true
 syntect = { version = "5", optional = true }
 tracing = "0.1.37"
+unicode-segmentation = "1.12"
+unicode-width = "0.2"
 
 [dev-dependencies]
 indoc = "2"

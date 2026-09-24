@@ -1,8 +1,12 @@
 //! Convert Markdown into Ratatui [`Text`](ratatui_core::text::Text).
 //!
-//! [`from_str`] renders with the default styles and options. [`from_str_with_options`] accepts an
-//! [`Options`] value for custom [`StyleSheet`] styles and symbols, image fallback mode, and, when
-//! the `highlight-code` feature is enabled, syntax-highlighting theme.
+//! - Use [`from_str`] to render a complete string with default settings.
+//! - Use [`from_str_with_options`] to choose styles, image text, code-highlighting themes, and width.
+//! - Use [`StreamingMarkdown`] when text arrives in pieces. Append new text, read the current
+//!   rendered output, and call [`StreamingMarkdown::finish`] when input ends.
+//!
+//! Batch and streaming accept the same [`Options`]. Set [`Options::width`] to wrap long lines
+//! to your text area's width. The default does not wrap lines to a width.
 //!
 //! The returned text may borrow from the Markdown input. It contains terminal text and styles only;
 //! image syntax produces a configurable text fallback and does not read or render image resources.
@@ -49,13 +53,20 @@
 
 #[cfg(feature = "highlight-code")]
 mod code_theme;
+mod layout;
 mod options;
 mod renderer;
+mod streaming;
 mod style_sheet;
 
 #[doc(inline)]
 #[cfg(feature = "highlight-code")]
 pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme, CodeThemeLoadError};
+pub use crate::layout::{InvalidReplacementCharacter, TableLimits};
 pub use crate::options::{ImageFallback, Options};
 pub use crate::renderer::{from_str, from_str_with_options};
+pub use crate::streaming::{
+    ChangeReason, PreparedRows, ResourceUsage, StreamingMarkdown, TableFallbacks, Update,
+    WorkCounters,
+};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};

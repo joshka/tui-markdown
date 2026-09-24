@@ -15,7 +15,7 @@ where
     I: Iterator<Item = Event<'a>>,
     S: StyleSheet,
 {
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     pub fn push_inline_style(&mut self, style: Style) {
         let current_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = current_style.patch(style);
@@ -24,7 +24,7 @@ where
         debug!("Current inline styles: {:?}", self.inline_styles);
     }
 
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     pub fn pop_inline_style(&mut self) {
         self.inline_styles.pop();
     }

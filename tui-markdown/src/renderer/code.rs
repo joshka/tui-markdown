@@ -19,7 +19,7 @@ use syntect::{
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 #[cfg(feature = "highlight-code")]
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument};
 
 use super::TextWriter;
 #[cfg(feature = "highlight-code")]
@@ -66,9 +66,14 @@ where
             self.push_line(span.into());
         }
         self.needs_newline = true;
+        self.code_line = Some(String::new());
     }
 
     pub fn end_codeblock(&mut self) {
+        if self.code_line.as_ref().is_some_and(|line| !line.is_empty()) {
+            self.flush_code_line();
+        }
+        self.code_line = None;
         let fence = self.styles.code_block_fence();
         if !fence.is_empty() {
             let span = Span::from(fence.to_owned());
@@ -81,6 +86,32 @@ where
 
         #[cfg(feature = "highlight-code")]
         self.clear_code_highlighter();
+    }
+
+    pub fn code_block_text(&mut self, text: &str) {
+        for part in text.split_inclusive('\n') {
+            if let Some(line) = &mut self.code_line {
+                line.push_str(part);
+            }
+            if part.ends_with('\n') {
+                self.flush_code_line();
+            }
+        }
+    }
+
+    fn flush_code_line(&mut self) {
+        let Some(mut line) = self.code_line.take() else {
+            return;
+        };
+        if !self.push_highlighted_text(&line) {
+            let content = line.strip_suffix('\n').unwrap_or(&line);
+            let content = content.strip_suffix('\r').unwrap_or(content);
+            let style = self.inline_styles.last().copied().unwrap_or_default();
+            self.push_line(Line::from(Span::styled(content.to_owned(), style)));
+        }
+        line.clear();
+        self.code_line = Some(line);
+        self.needs_newline = false;
     }
 
     #[cfg(feature = "highlight-code")]
@@ -101,7 +132,7 @@ where
             .collect();
 
         for line in text.lines {
-            self.text.push_line(line);
+            self.push_line(line);
         }
         self.needs_newline = false;
         true
@@ -113,10 +144,10 @@ where
     }
 
     #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
-            debug!("Starting code block with syntax: {:?}", lang);
+            debug!("Starting syntax-highlighted code block");
             let code_theme = match self.code_theme {
                 Some(code_theme) => code_theme,
                 None => code_theme::default(),
@@ -125,12 +156,12 @@ where
             let highlighter = HighlightLines::new(syntax, theme);
             self.code_highlighter = Some(highlighter);
         } else {
-            warn!("Could not find syntax for code block: {:?}", lang);
+            debug!("Using plain style for unrecognized code block language");
         }
     }
 
     #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip_all)]
     fn clear_code_highlighter(&mut self) {
         self.code_highlighter = None;
     }
@@ -235,6 +266,33 @@ mod tests {
         let text = from_str(markdown);
 
         assert_eq!(text.lines.last(), Some(&Line::from("After")));
+    }
+
+    #[rstest]
+    #[case::lf("\n")]
+    #[case::crlf("\r\n")]
+    fn code_preserves_lines_across_parser_text_events(#[case] newline: &str) {
+        let options = Options::new(CustomCodeBlockFence(""));
+        let markdown = ["```not-a-language", "first", "", "last", "```"].join(newline);
+
+        assert_eq!(
+            from_str_with_options(&markdown, &options).to_string(),
+            "first\n\nlast"
+        );
+    }
+
+    #[cfg(feature = "highlight-code")]
+    #[rstest]
+    #[case::lf("\n")]
+    #[case::crlf("\r\n")]
+    fn highlighted_code_preserves_blank_lines(#[case] newline: &str) {
+        let options = Options::new(CustomCodeBlockFence(""));
+        let markdown = ["```rust", "let first = 1;", "", "let last = 2;", "```"].join(newline);
+
+        assert_eq!(
+            from_str_with_options(&markdown, &options).to_string(),
+            "let first = 1;\n\nlet last = 2;"
+        );
     }
 
     #[rstest]

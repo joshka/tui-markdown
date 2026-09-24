@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+- Add `StreamingMarkdown` to parse and render Markdown incrementally as text arrives.
+  Callers can read the current rendered output and find the first changed row after each update.
+  Call `finish()` when input ends.
+  Its `prepare_rows` method lets callers read a chosen range of already rendered rows.
+  It does not reprocess the Markdown or copy the rows.
+  The UI can use the same rows to display text, calculate sizes, and handle text selection
+  and mouse clicks.
+- Add optional body width and table limits to `Options`, shared by batch and streaming rendering.
+  Set a width to wrap long lines without splitting displayed characters such as joined emoji.
+  Keep bordered table grids when possible by wrapping wide cells and separating logical rows.
+  Preserve styles, alignment, and complete graphemes inside each column.
+  Show cells vertically only when minimum grid geometry cannot fit or buffering exceeds a limit.
+  Width `None` keeps the original table layout.
+  Without tables, `StreamingMarkdown::set_width` rearranges cached output without parsing again.
+- Keep code-block and HTML lines, including blank lines, when input uses LF (`\n`) or CRLF (`\r\n`).
+  Avoid adding empty `Span` values when rendering metadata.
+- Avoid a panic when task-list text becomes an underlined heading and
+  `StyleSheet::heading_marker` returns an empty string. Keep the checkbox and text visible.
+
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
 
 - Render GFM tables and alerts, raw HTML, math, footnotes, and definition lists ([#153], [#154]).
