@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.10](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.9...tui-markdown-v0.3.10) - 2026-09-25
+
+### Added
+
+- *(renderer)* add StyleSheet::list_marker for ordered list markers ([#183](https://github.com/joshka/tui-markdown/pull/183))
+
+### Fixed
+
+- wrap tables to the configured width ([#200](https://github.com/joshka/tui-markdown/pull/200))
+- *(deps)* make test helpers dev dependencies ([#199](https://github.com/joshka/tui-markdown/pull/199))
+
+### Other
+
+- clarify indoc snapshot expressions ([#203](https://github.com/joshka/tui-markdown/pull/203))
+- preserve exact table whitespace ([#202](https://github.com/joshka/tui-markdown/pull/202))
+- simplify renderer assertions ([#201](https://github.com/joshka/tui-markdown/pull/201))
+- *(deps)* bump the cargo-dependencies group across 1 directory with 2 updates ([#198](https://github.com/joshka/tui-markdown/pull/198))
+- Catch clippy regressions before stable ([#181](https://github.com/joshka/tui-markdown/pull/181))
+
 ## [0.3.9](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.8...tui-markdown-v0.3.9) - 2026-07-23
 
 - Render GFM tables and alerts, raw HTML, math, footnotes, and definition lists ([#153], [#154]).
