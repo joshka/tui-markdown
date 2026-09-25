@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.31](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.30...markdown-reader-v0.1.31) - 2026-09-25
+
+### Fixed
+
+- wrap tables to the configured width ([#200](https://github.com/joshka/tui-markdown/pull/200))
+
+### Other
+
+- simplify renderer assertions ([#201](https://github.com/joshka/tui-markdown/pull/201))
+
 ## [0.1.30](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.29...markdown-reader-v0.1.30) - 2026-08-18
 
 ### Other
