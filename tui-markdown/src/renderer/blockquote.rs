@@ -140,10 +140,10 @@ mod tests {
         fn custom_alert_style_applies_to_header_and_body(_with_tracing: DefaultGuard) {
             let options = Options::new(CustomAlertStyleSheet);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 > [!NOTE]
                 > Body
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from(">"),
@@ -163,10 +163,10 @@ mod tests {
         fn custom_alert_icon_replaces_default(_with_tracing: DefaultGuard) {
             let options = Options::new(CustomAlertHeadingStyleSheet);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 > [!NOTE]
                 > Body
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from(">"),
@@ -186,10 +186,10 @@ mod tests {
         fn empty_alert_icon_suppresses_icon_and_separator(_with_tracing: DefaultGuard) {
             let options = Options::new(CustomAlertHeadingStyleSheet);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 > [!CAUTION]
                 > Body
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from(">"),
@@ -209,10 +209,10 @@ mod tests {
         fn custom_alert_label_replaces_default(_with_tracing: DefaultGuard) {
             let options = Options::new(CustomAlertHeadingStyleSheet);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 > [!TIP]
                 > Body
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from(">"),
@@ -232,10 +232,10 @@ mod tests {
         fn empty_alert_label_suppresses_label_and_separator(_with_tracing: DefaultGuard) {
             let options = Options::new(CustomAlertHeadingStyleSheet);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 > [!IMPORTANT]
                 > Body
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from(">"),
@@ -266,20 +266,24 @@ mod tests {
         fn nested_blockquote_keeps_each_standard_prefix(_with_tracing: DefaultGuard) {
             insta::assert_debug_snapshot!(
                 "nested_blockquote_keeps_each_standard_prefix",
-                from_str(indoc! {"
+                from_str(indoc!(
+                    "
                     > Parent
                     >> Child
-                "})
+                "
+                ))
             );
         }
 
         #[rstest]
         fn alert_preserves_nested_blockquote(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!(
+                "
                 > [!NOTE]
                 > Parent
                 >> Child
-            "}));
+            "
+            )));
         }
     }
 
@@ -291,11 +295,11 @@ mod tests {
         /// test is to help debug and ensure that.
         #[rstest]
         fn after_paragraph(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 Hello, world!
 
                 > Blockquote
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from("Hello, world!"),
                 Line::default(),
@@ -310,11 +314,11 @@ mod tests {
 
         #[rstest]
         fn style_does_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 > Blockquote
 
                 After
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from_iter([
                     Span::from(">"),
@@ -360,28 +364,34 @@ mod tests {
 
         #[rstest]
         fn multiple(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!(
+                "
                 > Blockquote 1
                 >
                 > Blockquote 2
-            "}));
+            "
+            )));
         }
 
         #[rstest]
         fn multiple_with_break(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!(
+                "
                 > Blockquote 1
 
                 > Blockquote 2
-            "}));
+            "
+            )));
         }
 
         #[rstest]
         fn nested(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!(
+                "
                 > Blockquote 1
                 >> Nested Blockquote
-            "}));
+            "
+            )));
         }
     }
 }

@@ -108,17 +108,17 @@ mod tests {
 
     #[rstest]
     fn list_single(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             - List item 1
-        "}), @r#"Text::from(Line::from_iter([Span::from("- "), Span::from("List item 1")]))"#);
+        ")), @r#"Text::from(Line::from_iter([Span::from("- "), Span::from("List item 1")]))"#);
     }
 
     #[rstest]
     fn list_multiple(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             - List item 1
             - List item 2
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("- "),
@@ -134,10 +134,10 @@ mod tests {
 
     #[rstest]
     fn list_ordered(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             1. List item 1
             2. List item 2
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("1. ").light_blue(),
@@ -155,13 +155,15 @@ mod tests {
     fn styled_list_items_keep_content_on_marker_line(_with_tracing: DefaultGuard) {
         insta::assert_debug_snapshot!(
             "styled_list_items_keep_content_on_marker_line",
-            from_str(indoc! {"
+            from_str(indoc!(
+                "
                 - *Emphasis* and **strong**
                 - Before **strong *emphasis*** after
 
                 1. **Strong**
                 2. Before *emphasis* after
-            "})
+            "
+            ))
         );
     }
 
@@ -170,7 +172,8 @@ mod tests {
         // Regression: loose lists emit paragraph boundaries after their item markers.
         insta::assert_debug_snapshot!(
             "loose_styled_list_items_keep_first_paragraph_on_marker_line",
-            from_str(indoc! {"
+            from_str(indoc!(
+                "
                 - *Emphasized first item.*
 
                 - **Strong second item.**
@@ -178,17 +181,18 @@ mod tests {
                 1. **Strong first item.**
 
                 2. *Emphasized second item.*
-            "})
+            "
+            ))
         );
     }
 
     #[rstest]
     fn later_styled_paragraph_in_list_stays_separate(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             - **First paragraph.**
 
               *Second paragraph.*
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("- "),
@@ -202,10 +206,10 @@ mod tests {
 
     #[rstest]
     fn ordered_list_respects_start_index(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             10. Tenth
             11. Eleventh
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("10. ").light_blue(),
@@ -221,10 +225,10 @@ mod tests {
 
     #[rstest]
     fn list_nested(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             - List item 1
               - Nested list item 1
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("- "),
@@ -240,10 +244,10 @@ mod tests {
 
     #[rstest]
     fn list_task_items(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             - [ ] Incomplete
             - [x] Complete
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("- [ ] "),
@@ -259,10 +263,10 @@ mod tests {
 
     #[rstest]
     fn list_task_items_ordered(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             1. [ ] Incomplete
             2. [x] Complete
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("1. ").light_blue(),
@@ -280,11 +284,11 @@ mod tests {
 
     #[rstest]
     fn list_does_not_indent_following_paragraph(_with_tracing: DefaultGuard) {
-        insta::assert_debug_snapshot!(from_str(indoc! {"
+        insta::assert_debug_snapshot!(from_str(indoc!("
             - Item
 
             After
-        "}), @r#"
+        ")), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("- "),
@@ -308,10 +312,10 @@ mod tests {
         }
 
         let options = Options::new(CustomListMarkerStyle);
-        insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+        insta::assert_debug_snapshot!(from_str_with_options(indoc!("
             1. List item 1
             2. List item 2
-        "}, &options), @r#"
+        "), &options), @r#"
         Text::from_iter([
             Line::from_iter([
                 Span::from("1. ").magenta().bold(),
@@ -339,9 +343,9 @@ mod tests {
         let options = Options::new(CustomListMarkerStyle);
 
         insta::assert_debug_snapshot!(
-            from_str_with_options(indoc! {"
+            from_str_with_options(indoc!("
                 - List item 1
-            "}, &options),
+            "), &options),
             @r#"Text::from(Line::from_iter([Span::from("- "), Span::from("List item 1")]))"#
         );
     }

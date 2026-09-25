@@ -1,8 +1,7 @@
 ---
 source: tui-markdown/src/renderer/list.rs
 expression: |-
-  from_str(indoc!
-  {"
+  from_str(indoc!("
                   - *Emphasized first item.*
   
                   - **Strong second item.**
@@ -10,7 +9,7 @@ expression: |-
                   1. **Strong first item.**
   
                   2. *Emphasized second item.*
-              "})
+              "))
 ---
 Text::from_iter([
     Line::from_iter([

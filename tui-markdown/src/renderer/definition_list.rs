@@ -84,10 +84,10 @@ mod tests {
 
         #[rstest]
         fn exact_output_and_default_styles(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 Term
                 : Definition
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from(Span::from("Term").bold()),
                 Line::from_iter([
@@ -102,10 +102,10 @@ mod tests {
         fn custom_styles_apply_to_terms_and_definitions(_with_tracing: DefaultGuard) {
             let options = Options::new(CustomDefinitionStyleSheet);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 Term
                 : Definition
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from(Span::from("Term").red().underlined()),
                 Line::from_iter([
@@ -120,10 +120,10 @@ mod tests {
         fn inline_formatting_combines_with_definition_styles(_with_tracing: DefaultGuard) {
             let options = Options::new(CustomDefinitionStyleSheet);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 *Term*
                 : **Description**
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from(Span::from("Term").red().italic().underlined()),
                 Line::from_iter([
@@ -136,11 +136,11 @@ mod tests {
 
         #[rstest]
         fn multiline_definition(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 Term
                 : First line
                   second line
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from(Span::from("Term").bold()),
                 Line::from_iter([
@@ -155,11 +155,11 @@ mod tests {
 
         #[rstest]
         fn multiple_descriptions(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 Term
                 : First description
                 : Second description
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from(Span::from("Term").bold()),
                 Line::from_iter([
@@ -176,12 +176,12 @@ mod tests {
 
         #[rstest]
         fn multiple_description_paragraphs_keep_prefix_and_blank_line(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 Term
                 : First paragraph.
 
                   Second paragraph.
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from(Span::from("Term").bold()),
                 Line::from_iter([
@@ -198,7 +198,8 @@ mod tests {
         fn repeated_items_do_not_leak_into_following_paragraph(_with_tracing: DefaultGuard) {
             insta::assert_debug_snapshot!(
                 "repeated_items_do_not_leak_into_following_paragraph",
-                from_str(indoc! {"
+                from_str(indoc!(
+                    "
                     Term one
                     : First description.
 
@@ -206,7 +207,8 @@ mod tests {
                     : Second description.
 
                     After.
-                "})
+                "
+                ))
             );
         }
     }

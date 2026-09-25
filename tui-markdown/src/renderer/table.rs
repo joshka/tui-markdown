@@ -1363,12 +1363,12 @@ mod tests {
 
     #[test]
     fn table_snapshot() {
-        insta::assert_snapshot!(from_str(indoc! {"
+        insta::assert_snapshot!(from_str(indoc!("
             | Name | Value |
             |------|-------|
             | foo  | bar   |
             | baz  | qux   |
-        "}), @"
+        ")), @"
         ┌──────┬───────┐
         │ Name │ Value │
         ├──────┼───────┤

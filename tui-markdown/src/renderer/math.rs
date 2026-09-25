@@ -74,7 +74,7 @@ mod tests {
 
         #[rstest]
         fn multiline_display_math_styles_every_line(_with_tracing: DefaultGuard) {
-            insta::assert_debug_snapshot!(from_str(indoc! {"
+            insta::assert_debug_snapshot!(from_str(indoc!("
                 Before
 
                 $$
@@ -83,7 +83,7 @@ mod tests {
                 $$
 
                 After
-            "}), @r#"
+            ")), @r#"
             Text::from_iter([
                 Line::from("Before"),
                 Line::default(),
@@ -110,12 +110,12 @@ mod tests {
 
             let options = Options::new(CustomMathStyle);
 
-            insta::assert_debug_snapshot!(from_str_with_options(indoc! {"
+            insta::assert_debug_snapshot!(from_str_with_options(indoc!("
                 $$
                 x = y
                 y = z
                 $$
-            "}, &options), @r#"
+            "), &options), @r#"
             Text::from_iter([
                 Line::from(Span::from("$$").red().bold()),
                 Line::from(Span::from("x = y").red().bold()),
