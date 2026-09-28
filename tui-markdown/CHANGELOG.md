@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+- Add `StreamingMarkdown` to parse and render text as it arrives, reusing unchanged output.
+  Read the current result with `current()` and call `finish()` when input ends.
+  Updates identify the first changed row, and counters report parsing/rendering work.
+
 ## [0.3.10](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.9...tui-markdown-v0.3.10) - 2026-09-25
 
 ### Added

@@ -32,6 +32,7 @@ mod image;
 mod link;
 mod list;
 mod math;
+pub(crate) mod streaming;
 mod table;
 #[cfg(test)]
 mod test_support;

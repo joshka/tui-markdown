@@ -4,6 +4,9 @@
 //! [`Options`] value for custom [`StyleSheet`] styles and symbols, image fallback mode, and, when
 //! the `highlight-code` feature is enabled, syntax-highlighting theme.
 //!
+//! [`StreamingMarkdown`] accepts ordered UTF-8 fragments and caches the current output. It reports
+//! changed rows, stable rows, replay offsets, and actual parsing and rendering work.
+//!
 //! The returned text may borrow from the Markdown input. It contains terminal text and styles only;
 //! image syntax produces a configurable text fallback and does not read or render image resources.
 //!
@@ -53,6 +56,7 @@
 mod code_theme;
 mod options;
 mod renderer;
+mod streaming;
 mod style_sheet;
 
 #[doc(inline)]
@@ -60,4 +64,5 @@ mod style_sheet;
 pub use crate::code_theme::{BuiltinCodeTheme, CodeTheme, CodeThemeLoadError};
 pub use crate::options::{ImageFallback, Options};
 pub use crate::renderer::{from_str, from_str_with_options};
+pub use crate::streaming::{ChangeReason, StreamingMarkdown, Update, WorkCounters};
 pub use crate::style_sheet::{AlertKind, DefaultStyleSheet, StyleSheet};
