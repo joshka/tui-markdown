@@ -30,13 +30,24 @@ where
 
     pub fn html_block(&mut self, html: CowStr<'a>) {
         let style = self.styles.html();
-        for line in html.lines() {
+        for part in html.split_inclusive('\n') {
             if self.needs_newline {
                 self.push_line(Line::default());
                 self.needs_newline = false;
             }
-            self.push_span(Span::styled(line.to_owned(), style));
-            self.needs_newline = true;
+            let content = part.strip_suffix('\n').unwrap_or(part);
+            let content = content.strip_suffix('\r').unwrap_or(content);
+            // A newline-only event can finish content from the preceding parser event.
+            if !content.is_empty()
+                || self
+                    .text
+                    .lines
+                    .last()
+                    .is_none_or(|line| line.spans.is_empty())
+            {
+                self.push_span(Span::styled(content.to_owned(), style));
+            }
+            self.needs_newline = part.ends_with('\n');
         }
     }
 
