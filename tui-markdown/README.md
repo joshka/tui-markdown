@@ -26,6 +26,44 @@ let text = tui_markdown::from_str(input);
 text.render(area, &mut buf);
 ```
 
+### Streaming Markdown
+
+Use `StreamingMarkdown` when Markdown arrives in chunks. Keep one object for each independent
+document and append each new UTF-8 fragment in order:
+
+```rust
+use tui_markdown::{Options, StreamingMarkdown};
+
+let mut document = StreamingMarkdown::new(Options::default());
+document.append("Hello **");
+let update = document.append("world**");
+
+assert_eq!(document.current().to_string(), "Hello world");
+assert_eq!(update.first_changed_row, Some(0));
+
+document.finish();
+```
+
+- `append(&str)` accepts only the new fragment. Empty input does no work.
+- `current()` borrows the complete cached `Text`. Reading it does not parse, render, or clone the
+  document again.
+- `source()` borrows the exact accumulated source.
+- `Update::first_changed_row` identifies the first changed output row, or is `None` when the
+  output is unchanged. `Update` also reports stable rows, the replay offset, and the change reason.
+- `counters()` reports actual parsing and rendering work.
+
+Ordinary appends reuse rendered output before a saved checkpoint and parse and render the
+remaining source. The last block stays available for reprocessing as more text arrives. Long
+unfinished blocks can require substantial repeated work. References, footnotes, definition lists,
+and ambiguous thematic rules can require full-source processing.
+
+Call `finish()` when input ends. It performs one full-source render; repeating it without new
+input does no work. A later nonempty append reopens the document with a full-source pass.
+
+Streaming uses the same `Options` as batch rendering, including styles, highlighting, image
+text fallback, and `table_width`. Table width affects tables, not all body text. Create a new
+document to replace its source or use different options.
+
 ### Syntax highlighting themes
 
 With the default `highlight-code` feature enabled, fenced code blocks whose language is recognized
