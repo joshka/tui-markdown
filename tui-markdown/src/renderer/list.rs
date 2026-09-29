@@ -91,7 +91,9 @@ where
                     return;
                 }
             }
-            line.spans.insert(1, marker_span);
+            // A hidden heading marker can leave the line empty before its task text arrives.
+            let index = usize::from(!line.spans.is_empty());
+            line.spans.insert(index, marker_span);
         } else {
             self.push_span(marker_span);
         }
