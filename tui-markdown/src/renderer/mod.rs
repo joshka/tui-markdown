@@ -32,6 +32,7 @@ mod image;
 mod link;
 mod list;
 mod math;
+pub(crate) mod streaming;
 mod table;
 #[cfg(test)]
 mod test_support;
@@ -73,6 +74,25 @@ pub fn from_str_with_options<'a, S>(input: &'a str, options: &Options<S>) -> Tex
 where
     S: StyleSheet,
 {
+    render(input, options)
+}
+
+fn render<'a, S: StyleSheet>(input: &'a str, options: &Options<S>) -> Text<'a> {
+    let parser = Parser::new_ext(input, parser_options());
+    let mut writer = TextWriter::with_prefix(
+        parser,
+        options.styles.clone(),
+        options.image_fallback,
+        Text::default(),
+        false,
+    );
+    writer.table_width = options.table_width;
+    #[cfg(feature = "highlight-code")]
+    let writer = writer.with_code_theme(options.selected_code_theme());
+    writer.run()
+}
+
+fn parser_options() -> ParseOptions {
     let mut parse_opts = ParseOptions::empty();
     parse_opts.insert(ParseOptions::ENABLE_STRIKETHROUGH);
     parse_opts.insert(ParseOptions::ENABLE_TASKLISTS);
@@ -85,13 +105,7 @@ where
     parse_opts.insert(ParseOptions::ENABLE_DEFINITION_LIST);
     parse_opts.insert(ParseOptions::ENABLE_GFM);
     parse_opts.insert(ParseOptions::ENABLE_TABLES);
-    let parser = Parser::new_ext(input, parse_opts);
-
-    let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
-    writer.table_width = options.table_width;
-    #[cfg(feature = "highlight-code")]
-    let writer = writer.with_code_theme(options.selected_code_theme());
-    writer.run()
+    parse_opts
 }
 
 struct TextWriter<'a, 'theme, I, S: StyleSheet> {
@@ -191,6 +205,19 @@ where
             table_builder: None,
             table_width: None,
         }
+    }
+
+    fn with_prefix(
+        iter: I,
+        styles: S,
+        image_fallback: ImageFallback,
+        text: Text<'a>,
+        needs_newline: bool,
+    ) -> Self {
+        let mut writer = Self::new(iter, styles, image_fallback);
+        writer.text = text;
+        writer.needs_newline = needs_newline;
+        writer
     }
 
     fn run(mut self) -> Text<'a> {
@@ -444,6 +471,76 @@ mod tests {
 
     use super::test_support::{with_tracing, DefaultGuard};
     use super::*;
+
+    #[test]
+    fn parser_options_preserve_existing_extensions() {
+        assert_eq!(
+            parser_options(),
+            ParseOptions::ENABLE_STRIKETHROUGH
+                | ParseOptions::ENABLE_TASKLISTS
+                | ParseOptions::ENABLE_HEADING_ATTRIBUTES
+                | ParseOptions::ENABLE_YAML_STYLE_METADATA_BLOCKS
+                | ParseOptions::ENABLE_SUPERSCRIPT
+                | ParseOptions::ENABLE_SUBSCRIPT
+                | ParseOptions::ENABLE_MATH
+                | ParseOptions::ENABLE_FOOTNOTES
+                | ParseOptions::ENABLE_DEFINITION_LIST
+                | ParseOptions::ENABLE_GFM
+                | ParseOptions::ENABLE_TABLES
+        );
+    }
+
+    #[rstest]
+    #[case("A **styled** paragraph.")]
+    #[case("| A | B |\n| - | - |\n| one | longer cell content |")]
+    #[case("![description](image.png)")]
+    #[case("```rust\nfn main() {}\n```")]
+    fn empty_prefix_matches_batch_output(#[case] source: &str) {
+        for table_width in [None, Some(20)] {
+            let mut options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
+            options.table_width = table_width;
+            #[cfg(feature = "highlight-code")]
+            let options = options.code_theme(crate::BuiltinCodeTheme::SolarizedDark);
+
+            let mut writer = TextWriter::with_prefix(
+                Parser::new_ext(source, parser_options()),
+                options.styles,
+                options.image_fallback,
+                Text::default(),
+                false,
+            );
+            writer.table_width = options.table_width;
+            #[cfg(feature = "highlight-code")]
+            let writer = writer.with_code_theme(options.selected_code_theme());
+
+            assert_eq!(writer.run(), from_str_with_options(source, &options));
+        }
+    }
+
+    #[rstest]
+    #[case(false)]
+    #[case(true)]
+    fn supplied_prefix_keeps_text_style_and_spacing(#[case] needs_newline: bool) {
+        let mut prefix = Text::from(Line::styled(
+            "earlier",
+            Style::new().fg(ratatui_core::style::Color::Blue),
+        ));
+        prefix.alignment = Some(ratatui_core::layout::Alignment::Right);
+        let mut expected = prefix.clone();
+        if needs_newline {
+            expected.lines.push(Line::default());
+        }
+        expected.lines.push(Line::from("later"));
+
+        let writer = TextWriter::with_prefix(
+            Parser::new_ext("later", parser_options()),
+            crate::DefaultStyleSheet,
+            ImageFallback::default(),
+            prefix,
+            needs_newline,
+        );
+        assert_eq!(writer.run(), expected);
+    }
 
     #[rstest]
     fn empty(_with_tracing: DefaultGuard) {
