@@ -1,0 +1,6 @@
+paths:
+  .github/workflows/release-plz.yml:
+    ignore:
+      # Remove when actionlint supports GitHub's queue: max concurrency option.
+      # https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
+      - '^unexpected key "queue" for "concurrency" section\.'
