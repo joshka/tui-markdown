@@ -114,6 +114,8 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     in_metadata_block: bool,
 
     // Code rendering state.
+    /// Only the unfinished physical code line is retained between parser text events.
+    code_line: Option<String>,
     /// Active syntax highlighter while rendering a recognized fenced code block.
     #[cfg(feature = "highlight-code")]
     code_highlighter: Option<syntect::easy::HighlightLines<'theme>>,
@@ -174,6 +176,7 @@ where
             styles,
             needs_newline: false,
             in_metadata_block: false,
+            code_line: None,
             #[cfg(feature = "highlight-code")]
             code_highlighter: None,
             #[cfg(feature = "highlight-code")]
@@ -326,7 +329,8 @@ where
             return;
         }
 
-        if self.push_highlighted_text(&text) {
+        if let Some(line) = self.code_line.take() {
+            self.code_block_text(&text, line);
             return;
         }
 
@@ -341,9 +345,15 @@ where
 
             let style = self.inline_styles.last().copied().unwrap_or_default();
 
-            let span = Span::styled(line.to_owned(), style);
-
-            self.push_span(span);
+            if !line.is_empty()
+                || self
+                    .text
+                    .lines
+                    .last()
+                    .is_none_or(|current| current.spans.is_empty())
+            {
+                self.push_span(Span::styled(line.to_owned(), style));
+            }
         }
         self.needs_newline = false;
     }

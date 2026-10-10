@@ -66,9 +66,13 @@ where
             self.push_line(span.into());
         }
         self.needs_newline = true;
+        self.code_line = Some(String::new());
     }
 
     pub fn end_codeblock(&mut self) {
+        if let Some(line) = self.code_line.take().filter(|line| !line.is_empty()) {
+            self.render_code_line(&line);
+        }
         let fence = self.styles.code_block_fence();
         if !fence.is_empty() {
             let span = Span::from(fence.to_owned());
@@ -81,6 +85,27 @@ where
 
         #[cfg(feature = "highlight-code")]
         self.clear_code_highlighter();
+    }
+
+    pub fn code_block_text(&mut self, text: &str, mut line: String) {
+        for part in text.split_inclusive('\n') {
+            line.push_str(part);
+            if part.ends_with('\n') {
+                self.render_code_line(&line);
+                line.clear();
+            }
+        }
+        self.code_line = Some(line);
+    }
+
+    fn render_code_line(&mut self, line: &str) {
+        if !self.push_highlighted_text(line) {
+            let content = line.strip_suffix('\n').unwrap_or(line);
+            let content = content.strip_suffix('\r').unwrap_or(content);
+            let style = self.inline_styles.last().copied().unwrap_or_default();
+            self.push_line(Line::from(Span::styled(content.to_owned(), style)));
+        }
+        self.needs_newline = false;
     }
 
     #[cfg(feature = "highlight-code")]

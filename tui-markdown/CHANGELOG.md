@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Avoid a panic when a task-list item becomes a Setext heading with hidden heading markers.
+- Preserve literal code and HTML line boundaries across LF/CRLF parser events, without adding empty
+  metadata spans.
 
 ## [0.3.10](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.9...tui-markdown-v0.3.10) - 2026-09-25
 
