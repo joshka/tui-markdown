@@ -8,12 +8,20 @@ on:
 permissions:
   contents: read
 
+# Serialize publishing and PR generation across pushes and manual retries.
+concurrency:
+  group: release-plz-${{ github.ref }}
+  queue: max
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Release-plz release
-    if: "${{ github.repository_owner == 'joshka' && startsWith(github.event.head_commit.message, 'chore: release') }}"
+    if: ${{ github.repository_owner == 'joshka' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: release
+    outputs:
+      is_release_pr: ${{ steps.detect-release.outputs.is_release_pr }}
     permissions:
       contents: write
       id-token: write
@@ -24,6 +32,16 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Detect release PR
+        id: detect-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prefix=$(python3 -c 'import tomllib; print(tomllib.load(open("release-plz.toml", "rb"))["workspace"]["pr_branch_prefix"])')
+          is_release_pr=$(gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            | jq --arg prefix "$prefix" 'any(.[][]; .head.ref | startswith($prefix))')
+          echo "is_release_pr=$is_release_pr" >> "$GITHUB_OUTPUT"
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
       - name: Run release-plz (release)
@@ -35,14 +53,13 @@ jobs:
 
   release-pr:
     name: Release-plz PR
-    if: "${{ github.repository_owner == 'joshka' && !startsWith(github.event.head_commit.message, 'chore: release') }}"
+    needs: release
+    # Publish first; a release or manual retry must not create another release PR.
+    if: ${{ github.event_name == 'push' && needs.release.outputs.is_release_pr == 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    concurrency:
-      group: release-plz-${{ github.ref }}
-      cancel-in-progress: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

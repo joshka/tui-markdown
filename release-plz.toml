@@ -1,2 +1,4 @@
 [workspace]
 pr_branch_prefix = "release-plz-"
+# Detect merged release PRs by branch instead of depending on their commit titles.
+release_always = false
