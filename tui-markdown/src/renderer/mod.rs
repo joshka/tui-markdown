@@ -114,7 +114,7 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     in_metadata_block: bool,
 
     // Code rendering state.
-    /// Only the unfinished physical code line is retained between parser text events.
+    /// Unfinished code line; `None` outside a code block.
     code_line: Option<String>,
     /// Active syntax highlighter while rendering a recognized fenced code block.
     #[cfg(feature = "highlight-code")]
@@ -329,8 +329,8 @@ where
             return;
         }
 
-        if let Some(line) = self.code_line.take() {
-            self.code_block_text(&text, line);
+        if self.code_line.is_some() {
+            self.append_code_block_text(&text);
             return;
         }
 
@@ -547,5 +547,23 @@ mod tests {
             Line::from("Body"),
         ])
         "#);
+    }
+
+    #[test]
+    fn metadata_line_endings_keep_the_same_spans() {
+        let lf = "---\nname: example\nitems:\n  - one\n---\n\nAfter";
+        let crlf = lf.replace('\n', "\r\n");
+        assert_eq!(from_str(&crlf), from_str(lf));
+    }
+
+    #[rstest]
+    #[case::paragraphs("first\nsecond\n\n**third**")]
+    #[case::hard_break("first  \nsecond")]
+    #[case::list("- first\n- **second**")]
+    #[case::table("| Name | Value |\n| --- | --- |\n| first | **second** |")]
+    #[case::inline_html("Before <em>first</em>\nsecond")]
+    fn ordinary_markdown_keeps_lf_crlf_output(#[case] lf: &str) {
+        let crlf = lf.replace('\n', "\r\n");
+        assert_eq!(from_str(&crlf), from_str(lf));
     }
 }
