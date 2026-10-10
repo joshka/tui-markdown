@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.11](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.10...tui-markdown-v0.3.11) - 2026-10-10
+
+### Fixed
+
+- *(renderer)* preserve literal line breaks ([#208](https://github.com/joshka/tui-markdown/pull/208))
+- *(renderer)* avoid hidden task-heading panic ([#207](https://github.com/joshka/tui-markdown/pull/207))
+
+### Other
+
+- *(renderer)* simplify code line handling ([#211](https://github.com/joshka/tui-markdown/pull/211))
+
 ### Fixed
 
 - Avoid a panic when a task-list item becomes a Setext heading with hidden heading markers.
