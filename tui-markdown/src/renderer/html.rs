@@ -121,4 +121,73 @@ mod tests {
             "#);
         }
     }
+
+    #[rstest]
+    fn html_block_preserves_literal_lines(#[values("\n", "\r\n")] newline: &str) {
+        let lf = "Before\n\n<pre>\nfirst\n\nlast\n</pre>\n\nAfter";
+        let source = lf.replace('\n', newline);
+        let text = from_str(&source);
+        assert_eq!(text.to_string(), lf);
+        assert_eq!(text, from_str(lf));
+    }
+
+    #[rstest]
+    fn quoted_html_preserves_prefixes_and_blank_lines(#[values("\n", "\r\n")] newline: &str) {
+        let markdown = indoc! {"
+            > <pre>
+            > first
+            >
+            > last
+            > </pre>
+
+            After"};
+        let source = markdown.replace('\n', newline);
+
+        let text = from_str(&source);
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+            > <pre>
+            > first
+            > 
+            > last
+            > </pre>
+
+            After"}
+        );
+        assert_eq!(text, from_str(markdown));
+    }
+
+    #[rstest]
+    fn list_html_preserves_blank_lines(#[values("\n", "\r\n")] newline: &str) {
+        let markdown = indoc! {"
+            - Before
+
+              <pre>
+              first
+
+              last
+              </pre>
+
+            After"};
+        let source = markdown.replace('\n', newline);
+
+        let text = from_str(&source);
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+            - Before
+
+            <pre>
+            first
+
+            last
+            </pre>
+
+            After"}
+        );
+        assert_eq!(text, from_str(markdown));
+    }
 }
