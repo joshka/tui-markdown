@@ -9,15 +9,9 @@ use std::sync::LazyLock;
 #[cfg(feature = "highlight-code")]
 use ansi_to_tui::IntoText;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event};
-#[cfg(feature = "highlight-code")]
-use ratatui_core::text::Text;
 use ratatui_core::text::{Line, Span};
 #[cfg(feature = "highlight-code")]
-use syntect::{
-    easy::HighlightLines,
-    parsing::SyntaxSet,
-    util::{as_24_bit_terminal_escaped, LinesWithEndings},
-};
+use syntect::{easy::HighlightLines, parsing::SyntaxSet, util::as_24_bit_terminal_escaped};
 #[cfg(feature = "highlight-code")]
 use tracing::{debug, instrument, warn};
 
@@ -87,7 +81,10 @@ where
         self.clear_code_highlighter();
     }
 
-    pub fn code_block_text(&mut self, text: &str, mut line: String) {
+    pub fn append_code_block_text(&mut self, text: &str) {
+        let Some(mut line) = self.code_line.take() else {
+            return;
+        };
         for part in text.split_inclusive('\n') {
             line.push_str(part);
             if part.ends_with('\n') {
@@ -99,7 +96,7 @@ where
     }
 
     fn render_code_line(&mut self, line: &str) {
-        if !self.push_highlighted_text(line) {
+        if !self.push_highlighted_line(line) {
             let content = line.strip_suffix('\n').unwrap_or(line);
             let content = content.strip_suffix('\r').unwrap_or(content);
             let style = self.inline_styles.last().copied().unwrap_or_default();
@@ -115,25 +112,25 @@ where
     }
 
     #[cfg(feature = "highlight-code")]
-    pub fn push_highlighted_text(&mut self, text: &str) -> bool {
+    fn push_highlighted_line(&mut self, line: &str) -> bool {
         let Some(highlighter) = &mut self.code_highlighter else {
             return false;
         };
-        let text: Text = LinesWithEndings::from(text)
-            .filter_map(|line| highlighter.highlight_line(line, &SYNTAX_SET).ok())
-            .filter_map(|part| as_24_bit_terminal_escaped(&part, false).into_text().ok())
-            .flatten()
-            .collect();
-
+        // Preserve the existing behavior: highlighting or conversion failures omit the line.
+        let Ok(parts) = highlighter.highlight_line(line, &SYNTAX_SET) else {
+            return true;
+        };
+        let Ok(text) = as_24_bit_terminal_escaped(&parts, false).into_text() else {
+            return true;
+        };
         for line in text.lines {
             self.text.push_line(line);
         }
-        self.needs_newline = false;
         true
     }
 
     #[cfg(not(feature = "highlight-code"))]
-    pub fn push_highlighted_text(&mut self, _text: &str) -> bool {
+    fn push_highlighted_line(&mut self, _line: &str) -> bool {
         false
     }
 

@@ -114,7 +114,7 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     in_metadata_block: bool,
 
     // Code rendering state.
-    /// Only the unfinished physical code line is retained between parser text events.
+    /// Unfinished code line; `None` outside a code block.
     code_line: Option<String>,
     /// Active syntax highlighter while rendering a recognized fenced code block.
     #[cfg(feature = "highlight-code")]
@@ -329,8 +329,8 @@ where
             return;
         }
 
-        if let Some(line) = self.code_line.take() {
-            self.code_block_text(&text, line);
+        if self.code_line.is_some() {
+            self.append_code_block_text(&text);
             return;
         }
 
