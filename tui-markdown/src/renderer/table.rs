@@ -17,8 +17,29 @@ use crate::StyleSheet;
 const HORIZONTAL_BORDER: char = '─';
 const VERTICAL_BORDER: &str = "│";
 const TOP_BORDER: BorderGlyphs = BorderGlyphs::new('┌', '┬', '┐');
-const HEADER_SEPARATOR: BorderGlyphs = BorderGlyphs::new('├', '┼', '┤');
+// Separates the header from the body, and - when `RowDividers::Shown` - one body row from the next.
+const ROW_SEPARATOR: BorderGlyphs = BorderGlyphs::new('├', '┼', '┤');
 const BOTTOM_BORDER: BorderGlyphs = BorderGlyphs::new('└', '┴', '┘');
+
+/// Whether [`TableBuilder::render`] draws a divider between every body row.
+///
+/// A plain `bool` parameter would not say what it means at a call site such as
+/// `render(styles, width, true)`. This type makes that self-documenting: `RowDividers::Shown`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RowDividers {
+    Hidden,
+    Shown,
+}
+
+impl From<bool> for RowDividers {
+    fn from(enabled: bool) -> Self {
+        if enabled {
+            Self::Shown
+        } else {
+            Self::Hidden
+        }
+    }
+}
 
 impl<'a, 'theme, I, S> TextWriter<'a, 'theme, I, S>
 where
@@ -70,7 +91,7 @@ where
             let width = self
                 .table_width
                 .map(|width| usize::from(width).saturating_sub(prefix_width + indent));
-            let lines = builder.render(&self.styles, width, self.table_row_dividers);
+            let lines = builder.render(&self.styles, width, self.table_row_dividers.into());
             self.push_table_lines(lines);
             self.needs_newline = true;
         }
@@ -164,7 +185,7 @@ impl<'a> TableBuilder<'a> {
         self,
         styles: &S,
         width: Option<usize>,
-        row_dividers: bool,
+        row_dividers: RowDividers,
     ) -> Vec<Line<'a>> {
         let column_count = self.column_count();
         if column_count == 0 {
@@ -179,20 +200,20 @@ impl<'a> TableBuilder<'a> {
 
         let top_border = TOP_BORDER.render(&column_widths, border_style);
         let header = self.header.render(&column_widths, &self.alignments, styles);
-        let header_separator = HEADER_SEPARATOR.render(&column_widths, border_style);
-        let row_divider =
-            row_dividers.then(|| HEADER_SEPARATOR.render(&column_widths, border_style));
-        let body = self.rows.iter().enumerate().flat_map(|(index, row)| {
-            let divider = (index > 0).then(|| row_divider.clone()).flatten();
-            divider
-                .into_iter()
-                .chain(row.render(&column_widths, &self.alignments, styles))
-        });
+        let row_separator = ROW_SEPARATOR.render(&column_widths, border_style);
+
+        let mut body = Vec::new();
+        for (index, row) in self.rows.iter().enumerate() {
+            if index > 0 && row_dividers == RowDividers::Shown {
+                body.push(row_separator.clone());
+            }
+            body.extend(row.render(&column_widths, &self.alignments, styles));
+        }
         let bottom_border = BOTTOM_BORDER.render(&column_widths, border_style);
 
         let mut lines = vec![top_border];
         lines.extend(header);
-        lines.push(header_separator);
+        lines.push(row_separator);
         lines.extend(body);
         lines.push(bottom_border);
         lines
@@ -756,7 +777,9 @@ mod tests {
     #[test]
     fn empty_table() {
         let builder = TableBuilder::new(vec![]);
-        assert!(builder.render(&DefaultStyleSheet, None, false).is_empty());
+        assert!(builder
+            .render(&DefaultStyleSheet, None, RowDividers::Hidden)
+            .is_empty());
     }
 
     #[test]
@@ -766,7 +789,12 @@ mod tests {
         builder.push_span(Span::raw("hi"));
         builder.finish_cell();
         builder.finish_header();
-        assert_eq!(builder.render(&DefaultStyleSheet, None, false).len(), 4);
+        assert_eq!(
+            builder
+                .render(&DefaultStyleSheet, None, RowDividers::Hidden)
+                .len(),
+            4
+        );
     }
 
     #[rstest]
@@ -1180,6 +1208,35 @@ mod tests {
                 │ A │
                 ├───┤
                 │ a │
+                └───┘"}
+        );
+    }
+
+    #[test]
+    fn row_dividers_separate_rows_that_wrap_to_several_lines() {
+        // The point of row dividers: without one, you can't tell "a" and "b" below are one
+        // wrapped row, separate from "c", rather than three single-line rows.
+        let options = Options::default().table_width(4).table_row_dividers(true);
+        let text = from_str_with_options(
+            indoc! {"
+                | H |
+                | --- |
+                | a b |
+                | c |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───┐
+                │ H │
+                ├───┤
+                │ a │
+                │ b │
+                ├───┤
+                │ c │
                 └───┘"}
         );
     }

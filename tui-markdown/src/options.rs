@@ -129,16 +129,30 @@ impl<S: StyleSheet> Options<S> {
     /// Draws a divider between every table body row, the same way one already separates the
     /// header from the body.
     ///
-    /// Body rows render with no divider between them by default, matching earlier releases.
-    ///
     /// ```
+    /// use indoc::indoc;
     /// use tui_markdown::{from_str_with_options, Options};
     ///
     /// let options = Options::default().table_row_dividers(true);
-    /// let text = from_str_with_options("| H |\n| --- |\n| a |\n| b |", &options);
+    /// let text = from_str_with_options(
+    ///     indoc! {"
+    ///         | H |
+    ///         | --- |
+    ///         | a |
+    ///         | b |
+    ///     "},
+    ///     &options,
+    /// );
     /// assert_eq!(
     ///     text.to_string(),
-    ///     "┌───┐\n│ H │\n├───┤\n│ a │\n├───┤\n│ b │\n└───┘"
+    ///     indoc! {"
+    ///         ┌───┐
+    ///         │ H │
+    ///         ├───┤
+    ///         │ a │
+    ///         ├───┤
+    ///         │ b │
+    ///         └───┘"}
     /// );
     /// ```
     #[must_use]
