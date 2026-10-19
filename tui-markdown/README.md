@@ -200,6 +200,10 @@ Column widths use terminal display width, so wide CJK and emoji characters remai
 [`StyleSheet::table_border()`] for the box-drawing borders. Cell styles cover content and padding
 while preserving inline formatting unless they set the same style property.
 
+Body rows render with no divider between them by default, matching earlier releases. Call
+[`Options::table_row_dividers(true)`] to draw a divider between every body row, the same way one
+already separates the header from the body.
+
 Links are rendered as `label (URL)`. The link style applies to both the visible label and URL while
 preserving nested inline formatting such as bold text.
 
@@ -297,6 +301,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md).
 [`StyleSheet::heading_marker()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.heading_marker
 [`StyleSheet::code_block_fence()`]: https://docs.rs/tui-markdown/latest/tui_markdown/trait.StyleSheet.html#method.code_block_fence
 [`ImageFallback`]: https://docs.rs/tui-markdown/latest/tui_markdown/enum.ImageFallback.html
+[`Options::table_row_dividers(true)`]: https://docs.rs/tui-markdown/latest/tui_markdown/struct.Options.html#method.table_row_dividers
 
 [Crate badge]: https://img.shields.io/crates/v/tui-markdown?logo=rust&style=for-the-badge
 [Docs.rs Badge]: https://img.shields.io/docsrs/tui-markdown?logo=rust&style=for-the-badge

@@ -79,6 +79,8 @@ pub struct Options<S: StyleSheet = DefaultStyleSheet> {
     pub(crate) image_fallback: ImageFallback,
     /// Available terminal columns, including table borders and enclosing prefixes.
     pub(crate) table_width: Option<u16>,
+    /// Whether a divider separates one table body row from the next.
+    pub(crate) table_row_dividers: bool,
     /// Explicit syntax-highlighting theme for fenced code blocks.
     ///
     /// When absent, the renderer uses the shared built-in default.
@@ -95,6 +97,7 @@ impl<S: StyleSheet> Options<S> {
             styles,
             image_fallback: ImageFallback::default(),
             table_width: None,
+            table_row_dividers: false,
             #[cfg(feature = "highlight-code")]
             code_theme: None,
         }
@@ -120,6 +123,41 @@ impl<S: StyleSheet> Options<S> {
     #[must_use]
     pub fn table_width(mut self, width: u16) -> Self {
         self.table_width = Some(width);
+        self
+    }
+
+    /// Draws a divider between every table body row, the same way one already separates the
+    /// header from the body.
+    ///
+    /// ```
+    /// use indoc::indoc;
+    /// use tui_markdown::{from_str_with_options, Options};
+    ///
+    /// let options = Options::default().table_row_dividers(true);
+    /// let text = from_str_with_options(
+    ///     indoc! {"
+    ///         | H |
+    ///         | --- |
+    ///         | a |
+    ///         | b |
+    ///     "},
+    ///     &options,
+    /// );
+    /// assert_eq!(
+    ///     text.to_string(),
+    ///     indoc! {"
+    ///         ┌───┐
+    ///         │ H │
+    ///         ├───┤
+    ///         │ a │
+    ///         ├───┤
+    ///         │ b │
+    ///         └───┘"}
+    /// );
+    /// ```
+    #[must_use]
+    pub fn table_row_dividers(mut self, enabled: bool) -> Self {
+        self.table_row_dividers = enabled;
         self
     }
 
@@ -206,6 +244,7 @@ mod tests {
             styles: CustomStyleSheet,
             image_fallback: ImageFallback::default(),
             table_width: None,
+            table_row_dividers: false,
             #[cfg(feature = "highlight-code")]
             code_theme: None,
         };
@@ -233,6 +272,20 @@ mod tests {
         let options = Options::default().image_fallback(ImageFallback::AltTextAndUrl);
 
         assert_eq!(options.image_fallback, ImageFallback::AltTextAndUrl);
+    }
+
+    #[test]
+    fn table_row_dividers_defaults_to_false() {
+        let options: Options = Options::default();
+
+        assert!(!options.table_row_dividers);
+    }
+
+    #[test]
+    fn table_row_dividers_setter_updates_flag() {
+        let options = Options::default().table_row_dividers(true);
+
+        assert!(options.table_row_dividers);
     }
 
     #[test]
