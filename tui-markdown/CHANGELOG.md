@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.12](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.11...tui-markdown-v0.3.12) - 2026-10-19
+
+### Added
+
+- *(renderer)* add Options::table_row_dividers for body row dividers ([#220](https://github.com/joshka/tui-markdown/pull/220))
+
 ## [0.3.11](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.10...tui-markdown-v0.3.11) - 2026-10-10
 
 ### Fixed
