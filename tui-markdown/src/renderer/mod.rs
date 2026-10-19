@@ -89,6 +89,7 @@ where
 
     let mut writer = TextWriter::new(parser, options.styles.clone(), options.image_fallback);
     writer.table_width = options.table_width;
+    writer.table_row_dividers = options.table_row_dividers;
     #[cfg(feature = "highlight-code")]
     let writer = writer.with_code_theme(options.selected_code_theme());
     writer.run()
@@ -159,6 +160,8 @@ struct TextWriter<'a, 'theme, I, S: StyleSheet> {
     table_builder: Option<table::TableBuilder<'a>>,
     /// Available terminal columns for table layout.
     table_width: Option<u16>,
+    /// Whether a divider separates one table body row from the next.
+    table_row_dividers: bool,
 }
 
 impl<'a, 'theme, I, S> TextWriter<'a, 'theme, I, S>
@@ -193,6 +196,7 @@ where
             in_definition_description: false,
             table_builder: None,
             table_width: None,
+            table_row_dividers: false,
         }
     }
 
