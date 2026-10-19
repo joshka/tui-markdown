@@ -196,6 +196,14 @@ pub trait StyleSheet: Clone + Send + Sync + 'static {
         Style::new().dark_gray()
     }
 
+    /// Whether a divider separates one table body row from the next.
+    ///
+    /// The default draws no divider between body rows, matching earlier releases. A divider still
+    /// separates the header from the body either way.
+    fn table_row_dividers(&self) -> bool {
+        false
+    }
+
     /// Style for ordered list markers (`1.`, `2.`, ...)
     ///
     /// This changes the presentation of the ordered list marker, not the marker text itself.

@@ -175,10 +175,15 @@ impl<'a> TableBuilder<'a> {
         let top_border = TOP_BORDER.render(&column_widths, border_style);
         let header = self.header.render(&column_widths, &self.alignments, styles);
         let header_separator = HEADER_SEPARATOR.render(&column_widths, border_style);
-        let body = self
-            .rows
-            .iter()
-            .flat_map(|row| row.render(&column_widths, &self.alignments, styles));
+        let row_divider = styles
+            .table_row_dividers()
+            .then(|| HEADER_SEPARATOR.render(&column_widths, border_style));
+        let body = self.rows.iter().enumerate().flat_map(|(index, row)| {
+            let divider = (index > 0).then(|| row_divider.clone()).flatten();
+            divider
+                .into_iter()
+                .chain(row.render(&column_widths, &self.alignments, styles))
+        });
         let bottom_border = BOTTOM_BORDER.render(&column_widths, border_style);
 
         let mut lines = vec![top_border];
@@ -1106,6 +1111,101 @@ mod tests {
                 ┌───┐
                 │ A │
                 ├───┤
+                └───┘"}
+        );
+    }
+
+    #[derive(Clone)]
+    struct RowDividerStyleSheet;
+
+    impl StyleSheet for RowDividerStyleSheet {
+        fn table_row_dividers(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn row_dividers_separate_body_rows_when_enabled() {
+        let options = Options::new(RowDividerStyleSheet);
+        let text = from_str_with_options(
+            indoc! {"
+                | A |
+                |---|
+                | a |
+                | b |
+            "},
+            &options,
+        );
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───┐
+                │ A │
+                ├───┤
+                │ a │
+                ├───┤
+                │ b │
+                └───┘"}
+        );
+    }
+
+    #[test]
+    fn row_dividers_do_not_duplicate_the_header_separator_or_bottom_border() {
+        let options = Options::new(RowDividerStyleSheet);
+
+        let header_only = from_str_with_options(
+            indoc! {"
+                | A |
+                |---|
+            "},
+            &options,
+        );
+        assert_eq!(
+            header_only.to_string(),
+            indoc! {"
+                ┌───┐
+                │ A │
+                ├───┤
+                └───┘"}
+        );
+
+        let single_row = from_str_with_options(
+            indoc! {"
+                | A |
+                |---|
+                | a |
+            "},
+            &options,
+        );
+        assert_eq!(
+            single_row.to_string(),
+            indoc! {"
+                ┌───┐
+                │ A │
+                ├───┤
+                │ a │
+                └───┘"}
+        );
+    }
+
+    #[test]
+    fn row_dividers_stay_off_by_default() {
+        let text = from_str(indoc! {"
+            | A |
+            |---|
+            | a |
+            | b |
+        "});
+
+        assert_eq!(
+            text.to_string(),
+            indoc! {"
+                ┌───┐
+                │ A │
+                ├───┤
+                │ a │
+                │ b │
                 └───┘"}
         );
     }
