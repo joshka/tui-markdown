@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.13](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.12...tui-markdown-v0.3.13) - 2026-11-01
+
+### Fixed
+
+- *(deps)* drop syntect default features to avoid yaml-rust ([#230](https://github.com/joshka/tui-markdown/pull/230))
+
 ## [0.3.12](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.11...tui-markdown-v0.3.12) - 2026-10-19
 
 ### Added
