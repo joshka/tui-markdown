@@ -28,7 +28,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 ansi-to-tui = { version = "8", optional = true }
 document-features = { version = "0.2.11", optional = true }
 itertools = "0.15"
-pulldown-cmark = "0.13"
+pulldown-cmark = "0.13.5"
 ratatui-core.workspace = true
 syntect = { version = "5", optional = true, default-features = false, features = [
     "default-syntaxes",
