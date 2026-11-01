@@ -30,7 +30,12 @@ document-features = { version = "0.2.11", optional = true }
 itertools = "0.15"
 pulldown-cmark = "0.13"
 ratatui-core.workspace = true
-syntect = { version = "5", optional = true }
+syntect = { version = "5", optional = true, default-features = false, features = [
+    "default-syntaxes",
+    "default-themes",
+    "plist-load",
+    "regex-onig",
+] }
 tracing = "0.1.37"
 
 [dev-dependencies]
