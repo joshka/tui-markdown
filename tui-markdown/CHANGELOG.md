@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.3.14](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.13...tui-markdown-v0.3.14) - 2026-11-01
+
+### Other
+
+- *(deps)* bump rstest from 0.27.0 to 0.28.0 in the cargo-dependencies group across 1 directory ([#233](https://github.com/joshka/tui-markdown/pull/233))
+
 ## [0.3.13](https://github.com/joshka/tui-markdown/compare/tui-markdown-v0.3.12...tui-markdown-v0.3.13) - 2026-11-01
 
 ### Fixed

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+## [0.1.34](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.33...markdown-reader-v0.1.34) - 2026-11-01
+
+### Other
+
+- *(deps)* bump rstest from 0.27.0 to 0.28.0 in the cargo-dependencies group across 1 directory ([#233](https://github.com/joshka/tui-markdown/pull/233))
+
 ## [0.1.33](https://github.com/joshka/tui-markdown/compare/markdown-reader-v0.1.32...markdown-reader-v0.1.33) - 2026-11-01
 
 ### Other
